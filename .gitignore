@@ -1,3 +1,7 @@
+# Working copy of the 10k-websites skill (not ours to redistribute)
+10k-websites/
+
+# Raw and review material, kept out of the deploy folder
 review/
 *.zip
 node_modules/
