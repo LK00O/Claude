@@ -1,0 +1,91 @@
+{
+  "negocio": {
+    "nome": "Nova Balneária",
+    "descritor": "Padaria & Restaurante",
+    "cidade": "Praia Grande, SP",
+    "whatsapp": "5513996069898",
+    "telefone_exibicao": "(13) 99606-9898",
+    "horario": { "abre": 6, "fecha": 22, "dias": "todos os dias" }
+  },
+  "categorias": [
+    {
+      "id": "padaria",
+      "nome": "Da padaria",
+      "itens": [
+        { "nome": "Pão francês", "preco": 1.80, "unidade": "unidade", "foto_propria": true }
+      ]
+    },
+    {
+      "id": "salgados",
+      "nome": "Salgados",
+      "itens": [
+        { "nome": "Coxinha de frango", "preco": 13.00, "unidade": "unidade", "foto_propria": true },
+        { "nome": "Coxa de frango empanada", "preco": 13.00, "unidade": "unidade", "foto_propria": true }
+      ]
+    },
+    {
+      "id": "pizzas",
+      "nome": "Pizzas e tortas",
+      "itens": [
+        { "nome": "Pizza grande", "preco": 48.90, "a_partir_de": true, "descricao": "8 pedaços" },
+        { "nome": "Pizza portuguesa", "preco": 15.00, "descricao": "1 fatia", "foto_propria": true },
+        { "nome": "Torta de frango", "preco": 16.00, "descricao": "1 fatia, super recheada e cremosa", "foto_propria": true },
+        { "nome": "Torta de frango inteira", "preco": 150.00, "descricao": "12 fatias", "foto_propria": true }
+      ]
+    },
+    {
+      "id": "sucos",
+      "nome": "Sucos e vitaminas",
+      "itens": [
+        { "nome": "Suco de laranja natural", "preco": 22.00, "unidade": "500ml", "foto_propria": true },
+        { "nome": "Suco natural de limão", "preco": 22.00, "unidade": "500ml", "descricao": "batido com água" },
+        { "nome": "Polpa de maracujá batida com água", "preco": 23.50, "unidade": "500ml" },
+        { "nome": "Polpa de maracujá batida com leite", "preco": 23.50, "unidade": "500ml" },
+        { "nome": "Polpa de morango batida com água", "preco": 23.50, "unidade": "500ml", "descricao": "batido com água, gelo e açúcar" },
+        { "nome": "Polpa de morango batida com leite", "preco": 23.50, "unidade": "500ml", "descricao": "batido com leite, gelo e açúcar" },
+        { "nome": "Vitamina mista", "preco": 25.00, "unidade": "500ml", "descricao": "abacate, banana, maçã, beterraba e mamão, batido com leite, gelo e açúcar", "foto_propria": true }
+      ]
+    },
+    {
+      "id": "bebidas",
+      "nome": "Bebidas",
+      "itens": [
+        { "nome": "Dolly Guaraná", "preco": 9.80, "unidade": "2 litros" },
+        { "nome": "Fanta Laranja", "preco": 15.30, "unidade": "2 litros" },
+        { "nome": "Schweppes Citrus", "preco": 9.00, "unidade": "lata 350ml" },
+        { "nome": "Pepsi", "preco": 9.00, "unidade": "lata 350ml" },
+        { "nome": "Suco Del Valle", "preco": 8.00, "unidade": "290ml" }
+      ]
+    },
+    {
+      "id": "mercearia",
+      "nome": "Mercearia",
+      "itens": [
+        { "nome": "Açúcar Refinado União", "preco": 10.00, "unidade": "1kg" },
+        { "nome": "Achocolatado em pó Nescau", "preco": 16.99, "unidade": "370g leve, pague 350g" },
+        { "nome": "Biscoito Chocolate Trakinas", "preco": 6.50, "unidade": "126g" },
+        { "nome": "Biscoito Maizena Marilan", "preco": 6.80, "unidade": "170g" },
+        { "nome": "Café Tradicional Pilão", "preco": 27.50, "unidade": "250g" },
+        { "nome": "Chá diversos", "preco": 8.80, "unidade": "unidade" },
+        { "nome": "Cup Noodles Galinha Caipira Nissin", "preco": 10.50, "unidade": "69g" },
+        { "nome": "Farinha de Trigo Tipo 1 Dona Benta", "preco": 11.80, "unidade": "pacote 1kg" },
+        { "nome": "Filtro de Papel 103 Melitta", "preco": 9.70, "unidade": "30 unidades" },
+        { "nome": "Flocos de Milho Quaker Milharina", "preco": 10.30, "unidade": "500g" },
+        { "nome": "Ketchup Pizza Quero", "preco": 10.99, "unidade": "200g" },
+        { "nome": "Leite Condensado Marajoara", "preco": 12.95, "unidade": "395g" },
+        { "nome": "Leite em Pó Ninho Integral", "preco": 31.00, "unidade": "380g" },
+        { "nome": "Macarrão Espaguete Dona Benta", "preco": 9.30, "unidade": "500g" },
+        { "nome": "Macarrão Instantâneo sabor Carne", "preco": 5.40, "unidade": "unidade" },
+        { "nome": "Macarrão Instantâneo Nissin Galinha Caipira", "preco": 7.40, "unidade": "unidade" },
+        { "nome": "Maionese Hellmann's", "preco": 12.40, "unidade": "250g" },
+        { "nome": "Milho de Pipoca Granvita", "preco": 10.00, "unidade": "500g" },
+        { "nome": "Óleo de Soja Vitaliv", "preco": 12.90, "unidade": "900ml" },
+        { "nome": "Passatempo Recheado Chocolate", "preco": 7.50, "unidade": "130g" },
+        { "nome": "Pipoca Microondas Manteiga Yoki", "preco": 8.40, "unidade": "100g" },
+        { "nome": "Sal Cisne Refinado", "preco": 7.99, "unidade": "1kg" },
+        { "nome": "Tempero em pó para carnes Sazón", "preco": 10.20, "unidade": "60g, 12 unidades" },
+        { "nome": "Vinagre Castelo", "preco": 7.90, "unidade": "750ml" }
+      ]
+    }
+  ]
+}
