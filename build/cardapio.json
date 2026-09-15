@@ -2,89 +2,129 @@
   "negocio": {
     "nome": "Nova Balneária",
     "descritor": "Padaria & Restaurante",
-    "cidade": "Praia Grande, SP",
+    "endereco": "Av. Ministro Marcos Freire, 4948, Vila Antártica, Praia Grande, SP",
     "whatsapp": "5513996069898",
     "telefone_exibicao": "(13) 99606-9898",
     "horario": { "abre": 6, "fecha": 22, "dias": "todos os dias" }
   },
+  "aviso_precos": "Preços transcritos da vitrine do iFood. Confirmar se valem para o balcão antes de publicar.",
   "categorias": [
     {
-      "id": "padaria",
-      "nome": "Da padaria",
-      "itens": [
-        { "nome": "Pão francês", "preco": 1.80, "unidade": "unidade", "foto_propria": true }
+      "id": "padaria", "nome": "Da padaria", "itens": [
+        { "nome": "Pão francês", "preco": 1.80, "unidade": "unidade", "foto": "01-pao-frances" }
       ]
     },
     {
-      "id": "salgados",
-      "nome": "Salgados",
-      "itens": [
-        { "nome": "Coxinha de frango", "preco": 13.00, "unidade": "unidade", "foto_propria": true },
-        { "nome": "Coxa de frango empanada", "preco": 13.00, "unidade": "unidade", "foto_propria": true }
+      "id": "lanches", "nome": "Lanches", "itens": [
+        { "nome": "Misto quente", "preco": 20.00, "descricao": "Presunto e queijo, no pão francês", "foto": "11-misto-quente" },
+        { "nome": "Misto frio", "preco": 20.00, "descricao": "Presunto e queijo no pão francês", "foto": "10-misto-frio" },
+        { "nome": "Queijo quente", "preco": 20.00, "descricao": "Queijo no pão francês", "foto": "12-queijo-quente" },
+        { "nome": "Bauru", "preco": 20.00, "descricao": "Salada, presunto e queijo, no pão francês", "foto": "15-bauru" },
+        { "nome": "Salame com queijo", "preco": 24.00, "descricao": "Salame e queijo, no pão francês", "foto": "13-salame-queijo" },
+        { "nome": "Americano no pão", "preco": 24.00, "descricao": "Salada, ovo, presunto e queijo, no pão francês", "foto": "14-americano" },
+        { "nome": "Churrasco simples", "preco": 27.00, "descricao": "Bife de contra-filé no pão francês", "foto": "16-churrasco" },
+        { "nome": "Churrasco com queijo", "preco": 27.00, "descricao": "1 bife de contra-filé e queijo no pão francês", "foto": "16-churrasco" },
+        { "nome": "Churrasco com vinagrete", "preco": 24.00, "descricao": "1 bife de contra-filé e vinagrete de repolho, tomate, cebola e pimentão, no pão francês", "foto": "16-churrasco" },
+        { "nome": "Churrasco completo", "preco": 28.00, "descricao": "Salada, 1 bife de contra-filé, presunto, queijo e ovo no pão francês", "foto": "16-churrasco" },
+        { "nome": "X-egg", "preco": 21.00, "descricao": "Hambúrguer, ovo e queijo, no pão de hambúrguer" },
+        { "nome": "X-calabresa", "preco": 21.00, "descricao": "Calabresa e queijo, no pão de hambúrguer" },
+        { "nome": "X-salada", "preco": 22.00, "descricao": "Hambúrguer, queijo e salada, no pão de hambúrguer" },
+        { "nome": "X-balnearia", "preco": 23.00, "descricao": "Hambúrguer, presunto, queijo, ovo e salada, no pão de hambúrguer", "destaque": true },
+        { "nome": "X-bacon", "preco": 24.00, "descricao": "Hambúrguer, queijo e bacon, no pão de hambúrguer" },
+        { "nome": "X-tudo", "preco": 29.00, "descricao": "Hambúrguer, calabresa, bacon, ovo, queijo e salada, no pão de hambúrguer" }
       ]
     },
     {
-      "id": "pizzas",
-      "nome": "Pizzas e tortas",
-      "itens": [
+      "id": "salgados", "nome": "Salgados", "itens": [
+        { "nome": "Coxinha de frango", "preco": 13.00, "unidade": "unidade", "foto": "03-coxinha" },
+        { "nome": "Coxa de frango empanada", "preco": 13.00, "unidade": "unidade", "foto": "02-coxa-frango" }
+      ]
+    },
+    {
+      "id": "pizzas", "nome": "Pizzas e tortas", "itens": [
         { "nome": "Pizza grande", "preco": 48.90, "a_partir_de": true, "descricao": "8 pedaços" },
-        { "nome": "Pizza portuguesa", "preco": 15.00, "descricao": "1 fatia", "foto_propria": true },
-        { "nome": "Torta de frango", "preco": 16.00, "descricao": "1 fatia, super recheada e cremosa", "foto_propria": true },
-        { "nome": "Torta de frango inteira", "preco": 150.00, "descricao": "12 fatias", "foto_propria": true }
+        { "nome": "Pizza portuguesa", "preco": 15.00, "descricao": "1 fatia", "foto": "04-pizza-portuguesa" },
+        { "nome": "Torta de frango", "preco": 16.00, "descricao": "1 fatia, super recheada e cremosa", "foto": "05-torta-frango-fatia" },
+        { "nome": "Torta de frango inteira", "preco": 150.00, "descricao": "12 fatias", "foto": "06-torta-frango-inteira" }
       ]
     },
     {
-      "id": "sucos",
-      "nome": "Sucos e vitaminas",
-      "itens": [
-        { "nome": "Suco de laranja natural", "preco": 22.00, "unidade": "500ml", "foto_propria": true },
-        { "nome": "Suco natural de limão", "preco": 22.00, "unidade": "500ml", "descricao": "batido com água" },
+      "id": "confeitaria", "nome": "Confeitaria", "itens": [
+        { "nome": "Pudim de leite condensado", "preco": 49.00, "foto": "09-pudim" }
+      ]
+    },
+    {
+      "id": "sucos", "nome": "Sucos e vitaminas", "itens": [
+        { "nome": "Suco de laranja natural", "preco": 22.00, "unidade": "500ml", "foto": "07-suco-laranja" },
+        { "nome": "Vitamina mista", "preco": 25.00, "unidade": "500ml", "descricao": "Abacate, banana, maçã, beterraba e mamão, batido com leite, gelo e açúcar", "foto": "08-vitamina-mista" },
+        { "nome": "Suco natural de limão", "preco": 22.00, "unidade": "500ml", "descricao": "Batido com água" },
         { "nome": "Polpa de maracujá batida com água", "preco": 23.50, "unidade": "500ml" },
         { "nome": "Polpa de maracujá batida com leite", "preco": 23.50, "unidade": "500ml" },
-        { "nome": "Polpa de morango batida com água", "preco": 23.50, "unidade": "500ml", "descricao": "batido com água, gelo e açúcar" },
-        { "nome": "Polpa de morango batida com leite", "preco": 23.50, "unidade": "500ml", "descricao": "batido com leite, gelo e açúcar" },
-        { "nome": "Vitamina mista", "preco": 25.00, "unidade": "500ml", "descricao": "abacate, banana, maçã, beterraba e mamão, batido com leite, gelo e açúcar", "foto_propria": true }
+        { "nome": "Polpa de morango batida com água", "preco": 23.50, "unidade": "500ml", "descricao": "Batido com água, gelo e açúcar" },
+        { "nome": "Polpa de morango batida com leite", "preco": 23.50, "unidade": "500ml", "descricao": "Batido com leite, gelo e açúcar" }
       ]
     },
     {
-      "id": "bebidas",
-      "nome": "Bebidas",
-      "itens": [
-        { "nome": "Dolly Guaraná", "preco": 9.80, "unidade": "2 litros" },
+      "id": "bebidas", "nome": "Bebidas", "itens": [
+        { "nome": "Coca-Cola", "preco": 17.00, "unidade": "2 litros", "descricao": "Gelada" },
+        { "nome": "Coca-Cola", "preco": 10.90, "unidade": "600ml" },
+        { "nome": "Coca-Cola", "preco": 8.00, "unidade": "lata 350ml" },
+        { "nome": "Guaraná Antarctica", "preco": 16.60, "unidade": "2 litros" },
+        { "nome": "Guaraná Antarctica", "preco": 10.60, "unidade": "600ml" },
+        { "nome": "Guaraná Antarctica", "preco": 8.70, "unidade": "lata 350ml" },
         { "nome": "Fanta Laranja", "preco": 15.30, "unidade": "2 litros" },
-        { "nome": "Schweppes Citrus", "preco": 9.00, "unidade": "lata 350ml" },
+        { "nome": "Fanta Uva", "preco": 10.60, "unidade": "600ml" },
+        { "nome": "Soda Limonada Antarctica", "preco": 15.30, "unidade": "2 litros" },
+        { "nome": "Soda Limonada Antarctica", "preco": 8.50, "unidade": "lata 350ml" },
         { "nome": "Pepsi", "preco": 9.00, "unidade": "lata 350ml" },
+        { "nome": "Schweppes Citrus", "preco": 9.00, "unidade": "lata 350ml" },
+        { "nome": "Dolly Guaraná", "preco": 9.80, "unidade": "2 litros" },
+        { "nome": "Dolly Laranja", "preco": 9.80, "unidade": "2 litros" },
+        { "nome": "Dolly Limão", "preco": 9.80, "unidade": "2 litros" },
+        { "nome": "Dolly Cola", "preco": 10.00, "unidade": "2 litros" },
         { "nome": "Suco Del Valle", "preco": 8.00, "unidade": "290ml" }
       ]
     },
     {
-      "id": "mercearia",
-      "nome": "Mercearia",
-      "itens": [
-        { "nome": "Açúcar Refinado União", "preco": 10.00, "unidade": "1kg" },
-        { "nome": "Achocolatado em pó Nescau", "preco": 16.99, "unidade": "370g leve, pague 350g" },
+      "id": "alcoolicas", "nome": "Bebidas alcoólicas", "itens": [
+        { "nome": "Cerveja Itaipava", "preco": 8.00, "unidade": "lata 350ml" },
+        { "nome": "Cerveja Skol", "preco": 8.00, "unidade": "lata 350ml" },
+        { "nome": "Cerveja Brahma Duplo Malte", "preco": 11.00, "unidade": "lata 350ml" },
+        { "nome": "Cerveja Império", "preco": 11.00, "unidade": "lata 269ml" },
+        { "nome": "Cerveja Budweiser", "preco": 12.00, "unidade": "long neck 275ml" },
+        { "nome": "Cerveja Heineken", "preco": 13.00, "unidade": "long neck 330ml" },
+        { "nome": "Cerveja Império Lager", "preco": 13.00, "unidade": "long neck 355ml" },
+        { "nome": "Cerveja Império Gold", "preco": 13.00, "unidade": "long neck 210ml" },
+        { "nome": "Cerveja Imperial Puro Malte", "preco": 15.00, "unidade": "500ml" },
+        { "nome": "Smirnoff Ice", "preco": 17.00, "unidade": "long neck 275ml" }
+      ]
+    },
+    {
+      "id": "mercearia", "nome": "Mercearia", "itens": [
+        { "nome": "Macarrão Instantâneo sabor Carne", "preco": 5.40, "unidade": "unidade" },
         { "nome": "Biscoito Chocolate Trakinas", "preco": 6.50, "unidade": "126g" },
         { "nome": "Biscoito Maizena Marilan", "preco": 6.80, "unidade": "170g" },
-        { "nome": "Café Tradicional Pilão", "preco": 27.50, "unidade": "250g" },
-        { "nome": "Chá diversos", "preco": 8.80, "unidade": "unidade" },
-        { "nome": "Cup Noodles Galinha Caipira Nissin", "preco": 10.50, "unidade": "69g" },
-        { "nome": "Farinha de Trigo Tipo 1 Dona Benta", "preco": 11.80, "unidade": "pacote 1kg" },
-        { "nome": "Filtro de Papel 103 Melitta", "preco": 9.70, "unidade": "30 unidades" },
-        { "nome": "Flocos de Milho Quaker Milharina", "preco": 10.30, "unidade": "500g" },
-        { "nome": "Ketchup Pizza Quero", "preco": 10.99, "unidade": "200g" },
-        { "nome": "Leite Condensado Marajoara", "preco": 12.95, "unidade": "395g" },
-        { "nome": "Leite em Pó Ninho Integral", "preco": 31.00, "unidade": "380g" },
-        { "nome": "Macarrão Espaguete Dona Benta", "preco": 9.30, "unidade": "500g" },
-        { "nome": "Macarrão Instantâneo sabor Carne", "preco": 5.40, "unidade": "unidade" },
         { "nome": "Macarrão Instantâneo Nissin Galinha Caipira", "preco": 7.40, "unidade": "unidade" },
-        { "nome": "Maionese Hellmann's", "preco": 12.40, "unidade": "250g" },
-        { "nome": "Milho de Pipoca Granvita", "preco": 10.00, "unidade": "500g" },
-        { "nome": "Óleo de Soja Vitaliv", "preco": 12.90, "unidade": "900ml" },
         { "nome": "Passatempo Recheado Chocolate", "preco": 7.50, "unidade": "130g" },
-        { "nome": "Pipoca Microondas Manteiga Yoki", "preco": 8.40, "unidade": "100g" },
+        { "nome": "Vinagre Castelo", "preco": 7.90, "unidade": "750ml" },
         { "nome": "Sal Cisne Refinado", "preco": 7.99, "unidade": "1kg" },
+        { "nome": "Pipoca Microondas Manteiga Yoki", "preco": 8.40, "unidade": "100g" },
+        { "nome": "Chá diversos", "preco": 8.80, "unidade": "unidade" },
+        { "nome": "Macarrão Espaguete Dona Benta", "preco": 9.30, "unidade": "500g" },
+        { "nome": "Filtro de Papel 103 Melitta", "preco": 9.70, "unidade": "30 unidades" },
+        { "nome": "Açúcar Refinado União", "preco": 10.00, "unidade": "1kg" },
+        { "nome": "Milho de Pipoca Granvita", "preco": 10.00, "unidade": "500g" },
         { "nome": "Tempero em pó para carnes Sazón", "preco": 10.20, "unidade": "60g, 12 unidades" },
-        { "nome": "Vinagre Castelo", "preco": 7.90, "unidade": "750ml" }
+        { "nome": "Flocos de Milho Quaker Milharina", "preco": 10.30, "unidade": "500g" },
+        { "nome": "Cup Noodles Galinha Caipira Nissin", "preco": 10.50, "unidade": "69g" },
+        { "nome": "Ketchup Pizza Quero", "preco": 10.99, "unidade": "200g" },
+        { "nome": "Farinha de Trigo Tipo 1 Dona Benta", "preco": 11.80, "unidade": "pacote 1kg" },
+        { "nome": "Maionese Hellmann's", "preco": 12.40, "unidade": "250g" },
+        { "nome": "Óleo de Soja Vitaliv", "preco": 12.90, "unidade": "900ml" },
+        { "nome": "Leite Condensado Marajoara", "preco": 12.95, "unidade": "395g" },
+        { "nome": "Achocolatado em pó Nescau", "preco": 16.99, "unidade": "370g leve, pague 350g" },
+        { "nome": "Café Tradicional Pilão", "preco": 27.50, "unidade": "250g" },
+        { "nome": "Leite em Pó Ninho Integral", "preco": 31.00, "unidade": "380g" }
       ]
     }
   ]
