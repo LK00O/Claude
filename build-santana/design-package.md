@@ -277,3 +277,57 @@ não olhado no olho. Os defeitos são meus, encontrados antes de qualquer pessoa
 - **Sem as fontes**, a página continua inteira e legível na fonte do sistema.
 - **Peso da primeira visita: 205 KB no total**, sendo 73 KB de HTML e o resto fontes.
   Carrega em 69ms no servidor local. Nenhuma imagem, nenhum framework, nenhuma etapa de compilação.
+
+
+---
+
+## 11. A troca do scroll pelo relógio (pedido do cliente)
+
+O herói deixou de ser uma pista de 700vh e virou **uma tela só que anda sozinha**. Cada
+momento fica parado 2,1s e leva 0,9s para virar o próximo, ou seja, muda a cada 3 segundos,
+e muda gradualmente. A luz continua andando das 15h às 20h, só que no relógio, não no scroll.
+
+**O que isso obrigou a acrescentar.** Conteúdo que se troca sozinho tira o controle de quem
+lê. Sem devolver esse controle, quem lê devagar perde a frase e quem usa leitor de tela fica
+preso num carrossel. Então o herói ganhou:
+
+- **Marcadores**, desenhados como a própria barra em miniatura, um por momento. Clicáveis,
+  alcançáveis pelo teclado, e cada um leva no rótulo o texto do momento a que leva.
+- **Botão de pausa**, com `aria-pressed` e rótulo que troca entre pausar e continuar.
+- **O fim é repouso, não laço.** A travessia termina no bloco do nome com os dois botões e
+  fica lá. Um laço apagaria a chamada a cada 15 segundos.
+- **Nada de `aria-live`.** Anunciar a troca a cada 3 segundos atrapalharia mais do que
+  ajudaria. As cinco falas já estão no DOM em ordem, legíveis de cima a baixo.
+- **O convite para descer**, que aparece quando a travessia chega ao fim.
+
+**Um movimento novo que nasceu de um problema de medida.** No celular o bloco final não cabia
+acima da barra. Em vez de encolher o texto, a sala **se assenta e desce** quando o último
+momento chega. Virou movimento de câmera, e o problema de espaço sumiu junto.
+
+Os dois modos do herói caíram de três para dois: **auto** e **estático**. A escolha entre eles
+continua saindo de uma função só de JavaScript que escreve a classe no `<html>`, com o CSS
+apenas reagindo.
+
+### O que a medição desta rodada encontrou
+
+**Defeitos corrigidos:** o marcador acendia 600ms antes do texto trocar; a barra passava por
+cima dos botões do bloco final no desktop, o que eu não tinha medido na versão de scroll; os
+rótulos dos marcadores vinham duplicados porque o texto partido guarda a cópia do leitor de
+tela e a visual; e as regras de toque dos controles estavam antes das definições, então
+perdiam por ordem de fonte e os alvos ficavam em 30px.
+
+**Medições que passaram:** zero colisão entre texto, barra e controles em nove tamanhos de
+tela, de 320x568 a 1920x1080. Pior pixel atrás de cada texto medido nos cinco momentos, no
+desktop e no celular: menor valor 3,95:1 contra um piso de 3,5. Zero erro de console, zero
+rolagem lateral, todos os alvos de toque com 44px ou mais, e movimento reduzido honrado ao
+vivo nos dois sentidos.
+
+### O que a medição encontrou e EU NÃO posso resolver sozinho
+
+Os momentos 2 e 3 têm 26 e 25 palavras. Numa leitura cuidadosa em português, isso pede cerca
+de **8 segundos**, e o beat dura 3. Quem chegar no meio deles vai pegar o título e perder a
+linha de apoio. Os outros três momentos cabem em 3 segundos com folga.
+
+Três saídas, e a escolha é do cliente: aumentar o intervalo para 6 segundos, cortar as duas
+linhas longas pela metade, ou dar 3 segundos aos momentos curtos e 6 aos dois longos. A
+terceira mantém o pedido de pé e resolve o problema inteiro.

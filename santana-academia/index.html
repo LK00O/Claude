@@ -145,6 +145,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0}
 .palco .btn-vazio:hover,.escuro .btn-vazio:hover{background:rgba(242,239,232,.12)}
 @media (pointer:coarse){
   .btn{min-height:46px}
+  .desca{min-height:44px;justify-content:flex-end;padding-bottom:4px}
   /* a área do dedo cresce por dentro: padding para fora, margem negativa de volta,
      então o alvo passa de 44px sem que nada mude de lugar na tela */
   .contato a,.rodape a,.faq summary{display:inline-block;padding-block:12px;margin-block:-12px}
@@ -158,13 +159,11 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0}
 /* ============================================================
    HERÓI: O PALCO
    ============================================================ */
-.heroi{position:relative;height:700vh;z-index:1}
-html.modo-curto .heroi{height:560vh}
-html.modo-estatico .heroi{height:auto}
-
-.palco{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--sombra);color:var(--giz);
+/* O herói é UMA tela. O tempo é que move a luz, não o scroll. */
+.heroi{position:relative;z-index:1}
+.palco{position:relative;height:100vh;height:100svh;overflow:hidden;background:var(--sombra);color:var(--giz);
   --p:0}
-html.modo-estatico .palco{position:relative;--p:.62}
+html.modo-estatico .palco{height:auto;min-height:100svh;--p:.62}
 
 .camada{position:absolute;inset:0;pointer-events:none}
 
@@ -218,7 +217,7 @@ html.modo-estatico .palco{position:relative;--p:.62}
 
 /* --- a sala desenhada ---------------------------------------------- */
 .sala{position:absolute;inset:0;width:100%;height:100%}
-.sala svg{width:100%;height:100%}
+.sala svg{width:100%;height:100%;transform:translateY(10%);transition:transform 900ms var(--ease)}
 .chao-linha{stroke:rgba(242,239,232,.13);stroke-width:1.4;fill:none}
 .janela-quadro{fill:none;stroke:rgba(242,239,232,.34);stroke-width:5}
 .janela-cruz{stroke:rgba(242,239,232,.3);stroke-width:4;fill:none}
@@ -250,6 +249,13 @@ html.modo-estatico .palco{position:relative;--p:.62}
   opacity:clamp(0,calc((var(--p) - .3)*4),.5)}
 @keyframes correr{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
 
+/* Quando a travessia chega ao fim, a sala se assenta e desce. É movimento de
+   câmera, e é também o que abre espaço para o bloco final respirar no celular,
+   onde o nome, a linha e os dois botões juntos não cabem acima da barra. */
+.palco.assentou .sala svg{transform:translateY(19%)}
+@media (max-width:1024px){.palco.assentou .sala svg{transform:translateY(32%)}}
+@media (max-height:700px){.palco.assentou .sala svg{transform:translateY(40%)}}
+
 /* --- o scrim base: nenhum quadro fica cru atrás do texto ----------- */
 .scrim{background:radial-gradient(ellipse 128% 96% at 34% 52%,rgba(9,12,18,0) 26%,rgba(9,12,18,.66) 100%)}
 
@@ -270,16 +276,28 @@ html.modo-estatico .palco{position:relative;--p:.62}
 /* NO MODO CURTO a tela é alta e estreita: a barra subia bem em cima da linha de
    texto. A sala desce, o texto ganha a largura do celular, e a pista da ação
    volta a ficar livre, que é a lei da composição. */
-html.modo-curto .sala svg{transform:translateY(9%)}
-html.modo-curto .banda{top:10vh;width:min(560px,86vw);right:var(--gutter)}
-html.modo-curto .banda[data-lado="esq"]{left:var(--gutter);right:auto}
-html.modo-curto .banda h2{font-size:clamp(1.7rem,7.4vw,2.4rem)}
-html.modo-curto .banda .apoio{font-size:1rem;max-width:32ch}
-html.modo-curto .banda-settle{width:min(680px,88vw);left:50%;right:auto;top:20vh}
-/* celular baixo: o bloco final é o mais alto de todos, então a sala desce mais ainda */
-@media (max-height:720px){
-  html.modo-curto .sala svg{transform:translateY(18%)}
-  html.modo-curto .banda-settle{top:13vh}
+@media (max-width:1024px){
+  .sala svg{transform:translateY(16%)}
+  .banda{top:10vh;width:min(560px,86vw);right:var(--gutter)}
+  .banda[data-lado="esq"]{left:var(--gutter);right:auto}
+  .banda h2{font-size:clamp(1.7rem,7.4vw,2.4rem)}
+  .banda .apoio{font-size:1rem;max-width:32ch}
+  /* na tela estreita o facho cruza a zona do texto, então o scrim local aprofunda.
+     Os valores vieram da medição do pior pixel, não do olho. */
+  .banda::before{inset:-20% -26%;
+    background:radial-gradient(ellipse 96% 92% at 50% 44%,rgba(4,6,11,.92) 0%,rgba(4,6,11,.84) 38%,
+      rgba(4,6,11,.52) 66%,rgba(4,6,11,.18) 84%,rgba(4,6,11,0) 96%)}
+  .banda .kicker{background:rgba(5,7,12,.84)}
+  .banda-settle{width:min(680px,88vw);left:50%;right:auto;top:14vh}
+  .banda-settle h2{font-size:clamp(2rem,8.4vw,3.4rem);margin-bottom:.7rem}
+  .banda-settle .botoes{margin-top:1.3rem}
+}
+/* tela baixa: o bloco final é o mais alto de todos, então a sala desce mais ainda */
+@media (max-height:760px){
+  .sala svg{transform:translateY(19%)}
+}
+@media (max-width:1024px) and (max-height:720px){
+  .banda-settle{top:11vh}
 }
 
 /* a faixa 4 muda de lado: à noite a janela apaga e a esquerda fica vazia.
@@ -326,20 +344,69 @@ html.modo-curto .banda-settle{width:min(680px,88vw);left:50%;right:auto;top:20vh
   background:rgba(7,10,16,.64);border:1px solid rgba(224,131,145,.3);backdrop-filter:blur(9px);
   text-shadow:0 1px 3px rgba(5,8,14,.85)}
 
-/* a dica de rolar, só no começo */
-.dica{position:absolute;left:50%;bottom:3.4vh;transform:translateX(-50%);display:flex;flex-direction:column;
-  align-items:center;gap:.5rem;font-family:var(--mono);font-size:.62rem;letter-spacing:.24em;text-transform:uppercase;
-  color:rgba(242,239,232,.66);opacity:clamp(0,calc(1 - var(--p)*14),1)}
-.dica span{display:block;width:1px;height:34px;background:linear-gradient(180deg,rgba(242,239,232,.7),transparent);
-  animation:descer 2.6s var(--ease-suave) infinite}
-@keyframes descer{0%{transform:scaleY(.2);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}
-  51%{transform:scaleY(1);transform-origin:bottom}100%{transform:scaleY(.2);transform-origin:bottom}}
+/* --- os controles do tempo: marcadores em forma de barra, e pausa ------ */
+.controles{position:absolute;left:50%;bottom:4.4vh;transform:translateX(-50%);z-index:4;
+  display:flex;align-items:center;gap:1rem}
+html.modo-estatico .controles{display:none}
+
+.pausa{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;cursor:pointer;
+  border:1px solid rgba(242,239,232,.34);color:var(--giz);opacity:.7;
+  transition:opacity .3s var(--ease),border-color .3s var(--ease)}
+.pausa:hover{opacity:1;border-color:var(--rosin-claro)}
+.pausa svg{width:11px;height:11px;fill:currentColor}
+.pausa .icone-play{display:none}
+.palco.pausado .pausa .icone-play{display:block}
+.palco.pausado .pausa .icone-pause{display:none}
+
+/* os marcadores são a própria barra, em miniatura */
+.marcas{position:relative;display:flex;align-items:center;gap:0;padding:10px 0}
+.marcas::before{content:"";position:absolute;left:7px;right:7px;top:50%;height:2px;margin-top:-1px;
+  background:rgba(242,239,232,.26);border-radius:2px}
+.marca-beat{position:relative;width:34px;height:30px;cursor:pointer;display:grid;place-items:center}
+.marca-beat::after{content:"";width:9px;height:9px;border-radius:50%;background:rgba(242,239,232,.42);
+  transition:background .4s var(--ease),transform .4s var(--ease)}
+.marca-beat:hover::after{background:rgba(242,239,232,.8)}
+.marca-beat[aria-current="true"]::after{background:var(--rosin-claro);transform:scale(1.5)}
+
+/* quando a travessia termina, o convite para descer aparece */
+.desca{position:absolute;left:50%;bottom:4.4vh;transform:translateX(-50%) translateY(10px);z-index:4;
+  display:flex;flex-direction:column;align-items:center;gap:.45rem;text-decoration:none;
+  font-family:var(--mono);font-size:.6rem;letter-spacing:.22em;text-transform:uppercase;
+  color:rgba(242,239,232,.7);opacity:0;pointer-events:none;
+  transition:opacity .8s var(--ease),transform .8s var(--ease)}
+.palco.terminou .desca{opacity:1;transform:translateX(-50%);pointer-events:auto}
+.palco.terminou .controles{bottom:11.5vh}
+.desca:hover{color:var(--giz)}
+.desca svg{width:15px;height:15px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round}
+html.modo-estatico .desca{display:none}
+
+/* no toque, pausa e marcadores crescem para 44px de dedo. Fica depois das
+   definições acima de propósito: regra posterior ganha por ordem de fonte. */
+@media (pointer:coarse){
+  .pausa{width:44px;height:44px}
+  .marcas{padding:0}
+  .marca-beat{height:44px;width:40px}
+}
+
+@media (max-height:620px){
+  /* telas muito baixas: o bloco final aperta o cinto para caber acima dos controles */
+  .banda-settle{top:7vh}
+  .banda-settle h2{font-size:clamp(1.8rem,7.6vw,2.6rem);margin-bottom:.5rem}
+  .banda-settle .apoio{font-size:.92rem}
+  .banda-settle .botoes{margin-top:1rem;gap:.5rem}
+  .controles{bottom:2.6vh;gap:.7rem}
+  .pausa{width:26px;height:26px}
+  .marca-beat{width:28px;height:26px}
+  .marca-beat::after{width:8px;height:8px}
+  .desca span{display:none}
+  .palco.terminou .controles{bottom:8.6vh}
+}
 
 /* --- o bloco parado, para movimento reduzido e celular deitado ------ */
 .bloco-parado{display:none;position:relative;z-index:3;max-width:min(680px,88vw);margin:0 auto;
   padding:12vh var(--gutter) 10vh;text-align:center;text-shadow:var(--tshadow)}
 /* no modo parado a sala também desce: senão a barra corta o nome e os botões */
-html.modo-estatico .sala svg{transform:translateY(20%)}
+html.modo-estatico .sala svg{transform:translateY(22%)}
 html.modo-estatico .palco{min-height:100svh}
 html.modo-estatico .bloco-parado{display:block}
 html.modo-estatico .bandas,html.modo-estatico .dica{display:none}
@@ -707,7 +774,18 @@ body.pausado *,body.pausado *::before,body.pausado *::after{animation-play-state
       </div>
     </div>
 
-    <p class="dica" aria-hidden="true">Role<span></span></p>
+    <div class="controles" id="controles">
+      <button class="pausa" id="pausa" type="button" aria-label="Pausar a apresentação" aria-pressed="false">
+        <svg class="icone-pause" viewBox="0 0 12 12" aria-hidden="true"><rect x="2" y="1.5" width="3" height="9" rx="1"/><rect x="7" y="1.5" width="3" height="9" rx="1"/></svg>
+        <svg class="icone-play" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.8 10 6l-7 4.2Z"/></svg>
+      </button>
+      <div class="marcas" id="marcas" role="tablist" aria-label="Momentos da apresentação"></div>
+    </div>
+
+    <a class="desca" href="#a-casa">
+      <span>Conheça a escola</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v15M6 13l6 6 6-6"/></svg>
+    </a>
 
     <!-- o bloco parado: movimento reduzido e celular deitado -->
     <div class="bloco-parado">
@@ -1194,15 +1272,6 @@ function smoothstep(p, e0, e1){
   return t * t * (3 - 2 * t);
 }
 
-/* rampa de carga da primeira faixa: ela abre montada, sem esperar o scroll */
-var kCarga = 0, cargaIniciada = 0;
-function passoCarga(agora){
-  if (!cargaIniciada) cargaIniciada = agora;
-  kCarga = Math.min(1, (agora - cargaIniciada) / 900);
-  if (kCarga < 1) requestAnimationFrame(passoCarga);
-  acordar();
-}
-
 var ultimoP = -1;
 function aplicar(p){
   if (Math.abs(p - ultimoP) > 0.0004){
@@ -1216,98 +1285,160 @@ function aplicar(p){
     var sai = (d === ultima) ? 0 : smoothstep(p, d.b - f, d.b);
     var op = entra * (1 - sai);
     var k = Math.min(1, Math.max(0, (p - d.a) / d.ramp));
-    if (d === primeira) k = Math.max(k, kCarga);
     if (Math.abs(op - d.op) > 0.004){ d.op = op; d.el.style.opacity = op.toFixed(3); }
     if (Math.abs(k - d.k) > 0.008){ d.k = k; d.el.style.setProperty('--k', k.toFixed(3)); }
   }
 }
 
 /* ============================================================
-   4. O MOTOR: lerp normalizado por dt, que descansa quando converge
+   4. O MOTOR: um relógio, não o scroll
+   A travessia anda sozinha. Cada momento fica parado 2,1s e leva 0,9s para
+   virar o próximo, então muda a cada 3 segundos, e muda gradualmente.
    ============================================================ */
-var alvo = 0, mostrado = 0, rafId = null, ultimoTick = 0, heroNaTela = true, ligado = false;
+var ABERTURA_MS = 1100, BEAT_MS = 3000, TRANSICAO_MS = 900;
+var centros = bandas.map(function(d){ return (d.a + d.b) / 2; });
+var ULTIMO = centros.length - 1;
+var FIM_MS = ABERTURA_MS + ULTIMO * BEAT_MS;
 
-function progressoHeroi(){
-  var total = heroi.offsetHeight - window.innerHeight;
-  if (total <= 0) return 0;
-  var topo = heroi.getBoundingClientRect().top;
-  return Math.min(1, Math.max(0, -topo / total));
+var relogio = 0, ultimoQuadro = 0, rafId = null;
+var pausado = false, heroNaTela = true, ligado = false;
+var suave = function(f){ return f * f * (3 - 2 * f); };
+
+function pNoTempo(t){
+  if (t <= ABERTURA_MS) return primeira.a + (centros[0] - primeira.a) * suave(Math.min(1, t / ABERTURA_MS));
+  var t2 = t - ABERTURA_MS;
+  var i = Math.floor(t2 / BEAT_MS);
+  if (i >= ULTIMO) return centros[ULTIMO];
+  var dentro = t2 - i * BEAT_MS;
+  var inicio = BEAT_MS - TRANSICAO_MS;
+  if (dentro < inicio) return centros[i];
+  return centros[i] + (centros[i + 1] - centros[i]) * suave((dentro - inicio) / TRANSICAO_MS);
+}
+
+function beatNoTempo(t){
+  if (t <= ABERTURA_MS) return 0;
+  /* o marcador vira no MEIO da transição, não antes dela: senão o ponto acende
+     enquanto o texto anterior ainda está na tela */
+  return Math.min(ULTIMO, Math.floor((t - ABERTURA_MS + TRANSICAO_MS / 2) / BEAT_MS));
+}
+
+var beatMarcado = -1;
+function marcarBeat(i){
+  if (i === beatMarcado) return;
+  beatMarcado = i;
+  for (var n = 0; n < marcas.length; n++) marcas[n].setAttribute('aria-current', n === i ? 'true' : 'false');
+  palco.classList.toggle('assentou', i === ULTIMO);
 }
 
 function tick(agora){
-  var dt = Math.min(100, agora - (ultimoTick || agora));
-  ultimoTick = agora;
-  var k = 0.17;
-  mostrado += (alvo - mostrado) * (1 - Math.pow(1 - k, dt / 16.667));
-  if (Math.abs(alvo - mostrado) < 0.0004 && kCarga >= 1){
-    mostrado = alvo; rafId = null; ultimoTick = 0;
-  } else {
-    rafId = requestAnimationFrame(tick);
+  var dt = Math.min(100, agora - (ultimoQuadro || agora));
+  ultimoQuadro = agora;
+  relogio = Math.min(FIM_MS, relogio + dt);
+  aplicar(pNoTempo(relogio));
+  marcarBeat(beatNoTempo(relogio));
+  if (relogio >= FIM_MS){
+    palco.classList.add('terminou');   /* a travessia chegou: convida a descer */
+    rafId = null; ultimoQuadro = 0;
+    return;
   }
-  aplicar(mostrado);
+  rafId = requestAnimationFrame(tick);
 }
 
 function acordar(){
-  if (rafId === null && heroNaTela && ligado) rafId = requestAnimationFrame(tick);
+  if (rafId === null && ligado && heroNaTela && !pausado && relogio < FIM_MS){
+    ultimoQuadro = 0;
+    rafId = requestAnimationFrame(tick);
+  }
+}
+function dormir(){
+  if (rafId !== null){ cancelAnimationFrame(rafId); rafId = null; }
+  ultimoQuadro = 0;
 }
 
-function aoRolar(){
-  alvo = progressoHeroi();
+function pintarAgora(){
+  aplicar(pNoTempo(relogio));
+  marcarBeat(beatNoTempo(relogio));
+  palco.classList.toggle('terminou', relogio >= FIM_MS);
+}
+
+function irParaBeat(i){
+  relogio = i === 0 ? ABERTURA_MS : ABERTURA_MS + i * BEAT_MS;
+  pintarAgora();
   acordar();
 }
 
 /* ============================================================
-   5. OS TRÊS MODOS, COM UMA FONTE ÚNICA DE VERDADE
+   5. OS CONTROLES: quem lê devagar não pode perder a frase
+   ============================================================ */
+var marcas = [];
+(function(){
+  var caixa = document.getElementById('marcas');
+  var rotulos = bandas.map(function(d){
+    var h = d.el.querySelector('h2');
+    if (!h) return 'Momento';
+    var leitor = h.querySelector('.so-leitor');
+    return (leitor ? leitor.textContent : h.textContent).trim();
+  });
+  for (var i = 0; i < bandas.length; i++){
+    (function(n){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'marca-beat';
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-current', 'false');
+      b.setAttribute('aria-label', 'Momento ' + (n + 1) + ': ' + rotulos[n]);
+      b.addEventListener('click', function(){ irParaBeat(n); });
+      caixa.appendChild(b);
+      marcas.push(b);
+    })(i);
+  }
+})();
+
+var botaoPausa = document.getElementById('pausa');
+function definirPausa(v){
+  pausado = v;
+  palco.classList.toggle('pausado', v);
+  botaoPausa.setAttribute('aria-pressed', v ? 'true' : 'false');
+  botaoPausa.setAttribute('aria-label', v ? 'Continuar a apresentação' : 'Pausar a apresentação');
+  if (v) dormir(); else acordar();
+}
+botaoPausa.addEventListener('click', function(){ definirPausa(!pausado); });
+
+/* ============================================================
+   6. OS DOIS MODOS, COM UMA FONTE ÚNICA DE VERDADE
    O JS decide e escreve a classe. O CSS só reage à classe.
-   Assim não existe jeito de os dois discordarem.
    ============================================================ */
 var qReduzido = window.matchMedia('(prefers-reduced-motion: reduce)');
-var qEstreito = window.matchMedia('(max-width: 760px)');
-var qRetrato  = window.matchMedia('(orientation: portrait) and (max-width: 1024px)');
-var qGrosso   = window.matchMedia('(orientation: portrait) and (pointer: coarse)');
 var qDeitado  = window.matchMedia('(orientation: landscape) and (pointer: coarse) and (max-height: 560px)');
-var CONSULTAS = [qReduzido, qEstreito, qRetrato, qGrosso, qDeitado];
+var CONSULTAS = [qReduzido, qDeitado];
 
 function modoDesejado(){
-  if (qReduzido.matches || qDeitado.matches) return 'estatico';
-  if (qEstreito.matches || qRetrato.matches || qGrosso.matches) return 'curto';
-  return 'completo';
+  return (qReduzido.matches || qDeitado.matches) ? 'estatico' : 'auto';
 }
 
 var modo = '';
 function ligar(){
   if (ligado) return;
   ligado = true;
-  window.addEventListener('scroll', aoRolar, { passive: true });
   for (var i = 0; i < bandas.length; i++){ bandas[i].op = -1; bandas[i].k = -1; }
-  ultimoP = -1;
-  if (!cargaIniciada) requestAnimationFrame(passoCarga);
-  alvo = progressoHeroi();
-  mostrado = alvo;
-  aplicar(alvo);
+  ultimoP = -1; beatMarcado = -1;
+  pintarAgora();
   acordar();
 }
 function desligar(){
   if (!ligado) return;
   ligado = false;
-  window.removeEventListener('scroll', aoRolar);
-  if (rafId !== null){ cancelAnimationFrame(rafId); rafId = null; }
+  dormir();
 }
 
 function aplicarModo(){
   var novo = modoDesejado();
   if (novo === modo) return;
   modo = novo;
-  html.classList.remove('modo-completo', 'modo-curto', 'modo-estatico');
+  html.classList.remove('modo-auto', 'modo-estatico');
   html.classList.add('modo-' + novo);
-  if (novo === 'estatico'){
-    desligar();
-    fixarEstadosFinais();
-  } else {
-    soltarEstadosFinais();
-    ligar();
-    aoRolar();
-  }
+  if (novo === 'estatico'){ desligar(); fixarEstadosFinais(); }
+  else { soltarEstadosFinais(); ligar(); }
 }
 CONSULTAS.forEach(function(q){
   if (q.addEventListener) q.addEventListener('change', aplicarModo);
@@ -1315,7 +1446,7 @@ CONSULTAS.forEach(function(q){
 });
 
 /* ============================================================
-   6. MOVIMENTO REDUZIDO, HONRADO NOS DOIS SENTIDOS
+   7. MOVIMENTO REDUZIDO, HONRADO NOS DOIS SENTIDOS
    ============================================================ */
 function fixarEstadosFinais(){
   html.classList.add('parado');
@@ -1328,7 +1459,7 @@ function soltarEstadosFinais(){
 }
 
 /* ============================================================
-   7. ENTRADAS COREOGRAFADAS DAS SEÇÕES
+   8. ENTRADAS COREOGRAFADAS DAS SEÇÕES
    ============================================================ */
 var obsEntrada = new IntersectionObserver(function(ents){
   ents.forEach(function(e){
@@ -1351,8 +1482,7 @@ document.querySelectorAll('.mods').forEach(function(e){ obsVivo.observe(e); });
 /* o motor do herói descansa quando o herói sai da tela */
 var obsHeroi = new IntersectionObserver(function(ents){
   heroNaTela = ents[0].isIntersecting;
-  if (heroNaTela) acordar();
-  else if (rafId !== null){ cancelAnimationFrame(rafId); rafId = null; }
+  if (heroNaTela) acordar(); else dormir();
 }, { threshold: 0 });
 obsHeroi.observe(heroi);
 
@@ -1363,7 +1493,7 @@ var obsNav = new IntersectionObserver(function(ents){
 obsNav.observe(heroi);
 
 /* ============================================================
-   8. POEIRA NO FACHO
+   9. POEIRA NO FACHO
    ============================================================ */
 (function(){
   var caixa = document.getElementById('poeira');
@@ -1382,7 +1512,7 @@ obsNav.observe(heroi);
 })();
 
 /* ============================================================
-   9. SEGURE A BARRA
+   10. SEGURE A BARRA
    ============================================================ */
 var segure = document.getElementById('segure');
 var segBotao = document.getElementById('segure-botao');
@@ -1447,7 +1577,7 @@ segBotao.addEventListener('keyup', function(e){
 });
 
 /* ============================================================
-   10. A RECEPÇÃO ESTÁ ABERTA AGORA?
+   11. A RECEPÇÃO ESTÁ ABERTA AGORA?
    ============================================================ */
 (function(){
   var ABRE = 15, FECHA = 20;
@@ -1484,17 +1614,16 @@ segBotao.addEventListener('keyup', function(e){
 })();
 
 /* ============================================================
-   11. PAUSA GERAL EM ABA ESCONDIDA
+   12. PAUSA GERAL EM ABA ESCONDIDA
    ============================================================ */
 document.addEventListener('visibilitychange', function(){
   document.body.classList.toggle('pausado', document.hidden);
 });
 
 /* ============================================================
-   12. ARRANQUE
+   13. ARRANQUE
    ============================================================ */
 aplicarModo();
-window.addEventListener('resize', function(){ if (ligado){ aoRolar(); } }, { passive: true });
 
 })();
 </script>
