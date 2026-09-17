@@ -505,3 +505,36 @@ barra, bailarina e controles em nove tamanhos de tela. Zero erro de console, zer
 lateral, alvos de toque todos acima de 44px, os dois modos do herói corretos e o movimento
 reduzido honrado ao vivo nos dois sentidos. Peso da primeira visita: 247 KB, carregando em
 91ms, com as fotos entrando só quando a pessoa chega na seção delas.
+
+
+---
+
+## 15. A saia vira polígono, e a bailarina ganha mão
+
+**A saia estava torta, e a causa era o método.** Ela era um contorno em bézier com as pregas
+riscadas por cima, então cada prega era um traço, não um volume, e qualquer assimetria nos
+pontos de controle aparecia como um caimento errado.
+
+Agora ela é feita de **polígonos: um painel por prega**, nove ao todo. Cada painel é um
+quadrilátero que vai de um pedaço da cintura a um pedaço da barra, com a barra seguindo um
+arco raso e o dente da prega alternando painel sim, painel não. Os painéis alternam entre
+dois tons, então a prega passou a ser volume de verdade em vez de um risco sobre o pano.
+
+Como a geometria é gerada por fração (`i/n` e `(i+1)/n` espelhados em torno do centro), a
+saia é **simétrica por construção**: não existe mais como ela entortar.
+
+**Mais realismo, com mais formas:**
+
+- **Mãos com dedos.** Os braços terminavam em cone. Agora cada mão livre tem três dedos
+  curtos, num leque apertado. Na primeira tentativa os dedos ficaram compridos demais e a
+  mão virou garra, então encurtaram para menos de um terço do que eram.
+- **Clavícula**, um traço fino e discreto abaixo do pescoço. A primeira versão tinha também
+  um decote curvo, que a essa escala lia como uma boca no meio do peito, e saiu.
+
+A mesma bailarina, com saia de polígonos e tudo, é quem se solta no momento interativo.
+
+### Medições depois da mudança
+
+Pior pixel atrás do texto do herói: 3,62:1 contra o piso de 3,5. Zero colisão entre texto,
+barra, bailarina e controles nos nove tamanhos de tela. Zero erro de console, alvos de toque
+todos acima de 44px, e o portão da escrita continua limpo.
