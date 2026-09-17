@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Santana Academia | Ballet, jazz, sapateado e dança contemporânea em São Vicente</title>
 <meta name="description" content="Escola de dança na Rua Ipiranga, 76, Centro, São Vicente. Ballet clássico, baby class, jazz, sapateado e dança contemporânea, do baby ao 40+. Agende sua aula experimental.">
-<meta name="theme-color" content="#161E29">
+<meta name="theme-color" content="#0C0C0E">
 <meta name="color-scheme" content="light">
 
 <!-- DEPLOY STEP: trocar as duas URLs abaixo pelo endereço real do site na hora de publicar -->
@@ -16,7 +16,7 @@
 <meta property="og:url" content="https://EXEMPLO.com.br/">
 <meta property="og:locale" content="pt_BR">
 
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23161E29'/%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='%23F2EFE8' stroke-width='1.6'/%3E%3Cpath d='M16 5.5v21' stroke='%23F2EFE8' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230C0C0E'/%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='%23F7F7F5' stroke-width='1.6'/%3E%3Cpath d='M16 5.5v21' stroke='%23F7F7F5' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
 
 <link rel="preload" as="font" type="font/woff2" href="assets/fontes/fraunces-600-800-latin.woff2" crossorigin>
 <link rel="preload" as="font" type="font/woff2" href="assets/fontes/instrument-sans-400-600-latin.woff2" crossorigin>
@@ -27,20 +27,20 @@
    TOKENS
    ============================================================ */
 :root{
-  --giz:#F2EFE8;
-  --giz-2:#E6E1D5;
-  --papel:#FBF9F4;
-  --sombra:#161E29;
-  --sombra-2:#202B39;
-  --tinta:#1A222D;
-  --tinta-fraca:#586675;
-  --linha:#D8D1C2;
-  --linha-forte:#8A7D64;
-  --madeira:#8A6440;
-  --rosin:#A6384A;
-  --rosin-forte:#8B2C3C;
-  --rosin-claro:#E08391;
-  --luz:#F3D9A8;
+  /* Identidade preto e branco. A hierarquia vem de peso e tamanho, não de cor. */
+  --giz:#F7F7F5;        /* o papel da página, e o texto claro sobre o preto */
+  --giz-2:#EBEBE7;      /* faixa mais funda */
+  --papel:#FFFFFF;      /* cartões e superfícies elevadas */
+  --sombra:#0C0C0E;     /* seções invertidas e o estúdio do herói */
+  --sombra-2:#18181B;
+  --tinta:#111114;      /* texto principal no claro */
+  --tinta-fraca:#5A5A61;
+  --linha:#E2E2DE;      /* filete decorativo */
+  --linha-forte:#84848B;/* a borda que o dedo e o teclado tocam, 3,46:1 sobre o papel */
+  --rosin:#111114;      /* a chamada: preto sólido, que é o acento desta identidade */
+  --rosin-forte:#000000;
+  --rosin-claro:#C9C9CF;/* o mesmo papel sobre as seções escuras, 11,6:1 */
+  --luz:#FFFFFF;
 
   --display:'Fraunces',Georgia,'Times New Roman',serif;
   --corpo:'Instrument Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
@@ -92,15 +92,15 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0}
 /* O ambiente fixo: uma camada só atrás de tudo, para a página ser um lugar e não seções empilhadas */
 .ambiente{position:fixed;inset:0;z-index:0;pointer-events:none;
   background:
-    radial-gradient(60% 45% at 12% 8%,rgba(243,217,168,.16),transparent 70%),
-    radial-gradient(52% 40% at 92% 78%,rgba(166,56,74,.07),transparent 72%);
+    radial-gradient(60% 45% at 12% 8%,rgba(17,17,20,.05),transparent 70%),
+    radial-gradient(52% 40% at 92% 78%,rgba(17,17,20,.035),transparent 72%);
   animation:respirar 78s var(--ease-suave) -22s infinite alternate}
 @keyframes respirar{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(0,-2.2%,0) scale(1.06)}}
 
 /* ============================================================
    TIPOGRAFIA DE APOIO
    ============================================================ */
-.kicker{font-family:var(--mono);font-size:.7rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--rosin);margin:0 0 .9rem}
+.kicker{font-family:var(--mono);font-size:.7rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--tinta-fraca);margin:0 0 .9rem}
 .escuro .kicker,.palco .kicker{color:var(--rosin-claro)}
 .titulo{font-size:clamp(2rem,5.1vw,3.5rem)}
 .titulo-g{font-size:clamp(2.4rem,7vw,4.6rem)}
@@ -145,7 +145,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0}
   padding:.82rem 1.35rem;border-radius:999px;text-decoration:none;font-weight:600;font-size:.95rem;
   background:var(--rosin);color:#fff;border:1px solid transparent;text-shadow:none;
   transition:background .28s var(--ease),transform .28s var(--ease),box-shadow .28s var(--ease)}
-.btn:hover{background:var(--rosin-forte);transform:translateY(-2px);box-shadow:0 10px 26px rgba(166,56,74,.28)}
+.btn:hover{background:var(--rosin-forte);transform:translateY(-2px);box-shadow:0 10px 26px rgba(12,12,14,.26)}
 .btn svg{width:17px;height:17px;flex:0 0 auto}
 .btn-vazio{background:transparent;color:inherit;border-color:currentColor;opacity:.92}
 .btn-vazio:hover{background:rgba(255,255,255,.1);color:inherit;box-shadow:none}
@@ -177,26 +177,26 @@ html.modo-estatico .palco{height:auto;min-height:100svh;--p:.62}
 /* --- a luz que anda das 15h às 20h --------------------------------- */
 .l-tarde{
   background:
-    radial-gradient(80% 62% at 18% 6%,rgba(255,246,228,.5),transparent 62%),
-    radial-gradient(120% 90% at 30% 74%,rgba(243,217,168,.2),transparent 66%),
-    linear-gradient(180deg,#1D2735 0%,#1A2430 46%,#141C26 100%);
+    radial-gradient(80% 62% at 18% 6%,rgba(255,255,255,.36),transparent 62%),
+    radial-gradient(120% 90% at 30% 74%,rgba(255,255,255,.13),transparent 66%),
+    linear-gradient(180deg,#1C1C20 0%,#151518 46%,#0F0F12 100%);
   opacity:clamp(0,calc((.44 - var(--p))*3.6),1)}
 .l-dourada{
   background:
-    radial-gradient(70% 56% at 12% 20%,rgba(255,214,150,.46),transparent 64%),
-    radial-gradient(110% 84% at 26% 88%,rgba(214,143,74,.3),transparent 62%),
-    linear-gradient(180deg,#26262F 0%,#221F28 48%,#171720 100%);
+    radial-gradient(70% 56% at 12% 20%,rgba(255,255,255,.3),transparent 64%),
+    radial-gradient(110% 84% at 26% 88%,rgba(255,255,255,.17),transparent 62%),
+    linear-gradient(180deg,#242428 0%,#1D1D21 48%,#131316 100%);
   opacity:calc(clamp(0,calc((var(--p) - .24)*4),1) * (1 - clamp(0,calc((var(--p) - .6)*4.2),1)))}
 .l-noite{
   background:
-    radial-gradient(64% 44% at 50% -6%,rgba(243,217,168,.2),transparent 64%),
-    linear-gradient(180deg,#131A25 0%,#101722 52%,#0C121B 100%);
+    radial-gradient(64% 44% at 50% -6%,rgba(255,255,255,.15),transparent 64%),
+    linear-gradient(180deg,#101013 0%,#0C0C0F 52%,#08080A 100%);
   opacity:clamp(0,calc((var(--p) - .56)*3.1),1)}
 
 /* o facho da janela: anda, deita e esfria */
 .facho{
   clip-path:polygon(8% 13%,30% 13%,82% 100%,31% 100%);
-  background:linear-gradient(168deg,rgba(255,244,221,.5) 0%,rgba(255,232,189,.24) 46%,rgba(255,226,180,0) 92%);
+  background:linear-gradient(168deg,rgba(255,255,255,.42) 0%,rgba(255,255,255,.19) 46%,rgba(255,255,255,0) 92%);
   /* a máscara tira a borda reta: luz de janela não tem aresta de régua */
   -webkit-mask-image:linear-gradient(94deg,transparent 0%,#000 14%,#000 72%,transparent 100%);
   mask-image:linear-gradient(94deg,transparent 0%,#000 14%,#000 72%,transparent 100%);
@@ -207,14 +207,14 @@ html.modo-estatico .palco{height:auto;min-height:100svh;--p:.62}
 /* a lâmpada do estúdio, que só acende quando a janela apaga */
 .lampada{
   background:
-    radial-gradient(34% 40% at 50% 2%,rgba(255,226,172,.42),transparent 70%),
-    radial-gradient(90% 60% at 50% 0%,rgba(255,213,150,.12),transparent 72%);
+    radial-gradient(34% 40% at 50% 2%,rgba(255,255,255,.3),transparent 70%),
+    radial-gradient(90% 60% at 50% 0%,rgba(255,255,255,.09),transparent 72%);
   opacity:clamp(0,calc((var(--p) - .64)*3.4),1)}
 
 /* poeira no facho, nível sussurro */
 .poeira{opacity:calc(.85 * (1 - clamp(0,calc((var(--p) - .46)*2.2),1)))}
 .poeira i{position:absolute;display:block;width:2.5px;height:2.5px;border-radius:50%;
-  background:rgba(255,243,219,.72);filter:blur(.3px);
+  background:rgba(255,255,255,.7);filter:blur(.3px);
   animation:flutuar 15s linear infinite}
 @keyframes flutuar{
   0%{transform:translate3d(0,0,0);opacity:0}
@@ -230,7 +230,7 @@ html.modo-estatico .palco{height:auto;min-height:100svh;--p:.62}
 .janela-cruz{stroke:rgba(242,239,232,.3);stroke-width:4;fill:none}
 .janela-peitoril{stroke:rgba(242,239,232,.26);stroke-width:5;fill:none;stroke-linecap:round}
 /* a janela é a fonte: acesa de dia, apagada quando a luz vira para dentro */
-.janela-vidro{opacity:calc(.84*(1 - clamp(0,calc((var(--p) - .2)*2.7),1)))}
+.janela-vidro{opacity:calc(.6*(1 - clamp(0,calc((var(--p) - .2)*2.7),1)))}
 .rodape-parede{stroke:rgba(242,239,232,.18);stroke-width:3;fill:none}
 
 /* o poço de luz no chão, embaixo da luminária */
@@ -239,7 +239,7 @@ html.modo-estatico .palco{height:auto;min-height:100svh;--p:.62}
 /* a luminária, que dá origem à luz da noite */
 .luminaria{opacity:clamp(0,calc((var(--p) - .58)*3),1)}
 .luminaria-fio{stroke:rgba(242,239,232,.34);stroke-width:2;fill:none}
-.luminaria-cupula{fill:rgba(255,232,186,.22);stroke:rgba(255,232,186,.66);stroke-width:2.4;stroke-linejoin:round}
+.luminaria-cupula{fill:rgba(255,255,255,.18);stroke:rgba(255,255,255,.6);stroke-width:2.4;stroke-linejoin:round}
 
 /* A BARRA DUPLA que se desenha */
 .barra-rod{fill:none;stroke:var(--giz);stroke-width:7;stroke-linecap:round;opacity:.94;
@@ -249,6 +249,20 @@ html.modo-estatico .palco{height:auto;min-height:100svh;--p:.62}
 .barra-braco{stroke:rgba(242,239,232,.58);stroke-width:5;stroke-linecap:round;fill:none;
   opacity:clamp(0,calc((var(--p) - .2)*5),1)}
 .barra-placa{fill:rgba(242,239,232,.3);opacity:clamp(0,calc((var(--p) - .22)*5),1)}
+
+/* --- A BAILARINA -------------------------------------------------- */
+/* A escala não é arbitrária: os pés pousam na linha do chão (y=646) e a mão
+   da pose 1 cai exatamente na barra (y=430). Bailarina de 380 unidades. */
+.bailarina{--bai-x0:520;--bai-dx:680;
+  transform:translate(calc(var(--bai-x0)*1px + var(--p)*var(--bai-dx)*1px),266px)}
+.bai-pose path,.bai-pose circle{fill:var(--giz)}
+.bai-pose{opacity:0}
+/* as poses se cruzam no meio de cada troca de momento, não no corte */
+.bai-1{opacity:calc(1 - clamp(0,calc((var(--p) - .15)*10),1))}
+.bai-2{opacity:calc(clamp(0,calc((var(--p) - .15)*10),1) * (1 - clamp(0,calc((var(--p) - .38)*10),1)))}
+.bai-3{opacity:calc(clamp(0,calc((var(--p) - .38)*10),1) * (1 - clamp(0,calc((var(--p) - .61)*10),1)))}
+.bai-4{opacity:calc(clamp(0,calc((var(--p) - .61)*10),1) * (1 - clamp(0,calc((var(--p) - .805)*10),1)))}
+.bai-5{opacity:clamp(0,calc((var(--p) - .805)*10),1)}
 
 /* o brilho que percorre a barra, um elemento vivo em nível sussurro */
 .barra-brilho{fill:none;stroke:rgba(255,241,214,.9);stroke-width:7;stroke-linecap:round;
@@ -285,6 +299,7 @@ html.modo-estatico .palco{height:auto;min-height:100svh;--p:.62}
    volta a ficar livre, que é a lei da composição. */
 @media (max-width:1024px){
   .sala svg{transform:translateY(16%)}
+  .bailarina{--bai-x0:520;--bai-dx:460}
   .banda{top:10vh;width:min(560px,86vw);right:var(--gutter)}
   .banda[data-lado="esq"]{left:var(--gutter);right:auto}
   .banda h2{font-size:clamp(1.7rem,7.4vw,2.4rem)}
@@ -294,7 +309,7 @@ html.modo-estatico .palco{height:auto;min-height:100svh;--p:.62}
   .banda::before{inset:-20% -26%;
     background:radial-gradient(ellipse 96% 92% at 50% 44%,rgba(4,6,11,.92) 0%,rgba(4,6,11,.84) 38%,
       rgba(4,6,11,.52) 66%,rgba(4,6,11,.18) 84%,rgba(4,6,11,0) 96%)}
-  .banda .kicker{background:rgba(5,7,12,.84)}
+  .banda .kicker{background:rgba(6,6,8,.84)}
   .banda-settle{width:min(680px,88vw);left:50%;right:auto;top:14vh}
   .banda-settle h2{font-size:clamp(2rem,8.4vw,3.4rem);margin-bottom:.7rem}
   .banda-settle .botoes{margin-top:1.3rem}
@@ -303,6 +318,7 @@ html.modo-estatico .palco{height:auto;min-height:100svh;--p:.62}
 @media (max-height:760px){
   .sala svg{transform:translateY(19%)}
 }
+@media (max-width:620px){.bailarina{--bai-x0:560;--bai-dx:190}}
 @media (max-width:1024px) and (max-height:720px){
   .banda-settle{top:11vh}
 }
@@ -348,7 +364,7 @@ html.modo-estatico .palco{height:auto;min-height:100svh;--p:.62}
   transform:translate3d(0,calc((1 - var(--kb))*16px),0)}
 .banda .kicker{--kk:clamp(0,calc(var(--k)*3.2),1);opacity:var(--kk);
   display:inline-block;margin-bottom:1rem;padding:.32rem .68rem;border-radius:9px;
-  background:rgba(7,10,16,.64);border:1px solid rgba(224,131,145,.3);backdrop-filter:blur(9px);
+  background:rgba(8,8,10,.64);border:1px solid rgba(201,201,207,.28);backdrop-filter:blur(9px);
   text-shadow:0 1px 3px rgba(5,8,14,.85)}
 
 /* --- os controles do tempo: marcadores em forma de barra, e pausa ------ */
@@ -428,7 +444,7 @@ html.modo-estatico .bandas,html.modo-estatico .dica{display:none}
 
 /* o selo ao vivo */
 .selo{display:inline-flex;align-items:center;gap:.5rem;white-space:nowrap;padding:.42rem .9rem;border-radius:999px;
-  background:rgba(8,11,17,.55);border:1px solid rgba(224,131,145,.42);backdrop-filter:blur(10px);
+  background:rgba(8,11,17,.55);border:1px solid rgba(201,201,207,.4);backdrop-filter:blur(10px);
   font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;
   color:var(--rosin-claro);margin-bottom:1.4rem;text-shadow:0 1px 3px rgba(5,8,14,.85)}
 .selo b{width:7px;height:7px;border-radius:50%;background:currentColor;position:relative}
@@ -492,7 +508,7 @@ html.modo-estatico .bandas,html.modo-estatico .dica{display:none}
 .mod p{font-size:.97rem;color:var(--tinta-fraca)}
 /* um elemento vivo por seção, em nível sussurro */
 .mod::after{content:"";position:absolute;right:-30px;top:-30px;width:130px;height:130px;border-radius:50%;
-  background:radial-gradient(circle,rgba(166,56,74,.055),transparent 70%);opacity:0}
+  background:radial-gradient(circle,rgba(17,17,20,.05),transparent 70%);opacity:0}
 .vivo .mod::after{animation:brilhar 9s var(--ease-suave) infinite}
 .vivo .mod:nth-child(2)::after{animation-delay:-2.4s}
 .vivo .mod:nth-child(3)::after{animation-delay:-4.1s}
@@ -530,14 +546,14 @@ html.modo-estatico .bandas,html.modo-estatico .dica{display:none}
   padding:.8rem 1.4rem;border-radius:999px;border:1px solid var(--rosin-claro);color:var(--rosin-claro);
   font-weight:600;font-size:.93rem;touch-action:none;user-select:none;
   transition:background .3s var(--ease),color .3s var(--ease),opacity .4s var(--ease)}
-.segure-botao:hover{background:rgba(224,131,145,.12)}
+.segure-botao:hover{background:rgba(201,201,207,.12)}
 .segure.solto .segure-botao{opacity:0;pointer-events:none}
 .segure-premio{position:absolute;top:0;left:0;opacity:0;transform:translateY(14px);pointer-events:none;
   transition:opacity .7s var(--ease) .15s,transform .7s var(--ease) .15s}
 .segure.solto .segure-premio{opacity:1;transform:none;pointer-events:auto}
-.segure-premio .btn{box-shadow:0 0 0 0 rgba(224,131,145,.5)}
+.segure-premio .btn{box-shadow:0 0 0 0 rgba(201,201,207,.5)}
 .segure.solto .segure-premio .btn{animation:acender 2.6s var(--ease-suave) 2}
-@keyframes acender{0%,100%{box-shadow:0 0 0 0 rgba(224,131,145,0)}50%{box-shadow:0 0 0 12px rgba(224,131,145,0)}}
+@keyframes acender{0%,100%{box-shadow:0 0 0 0 rgba(201,201,207,0)}50%{box-shadow:0 0 0 12px rgba(201,201,207,0)}}
 
 /* --- Horários: a barra vira régua do dia ---------------------------- */
 .regua{position:relative;margin:1.2rem 0 1.2rem}
@@ -575,7 +591,7 @@ html.modo-estatico .bandas,html.modo-estatico .dica{display:none}
 .pessoa-txt{padding:1.3rem 1.4rem 1.6rem}
 .pessoa-txt h3{font-size:1.24rem;margin-bottom:.2rem}
 .pessoa-txt .papel{font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--rosin);margin-bottom:.7rem}
+  color:var(--tinta-fraca);margin-bottom:.7rem}
 .pessoa-txt p{font-size:.95rem;color:var(--tinta-fraca)}
 
 /* --- Perguntas ------------------------------------------------------ */
@@ -690,13 +706,13 @@ body.pausado *,body.pausado *::before,body.pausado *::after{animation-play-state
       <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
         <defs>
           <linearGradient id="vidro" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#FFF7E6" stop-opacity=".9"/>
-            <stop offset="62%" stop-color="#FFEBC8" stop-opacity=".62"/>
-            <stop offset="100%" stop-color="#FFE2B4" stop-opacity=".42"/>
+            <stop offset="0%" stop-color="#FFFFFF" stop-opacity=".88"/>
+            <stop offset="62%" stop-color="#FFFFFF" stop-opacity=".6"/>
+            <stop offset="100%" stop-color="#FFFFFF" stop-opacity=".4"/>
           </linearGradient>
           <radialGradient id="poco" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#FFE2AC" stop-opacity=".34"/>
-            <stop offset="100%" stop-color="#FFE2AC" stop-opacity="0"/>
+            <stop offset="0%" stop-color="#FFFFFF" stop-opacity=".26"/>
+            <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
           </radialGradient>
         </defs>
 
@@ -735,6 +751,56 @@ body.pausado *,body.pausado *::before,body.pausado *::after{animation-play-state
         <path class="barra-rod barra-baixa" pathLength="1" d="M64 524 H1536"/>
         <path class="barra-rod" pathLength="1" d="M64 430 H1536"/>
         <path class="barra-brilho" pathLength="1" d="M64 430 H1536"/>
+        <!-- A BAILARINA: uma pose por momento, andando ao longo da barra.
+             Ela se segura na barra nos dois primeiros, solta no terceiro,
+             dança livre no quarto e chega em quinta no repouso. -->
+        <g class="bailarina">
+          <g class="bai-pose bai-1">
+            <path class="bf" d="M61 62 C60 76 45 78 36 90 C33 106 43 136 48 158 C47 174 40 180 40 196 C40 206 58 210 70 214 C82 210 100 206 100 196 C100 180 93 174 92 158 C97 136 107 106 104 90 C95 78 80 76 79 62 Z"/>
+            <path class="bf" d="M42.5 195.3Q43.5 283.7 46.0 316.5Q48.6 349.3 43.4 359.1L38.3 368.9L41.7 371.1Q57.4 350.7 61.0 317.5Q64.5 284.3 69.0 240.5L73.5 196.7Z"/>
+            <path class="bf" d="M66.5 196.7Q75.5 284.3 79.0 317.5Q82.6 350.7 90.4 360.9L98.3 371.1L101.7 368.9Q91.4 349.3 94.0 316.5Q96.5 283.7 97.0 239.5L97.5 195.3Z"/>
+            <path class="bf" d="M41.3 92.8Q22.4 120.7 17.4 135.5Q12.4 150.3 9.2 158.7L6.0 167.0L10.0 169.0Q19.6 153.7 26.6 140.5Q33.6 127.3 44.2 115.2L54.7 103.2Z"/>
+            <path class="bf" d="M89.7 106.2Q117.0 111.8 128.0 119.3Q139.1 126.7 144.6 134.0L150.1 141.2L153.9 138.8Q144.9 121.3 134.0 110.7Q123.0 100.2 108.7 95.0L94.3 89.8Z"/>
+            <path class="bf" d="M38 178 C28 204 20 220 4 236 C8 248 44 252 70 251 C96 252 132 248 136 236 C120 220 112 204 102 178 Z"/>
+            <circle class="bf" cx="90.2" cy="36.0" r="10.1"/><circle class="bf" cx="70" cy="40" r="22"/>
+          </g>
+          <g class="bai-pose bai-2">
+            <path class="bf" d="M61 80 C60 94 45 96 36 108 C33 124 43 152 48 174 C47 190 40 194 40 210 C40 220 58 224 70 228 C82 224 100 220 100 210 C100 194 93 190 92 174 C97 152 107 124 104 108 C95 96 80 94 79 80 Z"/>
+            <path class="bf" d="M43.4 204.8Q23.5 277.2 33.5 312.6Q43.5 347.9 37.0 356.3L30.5 364.7L33.5 367.3Q52.5 348.1 48.5 313.4Q44.5 278.8 58.5 247.0L72.6 215.2Z"/>
+            <path class="bf" d="M67.4 215.2Q95.5 278.8 91.5 313.4Q87.5 348.1 97.0 357.7L106.5 367.3L109.5 364.7Q96.5 347.9 106.5 312.6Q116.5 277.2 106.5 241.0L96.6 204.8Z"/>
+            <path class="bf" d="M41.3 110.8Q22.6 138.4 16.5 152.3Q10.5 166.1 7.3 173.5L4.0 180.9L8.0 183.1Q17.5 169.9 25.5 157.7Q33.4 145.6 44.1 133.4L54.7 121.2Z"/>
+            <path class="bf" d="M86.7 122.7Q114.1 140.8 113.5 152.1Q112.9 163.4 101.1 167.6L89.3 171.8L90.7 176.2Q119.1 168.6 122.5 151.9Q125.9 135.2 111.6 122.3L97.3 109.3Z"/>
+            <path class="bf" d="M38 196 C28 219 15 235 -1 248 C3 260 44 264 70 263 C96 264 137 260 141 248 C125 235 112 219 102 196 Z"/>
+            <circle class="bf" cx="90.2" cy="54.0" r="10.1"/><circle class="bf" cx="70" cy="58" r="22"/>
+          </g>
+          <g class="bai-pose bai-3">
+            <path class="bf" d="M61 62 C60 76 45 78 36 90 C33 106 43 136 48 158 C47 174 40 180 40 196 C40 206 58 210 70 214 C82 210 100 206 100 196 C100 180 93 174 92 158 C97 136 107 106 104 90 C95 78 80 76 79 62 Z"/>
+            <path class="bf" d="M42.5 195.5Q44.5 283.7 47.0 316.5Q49.6 349.3 44.4 359.1L39.3 368.9L42.7 371.1Q58.4 350.7 62.0 317.5Q65.5 284.3 69.5 240.4L73.5 196.5Z"/>
+            <path class="bf" d="M94.6 205.3Q124.5 172.5 140.7 151.4Q156.8 130.4 166.4 116.0L175.9 101.6L172.1 98.4Q147.2 121.6 127.3 138.6Q107.5 155.5 90.5 169.1L73.4 182.7Z"/>
+            <path class="bf" d="M41.4 92.6Q24.3 116.8 21.2 129.9Q18.1 143.0 17.9 151.4L17.8 159.7L22.2 160.3Q25.9 145.0 30.8 134.1Q35.7 123.2 45.1 113.3L54.6 103.4Z"/>
+            <path class="bf" d="M95.6 105.7Q125.7 89.3 137.4 75.9Q149.1 62.5 153.0 53.8L157.0 45.1L153.0 42.9Q142.9 57.5 130.6 68.1Q118.3 78.7 103.3 84.5L88.4 90.3Z"/>
+            <path class="bf" d="M38 178 C28 204 17 220 1 236 C5 248 44 252 70 251 C96 252 135 248 139 236 C123 220 112 204 102 178 Z"/>
+            <circle class="bf" cx="90.2" cy="36.0" r="10.1"/><circle class="bf" cx="70" cy="40" r="22"/>
+          </g>
+          <g class="bai-pose bai-4">
+            <path class="bf" d="M35 88 C34 102 21 104 12 116 C9 132 34 154 39 176 C38 192 32 192 32 208 C32 218 48 220 60 224 C72 220 88 218 88 208 C88 192 82 192 81 176 C86 154 79 132 76 116 C67 104 54 102 53 88 Z"/>
+            <path class="bf" d="M37.5 205.6Q40.5 287.8 43.0 319.5Q45.6 351.2 40.5 360.0L35.4 368.8L38.6 371.2Q54.4 352.8 58.0 320.5Q61.5 288.2 65.0 247.3L68.5 206.4Z"/>
+            <path class="bf" d="M77.2 215.3Q117.7 205.9 138.3 200.2Q158.9 194.4 171.7 190.5L184.4 186.5L183.6 181.5Q157.1 181.6 135.7 181.8Q114.3 182.1 93.5 183.4L72.8 184.7Z"/>
+            <path class="bf" d="M39.7 117.7Q19.4 115.7 11.4 114.9Q3.3 114.2 -2.8 112.1L-9.0 110.0L-11.0 114.0Q0.7 121.8 8.6 125.1Q16.6 128.3 26.5 131.3L36.3 134.3Z"/>
+            <path class="bf" d="M74.2 134.3Q102.5 138.3 114.8 140.1Q127.0 141.9 134.2 143.0L141.4 144.2L142.6 139.8Q129.0 134.1 117.2 129.9Q105.5 125.7 91.6 121.7L77.8 117.7Z"/>
+            <path class="bf" d="M18 190 C8 213 3 229 -13 242 C-9 254 24 258 50 257 C76 258 119 254 123 242 C107 229 92 213 82 190 Z"/>
+            <circle class="bf" cx="62.2" cy="62.0" r="10.1"/><circle class="bf" cx="42" cy="66" r="22"/>
+          </g>
+          <g class="bai-pose bai-5">
+            <path class="bf" d="M61 84 C60 98 45 100 36 112 C33 128 43 156 48 178 C47 194 40 198 40 214 C40 224 58 226 70 230 C82 226 100 224 100 214 C100 198 93 194 92 178 C97 156 107 128 104 112 C95 100 80 98 79 84 Z"/>
+            <path class="bf" d="M44.5 213.4Q46.5 289.7 49.0 319.9Q51.5 350.1 53.8 363.1L56.0 376.2L60.0 375.8Q60.5 349.9 64.0 320.1Q67.5 290.3 71.5 252.5L75.5 214.6Z"/>
+            <path class="bf" d="M64.5 214.6Q72.5 290.3 76.0 320.1Q79.5 349.9 79.8 362.9L80.0 375.8L84.0 376.2Q88.5 350.1 91.0 319.9Q93.5 289.7 94.5 251.5L95.5 213.4Z"/>
+            <path class="bf" d="M55.1 116.1Q30.2 94.1 30.9 75.0Q31.6 55.8 43.4 47.9L55.2 39.9L52.8 36.1Q24.4 52.2 21.1 75.0Q17.8 97.9 30.3 112.9L42.9 127.9Z"/>
+            <path class="bf" d="M97.1 127.9Q122.2 97.9 118.9 75.0Q115.6 52.2 101.4 44.1L87.2 36.1L84.8 39.9Q108.4 55.8 109.1 75.0Q109.8 94.1 97.3 105.1L84.9 116.1Z"/>
+            <path class="bf" d="M38 200 C28 223 16 239 0 252 C4 264 44 268 70 267 C96 268 136 264 140 252 C124 239 112 223 102 200 Z"/>
+            <circle class="bf" cx="90.2" cy="58.0" r="10.1"/><circle class="bf" cx="70" cy="62" r="22"/>
+          </g>
+        </g>
       </svg>
     </div>
 
@@ -1000,8 +1066,8 @@ body.pausado *,body.pausado *::before,body.pausado *::after{animation-play-state
         </div>
         <div class="pessoa-txt">
           <h3>Cláudia Santana</h3>
-          <p class="papel">Direção</p>
-          <p>Uma das duas irmãs à frente da escola desde a fundação.</p>
+          <p class="papel">Direção e jazz</p>
+          <p>Dirige a escola com a irmã desde a fundação. É dela o jazz e o sapateado.</p>
         </div>
       </li>
       <li class="pessoa sobe">
@@ -1011,8 +1077,8 @@ body.pausado *,body.pausado *::before,body.pausado *::after{animation-play-state
         </div>
         <div class="pessoa-txt">
           <h3>Claudete Santana Lemos</h3>
-          <p class="papel">Direção</p>
-          <p>Uma das duas irmãs à frente da escola desde a fundação.</p>
+          <p class="papel">Direção e ballet clássico</p>
+          <p>Dirige a escola com a irmã desde a fundação. É dela o ballet clássico.</p>
         </div>
       </li>
     </ul>

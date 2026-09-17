@@ -377,3 +377,71 @@ cada uma, resolve.
 **Imagem de compartilhamento.** A tag `og:image` apontava para um arquivo que não existia.
 Agora existe: o herói no repouso, capturado em 1200x630, que é o formato que as redes cortam.
 As URLs absolutas continuam esperando o endereço real, no comentário DEPLOY STEP.
+
+
+---
+
+## 13. A identidade vira preto e branco, e a bailarina entra na sala
+
+### A paleta
+
+O logotipo da casa é branco sobre preto. A pedido do cliente, o site inteiro passou a ser
+assim, e a hierarquia agora vem de **peso e tamanho, não de cor**.
+
+```css
+:root{
+  --giz:#F7F7F5;        /* o papel da página, e o texto claro sobre o preto */
+  --giz-2:#EBEBE7;      --papel:#FFFFFF;
+  --sombra:#0C0C0E;     /* seções invertidas e o estúdio do herói */
+  --sombra-2:#18181B;
+  --tinta:#111114;      --tinta-fraca:#5A5A61;
+  --linha:#E2E2DE;      --linha-forte:#84848B;
+  --rosin:#111114;      /* a chamada: preto sólido é o acento desta identidade */
+  --rosin-forte:#000000; --rosin-claro:#C9C9CF;
+}
+```
+
+A consequência mais bonita foi no herói: **a luz virou filme preto e branco.** A travessia das
+15h às 20h não muda mais de temperatura de cor, muda de intensidade e de direção, que é
+exatamente como funciona uma fotografia de estúdio de dança. As duas fotos das diretoras
+também foram para o preto e branco, e de quebra isso resolveu o choque entre um vestido preto
+e uma blusa laranja listrada que antes brigavam lado a lado.
+
+Todos os pares foram recalculados: menor contraste de texto na página, 6,38:1; borda
+interativa, 3,46:1; e o pior pixel atrás do texto do herói, 3,61:1 contra um piso de 3,5.
+
+### A bailarina
+
+Uma silhueta desenhada em SVG, **uma pose por momento**, que caminha ao longo da barra
+conforme os momentos passam. As poses não são decoração: elas contam o mesmo que o texto.
+
+| Momento | Pose | O texto ao lado |
+|---|---|---|
+| 1 | Em pé na barra, preparação | "Toda bailarina começou sem saber." |
+| 2 | Plié, mão firme na barra | "Primeiro você se segura." |
+| 3 | Développé, a mão soltando | "Depois você solta." |
+| 4 | Arabesque, livre da barra | "E um dia você dança." |
+| 5 | Quinta em relevé, braços coroando | "Santana Academia" |
+
+A escala não é arbitrária: os pés pousam na linha do chão e, na primeira pose, a mão cai
+exatamente na altura da barra. O percurso encolhe nas telas estreitas, porque o desenho da
+sala é cortado nas laterais e ela sairia de quadro.
+
+**Como ela foi desenhada, depois de quatro tentativas.** Membro de espessura constante nunca
+lê como bailarina, lê como boneco de palito. A solução foi gerar cada membro como um contorno
+deslocado da linha do osso, com espessura própria em cada junta, então a coxa é grossa e o pé
+termina em ponta. O tronco é uma peça só, com pescoço no contorno e ombro caído, para a
+cabeça se fundir em vez de pousar em cima. E o que finalmente fez a silhueta ser reconhecida
+foi a saia: sem ela, a mesma figura lia como manequim.
+
+### As professoras
+
+Claudete Santana Lemos dá **ballet clássico**. Cláudia Santana dá **jazz e sapateado**. Os dois
+cartões deixaram de repetir a mesma frase.
+
+### O que esta rodada mediu
+
+Zero colisão entre texto, barra, bailarina e controles em nove tamanhos de tela, de 320x568 a
+1920x1080, e a bailarina nunca passa por cima do texto em nenhum momento, em nenhum tamanho.
+Zero erro de console, zero rolagem lateral, todos os alvos de toque com 44px ou mais, os dois
+modos do herói corretos e o movimento reduzido honrado ao vivo nos dois sentidos.
