@@ -445,3 +445,63 @@ Zero colisão entre texto, barra, bailarina e controles em nove tamanhos de tela
 1920x1080, e a bailarina nunca passa por cima do texto em nenhum momento, em nenhum tamanho.
 Zero erro de console, zero rolagem lateral, todos os alvos de toque com 44px ou mais, os dois
 modos do herói corretos e o movimento reduzido honrado ao vivo nos dois sentidos.
+
+
+---
+
+## 14. A rodada do acabamento
+
+### A bailarina deixou de ser silhueta e virou figura
+
+O pedido foi direto: mais detalhe, mais formas, mais real, nada de arte abstrata. O que fazia
+ela parecer abstrata era a cabeça. **Um círculo não é um rosto.** Agora a cabeça é um perfil
+com testa, nariz, lábio, queixo e mandíbula, com coque e risca do cabelo.
+
+Além disso entraram quatro camadas de forma que antes não existiam:
+
+- **O collant**, em cinza médio por cima da pele, que dá a segunda forma do corpo e tira o ar
+  de mancha branca.
+- **A saia com pregas**, que deixou de ser um triângulo e ganhou barra curva e cinco vincos.
+- **As sapatilhas de ponta**, com bloco terminando em plataforma reta e as fitas cruzadas no
+  tornozelo. A fita cruza ACIMA da emenda de propósito: na primeira tentativa ela cortava o
+  pé ao meio.
+- **Músculo nas pernas**, com a coxa cheia, o joelho marcado e a panturrilha estufando, em
+  vez do tubo de espessura constante.
+
+### Os símbolos viraram um sistema
+
+Antes eram cinco desenhos soltos. Agora há uma regra: **o que está no pé diz qual é a aula.**
+
+| Modalidade | Símbolo |
+|---|---|
+| Ballet clássico | Duas sapatilhas de ponta penduradas pelas fitas, com o laço |
+| Sapateado | Sapato de perfil com as chapas de metal e o som saindo |
+| Dança contemporânea | Pé descalço, que é como se dança contemporâneo |
+| Baby class | Uma bailarina pequena, de cabeça grande e braços redondos |
+| Jazz | A mão aberta, que é o gesto da modalidade |
+
+No "Segure a barra" os dois desenhos foram refeitos: a mão agora **agarra de verdade**, com
+antebraço, polegar e quatro dedos curvando na frente do trilho, e quem se solta é **a própria
+bailarina do início**, em arabesque. Os dois lugares passaram a falar a mesma língua.
+
+### Os cartões das diretoras
+
+Foto menor e ao lado do texto, então dá para olhar o rosto e ler quem é a pessoa ao mesmo
+tempo, sem rolar.
+
+### Dois defeitos que a identidade preto e branco tinha criado, e que esta rodada achou
+
+1. **O botão principal ficava preto sobre preto** nas seções escuras e sobre o herói, porque
+   o acento virou preto. Agora ele inverte: branco com texto preto no escuro, preto com texto
+   branco no claro. Medido nos três contextos, o pior caso de texto sobre botão dá 12,7:1.
+2. **Quarenta e cinco valores de cor quente sobrados** no CSS, em sombras, scrims e no fundo
+   da barra de navegação. Todos neutralizados. Restou um único valor levemente frio, que é
+   proposital.
+
+### O que esta rodada mediu
+
+Pior pixel atrás do texto do herói: 3,62:1 contra um piso de 3,5. Zero colisão entre texto,
+barra, bailarina e controles em nove tamanhos de tela. Zero erro de console, zero rolagem
+lateral, alvos de toque todos acima de 44px, os dois modos do herói corretos e o movimento
+reduzido honrado ao vivo nos dois sentidos. Peso da primeira visita: 247 KB, carregando em
+91ms, com as fotos entrando só quando a pessoa chega na seção delas.
