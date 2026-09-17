@@ -15,7 +15,7 @@ Todo texto marcado como verbatim vai para a página exatamente como está aqui.
 
 **Levantados por mim em fontes públicas, PRECISAM DA SUA CONFIRMAÇÃO antes de publicar:**
 - Recepção das 15h às 20h, de segunda a sexta
-- WhatsApp (13) 99184-6328
+- WhatsApp (13) 99184-6328  **CONFIRMADO PELO CLIENTE**
 - 31 anos na cidade, ou seja, fundada por volta de 1994
 - Direção das irmãs Cláudia Santana e Claudete Santana Lemos
 - Modalidades: ballet clássico, baby class, jazz, sapateado americano e irlandês, dança contemporânea
@@ -336,3 +336,44 @@ tempo a partir dela. Nenhuma linha foi cortada e a tela continua trocando sozinh
 Medido no navegador: momento 1 com 3s, momentos 2 e 3 com 6,0s cada, momento 4 com 3,0s, e o
 bloco final entrando aos 17,5s para descansar. Marcadores, pausa, os dois modos e o portão da
 escrita continuam passando.
+
+
+---
+
+## 12. A marca e os rostos entram
+
+O cliente mandou o logotipo e as fotos das duas diretoras. As três imagens chegaram como
+figura no chat, sem virar arquivo em disco, e foram recuperadas do próprio histórico da
+sessão, onde ficam guardadas em base64.
+
+**O logotipo.** Veio branco sobre fundo preto, 389x389. Em vez de recortar o fundo na mão,
+o alfa foi tirado da própria luminância: arte branca vira opaco, fundo preto vira
+transparente. O corte de preto teve que subir para 64 porque abaixo disso o ruído de
+compressão virava alfa fantasma e esticava a caixa da arte até a borda da imagem.
+
+O arquivo entra no site como **máscara CSS**, não como imagem colorida. Assim ele assume a
+cor de quem o contém: claro sobre o herói escuro, tinta escura quando a nav pousa no papel.
+Um arquivo só serve os dois estados.
+
+Dois recortes, por um motivo de legibilidade: a marca inteira é um lockup horizontal e some
+em 38px de altura, que é o tamanho de uma nav. Então **na nav vai só o símbolo** (o círculo
+com a bailarina na barra, que por sorte já é a premissa deste site desenhada), com o nome em
+tipografia ao lado. **A marca completa fica no rodapé**, a 192px, onde as palavras se leem.
+
+**As fotos.** As duas são recortes verticais de fotos de evento, com outras pessoas na
+borda e fundo de painel. Foram tratadas para lerem como um par: mesmo enquadramento de
+cabeça e ombros com folga em cima, mesma saturação puxada para baixo, mesmo contraste, e
+uma vinheta leve que apaga os cantos onde aparece gente de fora. O primeiro recorte cortava
+o topo da cabeça e foi refeito mais aberto.
+
+**O que ainda falta nessas fotos:** resolução. Claudete tem 586px de largura na origem, e o
+cartão a mostra com 538px, então não sobra nada para tela retina. Funciona, mas uma foto
+feita de propósito, na sala, faria diferença visível.
+
+**Uma linha por pessoa continua faltando.** Os dois cartões repetem a mesma frase porque é
+a única coisa que se sabe de fato sobre as duas. Uma linha de cada, com a especialidade de
+cada uma, resolve.
+
+**Imagem de compartilhamento.** A tag `og:image` apontava para um arquivo que não existia.
+Agora existe: o herói no repouso, capturado em 1200x630, que é o formato que as redes cortam.
+As URLs absolutas continuam esperando o endereço real, no comentário DEPLOY STEP.
