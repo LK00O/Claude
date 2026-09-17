@@ -740,31 +740,31 @@ body.pausado *,body.pausado *::before,body.pausado *::after{animation-play-state
     <!-- as faixas -->
     <div class="bandas" id="bandas">
 
-      <div class="banda" data-faixa="0,0.18" data-entrada="subir" data-ramp="0.034">
+      <div class="banda" data-faixa="0,0.18" data-segundos="3" data-entrada="subir" data-ramp="0.034">
         <p class="kicker">São Vicente, desde 1994</p>
         <h2 data-split="palavra">Toda bailarina começou sem saber.</h2>
         <p class="apoio">Inclusive as que você admira.</p>
       </div>
 
-      <div class="banda" data-faixa="0.20,0.42" data-entrada="deslizar" data-spread="0.5">
+      <div class="banda" data-faixa="0.20,0.42" data-segundos="6" data-entrada="deslizar" data-spread="0.5">
         <p class="kicker">A barra</p>
         <h2 data-split="caractere">Primeiro você se segura.</h2>
         <p class="apoio">Ninguém entra numa sala de dança sem medo. Por isso a primeira coisa que a gente ensina é onde colocar a mão.</p>
       </div>
 
-      <div class="banda" data-faixa="0.44,0.66" data-entrada="metades">
+      <div class="banda" data-faixa="0.44,0.66" data-segundos="6" data-entrada="metades">
         <p class="kicker">Do baby ao 40+</p>
         <h2 data-split="palavra">Depois você solta.</h2>
         <p class="apoio">Tem gente de 3 anos e gente de 45 na mesma casa. Cada uma na sua turma, cada uma no seu tempo.</p>
       </div>
 
-      <div class="banda" data-lado="esq" data-faixa="0.68,0.86" data-entrada="espalhar" data-spread="0.42">
+      <div class="banda" data-lado="esq" data-faixa="0.68,0.86" data-segundos="3" data-entrada="espalhar" data-spread="0.42">
         <p class="kicker">31 anos</p>
         <h2 data-split="caractere">E um dia você dança.</h2>
         <p class="apoio">Três décadas formando gente em São Vicente.</p>
       </div>
 
-      <div class="banda banda-settle" data-faixa="0.88,1" data-entrada="chegada" data-ramp="0.05">
+      <div class="banda banda-settle" data-faixa="0.88,1" data-segundos="3" data-entrada="chegada" data-ramp="0.05">
         <h2 data-split="palavra">Santana Academia</h2>
         <p class="apoio">Ballet, jazz, sapateado e dança contemporânea. R. Ipiranga, 76, Centro, São Vicente.</p>
         <div class="botoes">
@@ -1295,10 +1295,26 @@ function aplicar(p){
    A travessia anda sozinha. Cada momento fica parado 2,1s e leva 0,9s para
    virar o próximo, então muda a cada 3 segundos, e muda gradualmente.
    ============================================================ */
-var ABERTURA_MS = 1100, BEAT_MS = 3000, TRANSICAO_MS = 900;
+var ABERTURA_MS = 1100, TRANSICAO_MS = 900;
 var centros = bandas.map(function(d){ return (d.a + d.b) / 2; });
 var ULTIMO = centros.length - 1;
-var FIM_MS = ABERTURA_MS + ULTIMO * BEAT_MS;
+
+/* Cada momento fica no ar pelo tempo que o texto DELE pede, declarado no HTML.
+   Os dois momentos longos carregam mais de 20 palavras cada: em 3 segundos
+   ninguém lê a linha de apoio, medido em leitura cuidadosa de português. */
+var DURACOES = bandas.map(function(d){ return (parseFloat(d.el.dataset.segundos) || 3) * 1000; });
+var INICIOS = [];
+(function(){
+  var acc = ABERTURA_MS;
+  for (var i = 0; i < DURACOES.length; i++){ INICIOS.push(acc); acc += DURACOES[i]; }
+})();
+var FIM_MS = INICIOS[ULTIMO];   /* o último momento não tem duração: ele descansa */
+
+function beatEm(t){
+  var i = 0;
+  while (i < ULTIMO && t >= INICIOS[i + 1]) i++;
+  return i;
+}
 
 var relogio = 0, ultimoQuadro = 0, rafId = null;
 var pausado = false, heroNaTela = true, ligado = false;
@@ -1306,20 +1322,21 @@ var suave = function(f){ return f * f * (3 - 2 * f); };
 
 function pNoTempo(t){
   if (t <= ABERTURA_MS) return primeira.a + (centros[0] - primeira.a) * suave(Math.min(1, t / ABERTURA_MS));
-  var t2 = t - ABERTURA_MS;
-  var i = Math.floor(t2 / BEAT_MS);
-  if (i >= ULTIMO) return centros[ULTIMO];
-  var dentro = t2 - i * BEAT_MS;
-  var inicio = BEAT_MS - TRANSICAO_MS;
+  if (t >= FIM_MS) return centros[ULTIMO];
+  var i = beatEm(t);
+  var dentro = t - INICIOS[i];
+  var inicio = DURACOES[i] - TRANSICAO_MS;
   if (dentro < inicio) return centros[i];
   return centros[i] + (centros[i + 1] - centros[i]) * suave((dentro - inicio) / TRANSICAO_MS);
 }
 
 function beatNoTempo(t){
   if (t <= ABERTURA_MS) return 0;
+  if (t >= FIM_MS) return ULTIMO;
+  var i = beatEm(t);
   /* o marcador vira no MEIO da transição, não antes dela: senão o ponto acende
      enquanto o texto anterior ainda está na tela */
-  return Math.min(ULTIMO, Math.floor((t - ABERTURA_MS + TRANSICAO_MS / 2) / BEAT_MS));
+  return (t - INICIOS[i]) >= (DURACOES[i] - TRANSICAO_MS / 2) ? Math.min(ULTIMO, i + 1) : i;
 }
 
 var beatMarcado = -1;
@@ -1362,7 +1379,7 @@ function pintarAgora(){
 }
 
 function irParaBeat(i){
-  relogio = i === 0 ? ABERTURA_MS : ABERTURA_MS + i * BEAT_MS;
+  relogio = INICIOS[i];
   pintarAgora();
   acordar();
 }

@@ -328,6 +328,11 @@ Os momentos 2 e 3 têm 26 e 25 palavras. Numa leitura cuidadosa em português, i
 de **8 segundos**, e o beat dura 3. Quem chegar no meio deles vai pegar o título e perder a
 linha de apoio. Os outros três momentos cabem em 3 segundos com folga.
 
-Três saídas, e a escolha é do cliente: aumentar o intervalo para 6 segundos, cortar as duas
-linhas longas pela metade, ou dar 3 segundos aos momentos curtos e 6 aos dois longos. A
-terceira mantém o pedido de pé e resolve o problema inteiro.
+Três saídas foram apresentadas ao cliente, que escolheu a terceira: **cada momento fica no ar
+pelo tempo que o texto dele pede.** Os três curtos ficam 3 segundos, os dois longos ficam 6.
+A duração é declarada no HTML de cada faixa, em `data-segundos`, e o relógio monta a linha do
+tempo a partir dela. Nenhuma linha foi cortada e a tela continua trocando sozinha.
+
+Medido no navegador: momento 1 com 3s, momentos 2 e 3 com 6,0s cada, momento 4 com 3,0s, e o
+bloco final entrando aos 17,5s para descansar. Marcadores, pausa, os dois modos e o portão da
+escrita continuam passando.
