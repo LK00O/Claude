@@ -54,6 +54,11 @@ end
 -------------------------------------------------------------------------------
 local HANDOFF_READ_ATTEMPTS = 10 -- tentativas de ler o handoff no MemoryStore
 local HANDOFF_RETRY_DELAY = 1 -- segundos entre as tentativas
+-- Leitura do save do time no Init: cada rodada chama DataService.LoadRun (que já tenta 3 vezes).
+-- Entre as rodadas esperamos TEAM_LOAD_RETRY_DELAY * número da rodada (2 s, 4 s, 6 s...).
+-- Esperar aqui é barato: nenhum jogador é aceito antes do Start.
+local TEAM_LOAD_ROUNDS = 4
+local TEAM_LOAD_RETRY_DELAY = 2
 local FIRST_PLAYER_TIMEOUT = 60 -- quanto esperar o 1º jogador quando não há handoff
 local INCOME_WINDOW = 10 -- janela (s) da média móvel da renda por segundo
 local TEAM_LIST_INTERVAL = 1 -- TeamList a 1 Hz
@@ -99,7 +104,11 @@ MatchService.CoinsAdded = Signal.new() -- (player, amount, source)
 MatchService.RunReady = Signal.new() -- (player, run)
 
 -- Estado privado.
-local bounceEveryone = false -- true num servidor público do place de partida (todo mundo volta ao lobby)
+-- true = todo mundo que entrar volta ao lobby: servidor público do place de partida, ou
+-- partida cujo save do time não conseguimos ler no Init (ver o passo 4 do Init).
+local bounceEveryone = false
+-- Aviso mostrado (e usado no Kick, se o teleporte falhar) para quem é mandado de volta.
+local bounceMessage = "Este servidor não é uma partida. Voltando para o lobby..."
 local accepted = {} -- [player] = true  (jogadores aceitos e presentes)
 local joinOrder = {} -- {userId} na ordem em que entraram (sem repetir)
 local playerTroves = {} -- [player] = Trove (conexões do jogador)
@@ -114,9 +123,6 @@ local actCompleted = false -- ato concluído: para de salvar o run (ele foi apag
 -- voltou pelo "Reconectar") e achamos o save gravado por esta mesma partida: os runs são
 -- restaurados como no "continuar partida", em vez de começar do zero.
 local resumingSameMatch = false
--- true = deu erro ao LER o save do time no Init. Enquanto for true, não gravamos o save do
--- time (senão um time vazio apagaria um save que só não conseguimos ler).
-local teamSaveBlocked = false
 local runReadyPlayers = {} -- [player] = true (o run dele já foi criado e enviado nesta entrada)
 local startedAt = 0
 local lastTeamListKey = nil
@@ -291,19 +297,31 @@ local function getRunKey()
 	return "Run_" .. tostring(hostUserId) .. "_" .. MatchService.MapId
 end
 
--- O retrato (save do time ou profile.RunData) foi gravado DEPOIS que esta partida foi criada?
+-- "Identidade" desta partida: o PrivateServerId do servidor reservado. Cada partida criada
+-- pelo lobby (TravelService.SendToNewMatch -> ReserveServer) ganha um PrivateServerId NOVO,
+-- e ele continua o mesmo se o servidor fechar e for aberto de novo pelo "Reconectar"
+-- (mesmo código de acesso). nil no Studio (lá não existe servidor reservado).
+local function getMatchServerId()
+	local handoff = MatchService.Handoff
+	local id = handoff and handoff.PrivateServerId
+	if type(id) == "string" and id ~= "" then
+		return id
+	end
+	return nil
+end
+
+-- O retrato (save do time ou profile.RunData) foi gravado por ESTA partida?
 -- Um servidor reservado que fechou pode ser aberto de novo com o mesmo código de acesso
 -- (botão "Reconectar"): o Roblox cria uma instância nova, com o mesmo PrivateServerId, que
--- lê o MESMO handoff do MemoryStore (com o Resume original). O handoff.CreatedAt é a hora
--- em que o lobby criou esta partida, e todo save guarda SavedAt: se SavedAt >= CreatedAt,
--- o save é o progresso desta partida (ou um mais novo do mesmo dono e mapa) e não um antigo.
+-- lê o MESMO handoff do MemoryStore (com o Resume original).
+-- Todo save guarda MatchServerId (ver runSnapshot e buildTeamSave). Antes comparávamos só
+-- as horas (SavedAt >= handoff.CreatedAt), mas a chave "Run_<host>_<mapa>" é dividida por
+-- TODAS as partidas daquele dono naquele mapa: um save de outra partida ainda rodando (ou
+-- de uma mais nova) também passava no teste e era restaurado no lugar errado. Comparar o
+-- id do servidor não tem esse problema (e nem depende do relógio de dois servidores).
 local function isSavedByThisMatch(snapshot)
-	local handoff = MatchService.Handoff
-	local createdAt = handoff and handoff.CreatedAt
-	return type(snapshot) == "table"
-		and isFiniteNumber(createdAt)
-		and isFiniteNumber(snapshot.SavedAt)
-		and snapshot.SavedAt >= createdAt
+	local matchServerId = getMatchServerId()
+	return type(snapshot) == "table" and matchServerId ~= nil and snapshot.MatchServerId == matchServerId
 end
 
 -------------------------------------------------------------------------------
@@ -468,6 +486,7 @@ end
 -------------------------------------------------------------------------------
 
 -- Retrato do run de um jogador (formato de profile.RunData[mapId], seção 4.2).
+-- MatchServerId (extra) diz qual partida gravou o retrato: ver isSavedByThisMatch.
 local function runSnapshot(run)
 	return {
 		HostUserId = MatchService.GetHostUserId(),
@@ -475,6 +494,7 @@ local function runSnapshot(run)
 		Upgrades = table.clone(run.Upgrades),
 		Ingredients = table.clone(run.Ingredients),
 		SavedAt = os.time(),
+		MatchServerId = getMatchServerId(),
 	}
 end
 
@@ -496,6 +516,8 @@ local function buildTeamSave()
 		MapId = MatchService.MapId,
 		HostUserId = MatchService.GetHostUserId(),
 		SavedAt = os.time(),
+		-- Qual partida gravou este save (o "Reconectar" só restaura o save da própria partida).
+		MatchServerId = getMatchServerId(),
 		Team = {
 			Upgrades = table.clone(team.Upgrades),
 			ShelfLevel = team.ShelfLevel,
@@ -548,6 +570,28 @@ local function applyTeamSave(saved)
 			end
 		end
 	end
+end
+
+-- Lê o save do time (usado no Init), com várias rodadas de tentativas.
+-- Devolve (true, saveOuNil) quando a leitura funcionou (nil = não existe save), ou
+-- (false, nil) quando o DataStore falhou em todas as rodadas.
+local function loadTeamSaveWithRetry(key)
+	for round = 1, TEAM_LOAD_ROUNDS do
+		-- LoadRun devolve (nil, "error") quando o DataStore falhou (diferente de "não existe save").
+		local okLoad, saved, loadError = pcall(DataService.LoadRun, key)
+		if okLoad and loadError == nil then
+			return true, saved
+		end
+		warn(("[MatchService] Falha ao carregar a partida salva (rodada %d/%d): %s"):format(
+			round,
+			TEAM_LOAD_ROUNDS,
+			tostring(if okLoad then loadError else saved)
+		))
+		if round < TEAM_LOAD_ROUNDS then
+			task.wait(TEAM_LOAD_RETRY_DELAY * round)
+		end
+	end
+	return false, nil
 end
 
 -- Copia o run do jogador para profile.RunData[mapId] (o DataService salva o perfil).
@@ -897,9 +941,10 @@ local function onPlayerAdded(player)
 	local trove = Trove.new()
 	playerTroves[player] = trove
 
-	-- Servidor público do place de partida: todo mundo volta ao lobby.
+	-- Servidor público do place de partida (ou save do time que não conseguimos ler):
+	-- todo mundo volta ao lobby, com o aviso certo para cada caso.
 	if bounceEveryone then
-		sendBackToLobby(player, "Este servidor não é uma partida. Voltando para o lobby...")
+		sendBackToLobby(player, bounceMessage)
 		return
 	end
 
@@ -1155,22 +1200,6 @@ function MatchService.GetCoins(player)
 	return run and run.Coins or 0
 end
 
--- Chamado pelo SaveAll quando o Init não conseguiu ler o save do time (teamSaveBlocked).
--- Lê de novo e só libera a gravação quando é seguro: não existe save, ou ele é de outra
--- partida e esta começou do zero de propósito. Se existe um save que esta partida deveria
--- ter carregado ("continuar" ou "Reconectar"), nunca gravamos por cima dele.
-local function retryBlockedTeamSave(key)
-	local okLoad, saved, loadError = pcall(DataService.LoadRun, key)
-	if not okLoad or loadError ~= nil then
-		return false -- o DataStore ainda está falhando: continua sem gravar
-	end
-	if saved ~= nil and (MatchService.Handoff.Resume or isSavedByThisMatch(saved)) then
-		return false
-	end
-	teamSaveBlocked = false
-	return true
-end
-
 -- Salva o time (DataService.SaveRun), copia os runs para os perfis e marca
 -- RunSaves[mapa] no perfil do dono (para o lobby oferecer "Continuar").
 function MatchService.SaveAll()
@@ -1186,11 +1215,6 @@ function MatchService.SaveAll()
 		if player.Parent == Players then
 			syncRunToProfile(player)
 		end
-	end
-
-	-- O Init não conseguiu ler o save do time: tenta ler de novo antes de gravar por cima.
-	if teamSaveBlocked and not retryBlockedTeamSave(key) then
-		return false
 	end
 
 	local hostPlayer = Players:GetPlayerByUserId(MatchService.GetHostUserId())
@@ -1374,17 +1398,21 @@ function MatchService.Init()
 	--      porque este pode ser o mesmo servidor reservado aberto de novo pelo "Reconectar"
 	--      (todos saíram, ele fechou, e o handoff do MemoryStore ainda diz Resume = false).
 	--      Se o save foi gravado por esta partida (isSavedByThisMatch), restauramos tudo;
-	--      senão é um save antigo e a partida começa do zero, como antes.
+	--      senão é um save de outra partida e esta começa do zero, como antes.
 	if not bounceEveryone and (handoff.Resume or handoff.CreatedAt ~= nil) then
 		local key = getRunKey()
 		if key then
-			-- LoadRun devolve (nil, "error") quando o DataStore falhou (diferente de "não existe save").
-			local okLoad, saved, loadError = pcall(DataService.LoadRun, key)
-			if not okLoad or loadError ~= nil then
-				-- Não conseguimos LER o save: não sabemos o que tem lá. Para não apagar um
-				-- progresso bom com um time vazio, o SaveAll não grava por cima até conseguir ler.
-				teamSaveBlocked = true
-				warn("[MatchService] Falha ao carregar a partida salva: " .. tostring(if okLoad then loadError else saved))
+			local loaded, saved = loadTeamSaveWithRetry(key)
+			if not loaded then
+				-- Nem tentando várias vezes conseguimos LER o save: não sabemos o que tem lá.
+				-- Deixar jogar assim seria ruim de qualquer jeito: com um time vazio, gravar apagaria um
+				-- progresso bom; e sem gravar, tudo o que o time fizesse nesta sessão se perderia
+				-- sem ninguém saber. Então todo mundo volta ao lobby com um aviso claro e pode
+				-- tentar de novo ("Continuar"/"Reconectar"). Com bounceEveryone = true o SaveAll
+				-- e o syncRunToProfile não gravam nada, então nenhum save é tocado.
+				bounceEveryone = true
+				bounceMessage = "Não foi possível carregar a partida salva. Tente de novo em instantes. Voltando para o lobby..."
+				warn("[MatchService] Save do time ilegível; mandando os jogadores de volta ao lobby.")
 			elseif saved ~= nil then
 				if handoff.Resume then
 					applyTeamSave(saved)
