@@ -203,6 +203,26 @@ local function getTurretsFolder()
 	return folder
 end
 
+-- Partes auxiliares invisíveis do mapa (zonas de torreta e área do campo).
+local function getHelperParts()
+	local ctx = getContext()
+	local list = {}
+	if not ctx then
+		return list
+	end
+	if type(ctx.TurretZones) == "table" then
+		for _, zone in ipairs(ctx.TurretZones) do
+			if typeof(zone) == "Instance" and zone:IsA("BasePart") then
+				table.insert(list, zone)
+			end
+		end
+	end
+	if typeof(ctx.FieldArea) == "Instance" and ctx.FieldArea:IsA("BasePart") then
+		table.insert(list, ctx.FieldArea)
+	end
+	return list
+end
+
 -- Lista de coisas que os raios (chão e linha de visão) devem ignorar.
 local function buildExcludeList()
 	local list = { getTurretsFolder() }
@@ -220,12 +240,28 @@ local function buildExcludeList()
 	return list
 end
 
--- Parâmetros de raycast que só batem em coisas sólidas (chão, pedras, paredes).
+-- Raio do CHÃO: só bate em coisas sólidas (CanCollide = true: chão, pedras, paredes).
+-- As zonas invisíveis e a área do campo são ignoradas mesmo se alguém ligar a colisão delas.
 local function buildRaycastParams()
+	local list = buildExcludeList()
+	for _, part in ipairs(getHelperParts()) do
+		table.insert(list, part)
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = list
+	params.RespectCanCollide = true
+	params.IgnoreWater = true
+	return params
+end
+
+-- Raio da LINHA DE VISÃO: usa CanQuery, igual às balas dos jogadores (seção 7.3).
+-- Assim cercas e decoração baixa (CanQuery = false) não atrapalham a mira das torretas.
+local function buildSightParams()
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = buildExcludeList()
-	params.RespectCanCollide = true
+	params.RespectCanCollide = false
 	params.IgnoreWater = true
 	return params
 end
@@ -449,8 +485,9 @@ local function getRecallSpot(index, params)
 	else
 		-- Mapa sem pads: círculo em volta do ponto de nascimento.
 		local center = Vector3.zero
-		if ctx and ctx.SpawnLocation and ctx.SpawnLocation:IsA("BasePart") then
-			center = ctx.SpawnLocation.Position
+		local spawn = ctx and ctx.SpawnLocation
+		if typeof(spawn) == "Instance" and spawn:IsA("BasePart") then
+			center = spawn.Position
 		end
 		local angle = (index - 1) * (2 * math.pi / 10)
 		position = center + Vector3.new(math.cos(angle), 0, math.sin(angle)) * FALLBACK_RECALL_RADIUS
@@ -955,7 +992,7 @@ local function fireTick()
 		Interval = 1 / fireRate,
 		Accuracy = math.clamp(statNumber(stats, "TurretAccuracy", 0), 0, 1),
 		Slow = math.clamp(statNumber(stats, "TurretSlow", 0), 0, 0.95),
-		Params = buildRaycastParams(),
+		Params = buildSightParams(),
 		BrainrotService = Svc("BrainrotService"),
 	}
 

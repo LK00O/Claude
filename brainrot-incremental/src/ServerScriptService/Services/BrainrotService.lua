@@ -82,6 +82,7 @@ local FOOTPRINT_RADIUS = 1.6 -- "raio" aproximado de um brainrot em escala 1 (st
 local GROUND_RAY_ABOVE = 30 -- começa 30 studs acima do topo do campo
 local GROUND_RAY_EXTRA = 80 -- e desce mais 80 abaixo dele
 local GROUND_MAX_ABOVE_FIELD = 20 -- ignora "chão" muito alto (copa de árvore, telhado)
+local GROUND_MAX_ABOVE_BASE = 10 -- e também o que fica mais de 10 studs acima de ctx.GroundY
 local MIN_GROUND_NORMAL_Y = 0.6 -- ignora superfícies íngremes demais
 local WALK_RAY_UP = 6 -- brainrot andando: procura o chão perto dos pés
 local WALK_RAY_DOWN = 20
@@ -309,15 +310,20 @@ local function findSpawnGround(ctx, field, point)
 	local top = fieldTop(field)
 	local origin = Vector3.new(point.X, top + GROUND_RAY_ABOVE, point.Z)
 	local direction = Vector3.new(0, -(GROUND_RAY_ABOVE + field.Size.Y + GROUND_RAY_EXTRA), 0)
+	local hasGroundY = ctx ~= nil and isFiniteNumber(ctx.GroundY)
 	local result = workspace:Raycast(origin, direction, groundParams)
 	if result then
 		if result.Normal.Y < MIN_GROUND_NORMAL_Y or result.Position.Y > top + GROUND_MAX_ABOVE_FIELD then
 			return nil -- parede, telhado, copa de árvore...
 		end
+		-- Muito acima do chão do mapa (galho de pinheiro, topo de pedra alta): tenta outro lugar.
+		if hasGroundY and result.Position.Y > ctx.GroundY + GROUND_MAX_ABOVE_BASE then
+			return nil
+		end
 		return result.Position
 	end
 	-- Nada embaixo: usa a altura do chão do mapa (ou a base da FieldArea).
-	local groundY = if ctx and isFiniteNumber(ctx.GroundY) then ctx.GroundY else field.Position.Y - field.Size.Y / 2
+	local groundY = if hasGroundY then ctx.GroundY else field.Position.Y - field.Size.Y / 2
 	return Vector3.new(point.X, groundY, point.Z)
 end
 
@@ -673,6 +679,7 @@ local function createEntity(def, options, env)
 		Billboard = nil,
 		CoinValue = 0,
 		-- Campos internos deste serviço:
+		BurnTickAt = env.Now, -- até quando a queimadura já foi cobrada
 		Facing = options.Facing,
 		FootprintRadius = footprintRadius(def, options.TargetSize),
 		HueOffset = rng:NextNumber(),
@@ -927,6 +934,9 @@ function BrainrotService.Damage(entity, amount, attacker, info)
 		BrainrotService.Kill(entity, killer, info)
 		return dealt, true
 	end
+
+	-- Atualiza a barra na hora (sem esperar o próximo tique do laço de 5 Hz).
+	updateBillboard(entity)
 	return dealt, false
 end
 
@@ -953,10 +963,13 @@ function BrainrotService.Ignite(entity, dps, duration)
 		return
 	end
 	local t = now()
-	if entity.BurnUntil > t then
+	if entity.BurnUntil > t and entity.BurnDps > 0 then
+		-- Já está queimando: fica com a queimadura mais forte (a cobrança continua de onde parou).
 		entity.BurnDps = math.max(entity.BurnDps, dps)
 	else
+		-- Começa a queimar agora: a cobrança do laço conta a partir deste instante.
 		entity.BurnDps = dps
+		entity.BurnTickAt = t
 	end
 	entity.BurnUntil = math.max(entity.BurnUntil, t + duration)
 	setStatusEmitter(entity, "BurnParticles", true, FIRE_TEXTURE, BURN_COLOR, true)
@@ -1162,13 +1175,17 @@ local function updateEntity(entity, env)
 	local model = entity.Model
 
 	-- 1. Crescimento (ease-out: rápido no começo, devagar no fim).
+	-- "needsPivot" = o modelo precisa ser recolocado na posição (depois de escalar ou andar).
+	local needsPivot = false
 	if entity.SizeFactor ~= entity.TargetSize then
 		local progress = math.clamp((t - entity.GrowStart) / entity.GrowDuration, 0, 1)
 		local eased = 1 - (1 - progress) ^ 3
 		entity.SizeFactor = if progress >= 1
 			then entity.TargetSize
 			else entity.StartSize + (entity.TargetSize - entity.StartSize) * eased
-		applyScale(entity)
+		-- ScaleTo cresce em volta do pivô (centro da base); o PivotTo logo abaixo
+		-- garante que os pés continuam exatamente em entity.Position (no chão).
+		needsPivot = applyScale(entity)
 	end
 
 	-- 2. Vida máxima acompanha o tamanho (e o número de jogadores), mantendo a fração.
@@ -1179,9 +1196,12 @@ local function updateEntity(entity, env)
 		* Formulas.EnchantCoinMult(entity.Enchant, env.MapId, env.EnchantPower)
 		* env.CoinMult
 
-	-- 3. Queimadura (só a parte do intervalo que ainda estava pegando fogo).
+	-- 3. Queimadura: cobra só o tempo que realmente pegou fogo desde a última cobrança
+	--    (BurnTickAt), sem passar do fim da queimadura (BurnUntil).
 	if entity.BurnDps > 0 then
-		local burnSeconds = math.clamp(entity.BurnUntil - (t - env.Dt), 0, env.Dt)
+		local burnEnd = math.min(t, entity.BurnUntil)
+		local burnSeconds = math.max(0, burnEnd - (entity.BurnTickAt or burnEnd))
+		entity.BurnTickAt = burnEnd
 		if burnSeconds > 0 then
 			local _, killed = BrainrotService.Damage(
 				entity,
@@ -1207,7 +1227,6 @@ local function updateEntity(entity, env)
 	end
 
 	-- 5. Atração: Alto ou Gigante anda até o jogador mais perto, sem sair do campo.
-	local moved = false
 	if env.AttractOn and env.Field and (entity.Def.Tier == "High" or entity.Giant) and #env.Roots > 0 then
 		local nearest, bestDistance = nil, math.huge
 		for _, root in ipairs(env.Roots) do
@@ -1231,11 +1250,13 @@ local function updateEntity(entity, env)
 			then
 				entity.Position = findWalkGround(candidate)
 				entity.Facing = direction
-				moved = true
+				needsPivot = true
 			end
 		end
 	end
-	if moved then
+	-- Pivô = centro da base: colocar o pivô em Position deixa o brainrot em pé no chão,
+	-- virado para "Facing".
+	if needsPivot then
 		model:PivotTo(CFrame.lookAt(entity.Position, entity.Position + entity.Facing))
 	end
 

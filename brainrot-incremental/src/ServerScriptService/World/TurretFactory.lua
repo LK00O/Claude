@@ -78,9 +78,23 @@ local function makePart(className, props)
 	part.CanCollide = false
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
-	part.CollisionGroup = COLLISION_GROUP
+	-- O grupo "Turrets" é registrado pelo Main; o pcall evita erro se ainda não existir
+	-- (por exemplo, ao testar a fábrica sozinha no Studio).
+	pcall(function()
+		part.CollisionGroup = COLLISION_GROUP
+	end)
+	-- A forma vem primeiro: trocar Shape depois do Size pode "corrigir" o tamanho sozinho.
+	if props.Shape ~= nil then
+		part.Shape = props.Shape
+	end
+	-- O CFrame vem por último, depois do tamanho (a ordem do pairs não é garantida).
 	for key, value in pairs(props) do
-		part[key] = value
+		if key ~= "Shape" and key ~= "CFrame" then
+			part[key] = value
+		end
+	end
+	if props.CFrame ~= nil then
+		part.CFrame = props.CFrame
 	end
 	return part
 end

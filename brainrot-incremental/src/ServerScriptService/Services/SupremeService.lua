@@ -449,6 +449,13 @@ local function completeAct(attempt)
 	)
 	if attempt < COMPLETE_MAX_ATTEMPTS then
 		task.delay(COMPLETE_RETRY_DELAY, completeAct, attempt + 1)
+	else
+		-- Desistiu de levar todos juntos: cada um ainda pode voltar pelo botão do HUD.
+		StateService.NotifyAll(
+			"Não foi possível voltar ao lobby automaticamente. Use o botão \"Voltar ao lobby\".",
+			"error",
+			10
+		)
 	end
 end
 

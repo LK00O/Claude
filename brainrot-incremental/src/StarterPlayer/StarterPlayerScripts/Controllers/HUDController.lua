@@ -84,6 +84,8 @@ local RIGHT_WIDTH = 268 -- coluna da direita (botões e time)
 local BOTTOM_WIDTH = 500 -- faixa de baixo (portal e Supremo)
 local PANEL_TRANSPARENCY = 0.18
 
+local SUPREME_BUTTON_WIDTH = 104 -- botão "Alimentar" ao lado da barra do Supremo
+
 local QUEST_ACTIVE_HEIGHT = 100
 local QUEST_IDLE_HEIGHT = 40
 local TEAM_MAX_ROWS = 8 -- limite de jogadores por partida (Config.Lobby.MaxPlayersLimit)
@@ -943,7 +945,7 @@ local function buildBottom(root)
 		end
 	end)
 
-	-- Barra do Supremo (Deserto).
+	-- Barra do Supremo (Deserto), com um atalho para a janela de alimentar.
 	local supreme = makePanel("Supreme", UDim2.new(1, 0, 0, 58), stack, 2)
 	supreme.Visible = false
 	ui.SupremeCard = supreme
@@ -952,7 +954,7 @@ local function buildBottom(root)
 		Text = "Tamanho do Supremo",
 		Font = Theme.TitleFont,
 		Position = UDim2.fromOffset(14, 4),
-		Size = UDim2.new(1, -28, 0, 20),
+		Size = UDim2.new(1, -(28 + SUPREME_BUTTON_WIDTH + 10), 0, 20),
 		TextSize = 17,
 		Color = Theme.Rare,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -961,10 +963,20 @@ local function buildBottom(root)
 	ui.SupremeBar = UIKit.ProgressBar(supreme, {
 		Name = "Bar",
 		Position = UDim2.fromOffset(14, 28),
-		Size = UDim2.new(1, -28, 0, 22),
+		Size = UDim2.new(1, -(28 + SUPREME_BUTTON_WIDTH + 10), 0, 22),
 		Color = Color3.fromRGB(255, 150, 60),
 		TextSize = 15,
 	})
+	UIKit.Button({
+		Name = "Feed",
+		Text = "Alimentar",
+		Color = Theme.Warning,
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -10, 0.5, 0),
+		Size = UDim2.fromOffset(SUPREME_BUTTON_WIDTH, 40),
+		TextSize = 18,
+		Parent = supreme,
+	}, openSupreme)
 end
 
 -- Posiciona as colunas logo abaixo da barra do Roblox (a altura dela muda por aparelho).
@@ -1434,10 +1446,18 @@ local function refreshButtonHints()
 	if not ui.TurretButton then
 		return
 	end
+	-- Contagem de torretas do time ("2/5"), quando já dá para ter alguma.
+	local turrets = StateController.Get("Turrets")
+	local placed = type(turrets) == "table" and math.max(0, math.floor(num(turrets.Placed, 0))) or 0
+	local max = type(turrets) == "table" and math.max(0, math.floor(num(turrets.Max, 0))) or 0
+	local count = if max > 0 then (" %d/%d"):format(placed, max) else ""
+
 	if isGamepad() then
-		ui.TurretButton.Text = "Torreta (Y)"
+		ui.TurretButton.Text = "Torreta" .. count .. " (Y)"
 	elseif isKeyboardMouse() and not isKeyUsedByAction(TURRET_KEY) then
-		ui.TurretButton.Text = "Torreta (T)"
+		ui.TurretButton.Text = "Torreta" .. count .. " (T)"
+	elseif count ~= "" then
+		ui.TurretButton.Text = "Torreta" .. count
 	else
 		ui.TurretButton.Text = "Colocar torreta"
 	end
@@ -1585,6 +1605,7 @@ function HUDController.Start()
 		updateBoard(workspace:GetServerTimeNow())
 	end))
 	trove:Add(StateController.OnChanged("Profile", refreshButtonHints))
+	trove:Add(StateController.OnChanged("Turrets", refreshButtonHints))
 	trove:Add(StateController.StatsChanged:Connect(refreshHeat))
 	trove:Add(UIKit.ModalChanged:Connect(refreshCrosshair))
 	trove:Connect(UserInputService.LastInputTypeChanged, refreshButtonHints)

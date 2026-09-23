@@ -60,6 +60,12 @@ local SPIN_SPEED = 8 -- giro aleatório (rad/s) ao cair
 local PICKUP_VERTICAL_RANGE = 6 -- diferença de altura aceita entre o jogador e a moeda
 local FALL_LIMIT = 25 -- abaixo do chão mais que isso = caiu do mapa; volta para o ponto de queda
 local POPUP_HEIGHT = 2 -- altura do número flutuante acima do jogador (coleta automática)
+local SETTLE_SPEED = 1.5 -- abaixo desta velocidade (studs/s) a moeda "parou" e pode ser ancorada
+local SETTLE_MAX_EXTRA = 2 -- se ainda estiver rolando/caindo, espera no máximo mais 2 s e ancora
+-- O "corpo" do personagem, medido a partir do HumanoidRootPart: dos pés até a cabeça.
+-- Usado para medir o alcance do ímã até o jogador (e não até o centro do tronco).
+local BODY_BELOW_ROOT = 3.5
+local BODY_ABOVE_ROOT = 2
 
 -------------------------------------------------------------------------------
 -- Estado
@@ -379,11 +385,25 @@ local function isInPickupRange(rootPosition, coinPosition, radius)
 	return dx * dx + dz * dz <= radius * radius and math.abs(rootPosition.Y - coinPosition.Y) <= PICKUP_VERTICAL_RANGE
 end
 
--- Jogador mais perto da posição (distância 3D). "withinMagnet" = só quem tem ímã alcançando.
+-- Distância da moeda até o corpo do jogador (um segmento vertical dos pés até a cabeça).
+-- Assim uma moeda no chão, bem ao lado do jogador, conta pela distância no plano.
+local function distanceToBody(rootPosition, position)
+	local dx = rootPosition.X - position.X
+	local dz = rootPosition.Z - position.Z
+	local dy = 0
+	if position.Y < rootPosition.Y - BODY_BELOW_ROOT then
+		dy = rootPosition.Y - BODY_BELOW_ROOT - position.Y
+	elseif position.Y > rootPosition.Y + BODY_ABOVE_ROOT then
+		dy = position.Y - rootPosition.Y - BODY_ABOVE_ROOT
+	end
+	return math.sqrt(dx * dx + dy * dy + dz * dz)
+end
+
+-- Jogador mais perto da posição. "withinMagnet" = só quem tem ímã alcançando a moeda.
 local function nearestCollector(collectors, position, withinMagnet)
 	local best, bestDistance = nil, math.huge
 	for _, collector in ipairs(collectors) do
-		local distance = (collector.Position - position).Magnitude
+		local distance = distanceToBody(collector.Position, position)
 		if distance < bestDistance and (not withinMagnet or (collector.Magnet > 0 and distance <= collector.Magnet)) then
 			best, bestDistance = collector, distance
 		end
@@ -438,9 +458,14 @@ local function tick(dt)
 		if not part.Parent then
 			remove = true -- foi destruída por fora (ex.: caiu abaixo do FallenPartsDestroyHeight)
 		else
-			-- 1. Assentou: ancora (economiza física).
+			-- 1. Assentou: ancora (economiza física). Depois de SettleTime, ancora assim que
+			--    a moeda parar; se ainda estiver caindo/rolando, espera no máximo SETTLE_MAX_EXTRA
+			--    (evita congelar a moeda no ar se ela caiu de um lugar alto).
 			if not coin.Anchored and t >= coin.SettleAt then
-				anchorCoin(coin)
+				local speed = part.AssemblyLinearVelocity.Magnitude
+				if speed <= SETTLE_SPEED or t >= coin.SettleAt + SETTLE_MAX_EXTRA then
+					anchorCoin(coin)
+				end
 			end
 			local position = part.Position
 

@@ -29,6 +29,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local Util = Shared:WaitForChild("Util")
 
+local GameConfig = require(Config:WaitForChild("Game"))
 local Maps = require(Config:WaitForChild("Maps"))
 local Upgrades = require(Config:WaitForChild("Upgrades"))
 local StatsConfig = require(Config:WaitForChild("Stats"))
@@ -153,23 +154,46 @@ end
 
 -- Espelho no cliente de UpgradeService.IsShelfMaxed(shelf): todos os upgrades do mapa
 -- (de barracas que existem no mapa) com Shelf <= shelf estão no máximo.
--- Upgrades "Player" são conferidos só com os níveis DESTE jogador (o cliente não vê os
--- níveis dos outros), uma aproximação da regra Config.Game.WeaponMaxRule.
--- Devolve (tudoMaxado, listaDosQueFaltam).
+-- O cliente só enxerga os níveis DESTE jogador nos upgrades "Player". Com a regra
+-- Config.Game.WeaponMaxRule = "AnyPlayer", basta ALGUÉM do time ter maxado; então um
+-- upgrade "Player" que você não maxou não bloqueia o botão (o servidor confere de verdade).
+-- Devolve (podeTentar, listaDosQueFaltam, listaDosSeusQueTalvezFaltem).
 local function computeShelfStatus(shelf)
 	local mapDef, mapId = getMap()
-	local missing = {}
+	local missing = {} -- faltam com certeza
+	local ownMissing = {} -- upgrades "Player" que você não maxou (outro jogador pode ter maxado)
 	if not mapDef then
-		return false, missing
+		return false, missing, ownMissing
 	end
+	local anyPlayerRule = GameConfig.WeaponMaxRule ~= "AllPlayers"
 	for _, def in ipairs(Upgrades.ByMap[mapId] or {}) do
 		if def.Shelf <= shelf and mapHasStall(mapDef, def.Stall) then
 			if not Formulas.IsUpgradeMaxed(def, getLevel(def)) then
-				table.insert(missing, def)
+				if def.Scope ~= "Team" and anyPlayerRule then
+					table.insert(ownMissing, def)
+				else
+					table.insert(missing, def)
+				end
 			end
 		end
 	end
-	return #missing == 0, missing
+	return #missing == 0, missing, ownMissing
+end
+
+-- "A, B, C e mais 2" (nomes dos upgrades de uma lista).
+local function joinNames(defs)
+	local names = {}
+	for index, def in ipairs(defs) do
+		if index > MISSING_NAMES_SHOWN then
+			break
+		end
+		table.insert(names, def.Name)
+	end
+	local list = table.concat(names, ", ")
+	if #defs > MISSING_NAMES_SHOWN then
+		list ..= (" e mais %d"):format(#defs - MISSING_NAMES_SHOWN)
+	end
+	return list
 end
 
 -- Valor que o stat do upgrade teria com "newLevel" (todo o resto igual).
@@ -1021,11 +1045,16 @@ local function refreshUnlockPanel(coins)
 	end
 	local _, mapId = getMap()
 	local shelfLevel = getShelfLevel()
-	local ready, missing = computeShelfStatus(shelfLevel)
+	local ready, missing, ownMissing = computeShelfStatus(shelfLevel)
 	local cost = mapId and Formulas.ShelfCost(mapId, unlock.NextShelf) or math.huge
 	local canPay = coins >= cost
 
-	if ready then
+	if ready and #ownMissing > 0 then
+		-- Só faltam upgrades "Só você" que outro jogador do time pode já ter maxado.
+		unlock.Info.Text = (
+			"Upgrades do time no máximo! Você ainda não maxou: %s. Se alguém do time já maxou, dá para melhorar%s."
+		):format(joinNames(ownMissing), if canPay then "" else " (junte " .. NumberFormat.Abbrev(cost) .. " moedas)")
+	elseif ready then
 		if canPay then
 			unlock.Info.Text = ("Tudo no máximo! Libere a prateleira %d em TODAS as barracas, com upgrades novos."):format(
 				unlock.NextShelf
@@ -1037,20 +1066,13 @@ local function refreshUnlockPanel(coins)
 			)
 		end
 	else
-		local names = {}
-		for index, def in ipairs(missing) do
-			if index > MISSING_NAMES_SHOWN then
-				break
-			end
-			table.insert(names, def.Name)
-		end
-		local list = table.concat(names, ", ")
-		if #missing > MISSING_NAMES_SHOWN then
-			list ..= (" e mais %d"):format(#missing - MISSING_NAMES_SHOWN)
+		local all = table.clone(missing)
+		for _, def in ipairs(ownMissing) do
+			table.insert(all, def)
 		end
 		unlock.Info.Text = ("Deixe no máximo todos os upgrades liberados de todas as barracas. Faltam %d: %s."):format(
-			#missing,
-			list
+			#all,
+			joinNames(all)
 		)
 	end
 
@@ -1112,9 +1134,10 @@ local function refreshHeader(coins)
 		header.Shelf.Text = "Barraca no nível máximo!"
 		header.Shelf.TextColor3 = Theme.Rare
 	else
-		local ready = computeShelfStatus(shelfLevel)
-		header.Shelf.Text = ("Prateleira %d de %d%s"):format(shelfLevel, maxShelf, if ready then " — pronta para melhorar!" else "")
-		header.Shelf.TextColor3 = if ready then Theme.Success else Theme.TextDim
+		local ready, _, ownMissing = computeShelfStatus(shelfLevel)
+		local sure = ready and #ownMissing == 0
+		header.Shelf.Text = ("Prateleira %d de %d%s"):format(shelfLevel, maxShelf, if sure then " — pronta para melhorar!" else "")
+		header.Shelf.TextColor3 = if sure then Theme.Success else Theme.TextDim
 	end
 end
 
