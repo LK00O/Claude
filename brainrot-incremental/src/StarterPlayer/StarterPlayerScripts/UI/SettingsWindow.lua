@@ -167,6 +167,10 @@ local RESERVED_KEYS = {
 	[Enum.KeyCode.Tab] = true, -- lista de jogadores do Roblox
 	[Enum.KeyCode.LeftAlt] = true, -- HUD: soltar o mouse para clicar nos botões
 	[Enum.KeyCode.RightAlt] = true,
+	-- Modo da torreta (o "ModePrompt" de cada torreta usa sempre o F). Se o Interagir
+	-- fosse F, os dois prompts da torreta disputariam a mesma tecla e só um apareceria;
+	-- qualquer outra ação no F também dispararia junto com o prompt perto da torreta.
+	[Enum.KeyCode.F] = true,
 	[Enum.KeyCode.F9] = true, -- console do desenvolvedor
 	[Enum.KeyCode.F11] = true, -- tela cheia
 	[Enum.KeyCode.LeftSuper] = true, -- tecla do Windows / Command

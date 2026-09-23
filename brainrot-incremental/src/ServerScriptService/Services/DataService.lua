@@ -971,7 +971,9 @@ local function runStoreCall(label, key, fn)
 	return false, nil
 end
 
--- DataService.LoadRun(key) -> table | nil (partida salva do time)
+-- DataService.LoadRun(key) -> table | nil, erro? (partida salva do time)
+-- Devolve nil quando não existe save. Se o DataStore falhou nas 3 tentativas, devolve
+-- nil, "error": assim quem chamou sabe que o save pode existir e não deve gravar por cima.
 function DataService.LoadRun(key)
 	if type(key) ~= "string" or key == "" then
 		return nil
@@ -979,7 +981,10 @@ function DataService.LoadRun(key)
 	local ok, value = runStoreCall("LoadRun", key, function(store)
 		return store:GetAsync(key)
 	end)
-	if ok and type(value) == "table" then
+	if not ok then
+		return nil, "error"
+	end
+	if type(value) == "table" then
 		return value
 	end
 	return nil

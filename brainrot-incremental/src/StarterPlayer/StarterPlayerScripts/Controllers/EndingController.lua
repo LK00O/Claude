@@ -220,13 +220,28 @@ local HIDDEN_CORE_GUIS = {
 	Enum.CoreGuiType.EmotesMenu,
 }
 
+-- As telas das janelas do UIKit se chamam "Window_<nome>". Quem liga e desliga essas
+-- telas é a própria janela (Open/Close, com animação). Se a cena final desligasse e
+-- depois religasse uma delas, uma janela que o UIKit acha "fechada" voltaria para a
+-- tela, com o véu invisível bloqueando os cliques e o X sem funcionar.
+local function isWindowScreen(gui)
+	return string.sub(gui.Name, 1, 7) == "Window_"
+end
+
 local function hideInterface(state)
 	local playerGui = player:FindFirstChildOfClass("PlayerGui")
 	state.DisabledGuis = {}
 	if playerGui then
 		for _, gui in ipairs(playerGui:GetChildren()) do
 			-- Mantém os avisos (toasts) visíveis: a conquista secreta aparece durante o final!
-			if gui:IsA("ScreenGui") and gui.Enabled and gui.Name ~= SCREEN_NAME and not gui.Name:lower():find("notif") then
+			-- As janelas ficam de fora: elas já foram fechadas pelo UIKit.CloseAllWindows().
+			if
+				gui:IsA("ScreenGui")
+				and gui.Enabled
+				and gui.Name ~= SCREEN_NAME
+				and not gui.Name:lower():find("notif")
+				and not isWindowScreen(gui)
+			then
 				gui.Enabled = false
 				table.insert(state.DisabledGuis, gui)
 			end
@@ -618,6 +633,9 @@ local function playEnding(data)
 	restoreState = state
 
 	-- 1) Tira o controle do jogador.
+	-- Fecha as janelas abertas (Supremo, barracas, Configurações...) do jeito normal:
+	-- cada uma anima e desliga a própria tela. O hideInterface não mexe nelas.
+	pcall(UIKit.CloseAllWindows)
 	callController("PlacementController", "Cancel")
 	callController("CameraController", "SetEnabled", false)
 	callController("MovementController", "SetLocked", true)

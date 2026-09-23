@@ -47,6 +47,8 @@ local MSG_TELEPORT_FAILED = "O teleporte falhou. Tente de novo em instantes."
 local MSG_TELEPORT_FAILED_PERSONAL = "Não foi possível teleportar você. Tente de novo."
 local MSG_NO_RECONNECT = "Não há partida para reconectar."
 local MSG_ALREADY_TRAVELING = "Você já está sendo teleportado."
+local MSG_DATA_NOT_SAVING =
+	"Não foi possível voltar a salvar seus dados depois do teleporte. Entre de novo para continuar sem perder progresso."
 
 -- Constantes técnicas.
 local RESERVE_ATTEMPTS = 3 -- tentativas de ReserveServer
@@ -55,6 +57,8 @@ local RELEASE_TIMEOUT = 20 -- tempo máximo esperando os perfis serem liberados 
 local INIT_FAILED_RETRIES = 3 -- novas tentativas por jogador depois de TeleportInitFailed
 local INIT_FAILED_WAIT = 2 -- espera antes de tentar de novo (s)
 local WATCHDOG_TIMEOUT = 60 -- se o jogador ainda está aqui depois disso, o teleporte falhou (s)
+local REACQUIRE_ROUNDS = 3 -- rodadas de Reacquire (cada uma já tenta 3 vezes no DataService)
+local REACQUIRE_RETRY_WAIT = 5 -- espera entre as rodadas: 5 s, 10 s...
 
 -------------------------------------------------------------------------------
 -- Estado
@@ -133,11 +137,36 @@ local function releaseAll(list)
 	end
 end
 
+-- Pega a trava do perfil de volta depois de um teleporte que falhou.
+-- Se não der (DataStore fora do ar ou perfil aberto em outro servidor), o DataService
+-- deixaria o perfil "liberado" e SEM salvar pelo resto da sessão: tudo o que o jogador
+-- ganhasse seria perdido em silêncio. Por isso tentamos algumas vezes e, se continuar
+-- falhando, expulsamos com uma mensagem clara (ao entrar de novo, o perfil é carregado
+-- do zero e volta a ser salvo normalmente).
+local function reacquireOrKick(player)
+	for round = 1, REACQUIRE_ROUNDS do
+		-- Saiu do servidor ou começou outro teleporte: não há o que fazer aqui.
+		if player.Parent ~= Players or pending[player] then
+			return false
+		end
+		if DataService.Reacquire(player) then
+			return true
+		end
+		if round < REACQUIRE_ROUNDS then
+			task.wait(REACQUIRE_RETRY_WAIT * round)
+		end
+	end
+
+	if player.Parent == Players and not pending[player] then
+		warn("[TravelService] Não foi possível pegar a trava do perfil de " .. player.Name .. " de volta; expulsando.")
+		player:Kick(MSG_DATA_NOT_SAVING)
+	end
+	return false
+end
+
 -- Pega a trava de volta de todos (teleporte falhou).
 local function reacquireAll(list)
-	runParallel(list, function(player)
-		return DataService.Reacquire(player)
-	end, RELEASE_TIMEOUT)
+	runParallel(list, reacquireOrKick, RELEASE_TIMEOUT)
 end
 
 -- Marca o jogador como "teleportando" e liga um vigia: se ele ainda estiver aqui
@@ -158,8 +187,8 @@ local function markPending(player, placeId, options)
 		if entry and entry.Token == token and player.Parent == Players then
 			pending[player] = nil
 			warn("[TravelService] Teleporte de " .. player.Name .. " não aconteceu a tempo; voltando a salvar os dados.")
-			DataService.Reacquire(player)
 			StateService.Notify(player, MSG_TELEPORT_FAILED_PERSONAL, "error")
+			reacquireOrKick(player)
 		end
 	end)
 end
@@ -461,8 +490,8 @@ local function onTeleportInitFailed(player, teleportResult, errorMessage, placeI
 	entry.Attempts += 1
 	if entry.Attempts > INIT_FAILED_RETRIES then
 		pending[player] = nil
-		DataService.Reacquire(player)
 		StateService.Notify(player, MSG_TELEPORT_FAILED_PERSONAL, "error")
+		reacquireOrKick(player)
 		return
 	end
 
@@ -490,8 +519,8 @@ local function onTeleportInitFailed(player, teleportResult, errorMessage, placeI
 		if pending[player] then
 			-- A chamada nem começou, então não virá outro evento: desiste já.
 			pending[player] = nil
-			DataService.Reacquire(player)
 			StateService.Notify(player, MSG_TELEPORT_FAILED_PERSONAL, "error")
+			reacquireOrKick(player)
 		end
 	end
 end

@@ -110,6 +110,14 @@ local rewardedUserIds = {} -- [userId] = true (já recebeu a recompensa do ato)
 local savedPlayersSnapshot = {} -- ["userId"] = parte de cada jogador guardada no save do time
 local actCompleting = false -- CompleteAct em andamento (evita chamar duas vezes)
 local actCompleted = false -- ato concluído: para de salvar o run (ele foi apagado)
+-- true = este servidor reservado foi aberto DE NOVO (ele fechou quando todos saíram e alguém
+-- voltou pelo "Reconectar") e achamos o save gravado por esta mesma partida: os runs são
+-- restaurados como no "continuar partida", em vez de começar do zero.
+local resumingSameMatch = false
+-- true = deu erro ao LER o save do time no Init. Enquanto for true, não gravamos o save do
+-- time (senão um time vazio apagaria um save que só não conseguimos ler).
+local teamSaveBlocked = false
+local runReadyPlayers = {} -- [player] = true (o run dele já foi criado e enviado nesta entrada)
 local startedAt = 0
 local lastTeamListKey = nil
 local rng = Random.new()
@@ -281,6 +289,21 @@ local function getRunKey()
 		return nil
 	end
 	return "Run_" .. tostring(hostUserId) .. "_" .. MatchService.MapId
+end
+
+-- O retrato (save do time ou profile.RunData) foi gravado DEPOIS que esta partida foi criada?
+-- Um servidor reservado que fechou pode ser aberto de novo com o mesmo código de acesso
+-- (botão "Reconectar"): o Roblox cria uma instância nova, com o mesmo PrivateServerId, que
+-- lê o MESMO handoff do MemoryStore (com o Resume original). O handoff.CreatedAt é a hora
+-- em que o lobby criou esta partida, e todo save guarda SavedAt: se SavedAt >= CreatedAt,
+-- o save é o progresso desta partida (ou um mais novo do mesmo dono e mapa) e não um antigo.
+local function isSavedByThisMatch(snapshot)
+	local handoff = MatchService.Handoff
+	local createdAt = handoff and handoff.CreatedAt
+	return type(snapshot) == "table"
+		and isFiniteNumber(createdAt)
+		and isFiniteNumber(snapshot.SavedAt)
+		and snapshot.SavedAt >= createdAt
 end
 
 -------------------------------------------------------------------------------
@@ -544,6 +567,15 @@ local function syncRunToProfile(player)
 		profile.RunData = {}
 	end
 	profile.RunData[MatchService.MapId] = runSnapshot(run)
+
+	-- Renova a hora da "última partida" enquanto o jogador está aqui. Assim a janela do
+	-- botão "Reconectar" (ReconnectWindowSeconds) conta a partir de quando ele SAIU, e não
+	-- de quando entrou (quem joga mais de 2 horas e cai também pode voltar).
+	local lastMatch = profile.LastMatch
+	local privateServerId = MatchService.Handoff.PrivateServerId or game.PrivateServerId
+	if type(lastMatch) == "table" and privateServerId ~= "" and lastMatch.PrivateServerId == privateServerId then
+		lastMatch.Time = os.time()
+	end
 end
 
 -------------------------------------------------------------------------------
@@ -577,8 +609,9 @@ end
 
 -- Cria ou restaura o run do jogador:
 --   1. voltou para este servidor -> usa o que ficou na memória;
---   2. "continuar partida" -> o retrato mais novo entre profile.RunData (do mesmo host)
---      e a cópia guardada no save do time;
+--   2. "continuar partida" (ou este servidor reservado aberto de novo pelo "Reconectar")
+--      -> o retrato mais novo entre profile.RunData (do mesmo host) e a cópia guardada
+--      no save do time;
 --   3. senão -> run novo e apaga o RunData antigo deste mapa.
 local function createOrRestoreRun(player, profile)
 	local userId = player.UserId
@@ -593,27 +626,34 @@ local function createOrRestoreRun(player, profile)
 	end
 
 	local run = nil
-	if MatchService.Handoff.Resume then
-		local hostUserId = MatchService.GetHostUserId()
-		local best = nil
+	local resuming = MatchService.Handoff.Resume or resumingSameMatch
+	local hostUserId = MatchService.GetHostUserId()
+	local best = nil
 
-		local fromProfile = profile.RunData[MatchService.MapId]
-		if type(fromProfile) == "table" and fromProfile.HostUserId == hostUserId then
-			best = fromProfile
-		end
+	-- Retrato do perfil: vale no "continuar partida" e também quando foi gravado por esta
+	-- mesma partida (servidor reservado que fechou e foi aberto de novo), mesmo que o save
+	-- do time não tenha sido encontrado.
+	local fromProfile = profile.RunData[MatchService.MapId]
+	if
+		type(fromProfile) == "table"
+		and fromProfile.HostUserId == hostUserId
+		and (resuming or isSavedByThisMatch(fromProfile))
+	then
+		best = fromProfile
+	end
 
-		local fromTeam = savedPlayersSnapshot[tostring(userId)]
-		if type(fromTeam) == "table" then
-			local teamTime = isFiniteNumber(fromTeam.SavedAt) and fromTeam.SavedAt or 0
-			local bestTime = best and isFiniteNumber(best.SavedAt) and best.SavedAt or -1
-			if teamTime > bestTime then
-				best = fromTeam
-			end
+	-- Cópia guardada no save do time (só existe se o Init carregou esse save).
+	local fromTeam = savedPlayersSnapshot[tostring(userId)]
+	if resuming and type(fromTeam) == "table" then
+		local teamTime = isFiniteNumber(fromTeam.SavedAt) and fromTeam.SavedAt or 0
+		local bestTime = best and isFiniteNumber(best.SavedAt) and best.SavedAt or -1
+		if teamTime > bestTime then
+			best = fromTeam
 		end
+	end
 
-		if best then
-			run = runFromSnapshot(player, best)
-		end
+	if best then
+		run = runFromSnapshot(player, best)
 	end
 
 	if not run then
@@ -818,6 +858,38 @@ local function sendBackToLobby(player, message)
 	end)
 end
 
+-- Cria (ou restaura) o run do jogador e avisa os outros serviços. Roda só UMA vez por
+-- entrada, mesmo que onPlayerAdded e ProfileLoaded cheguem aqui ao mesmo tempo.
+local function setupPlayerRun(player, profile)
+	if runReadyPlayers[player] or not profile or player.Parent ~= Players or not accepted[player] then
+		return
+	end
+	runReadyPlayers[player] = true
+
+	-- Run (memória, save ou novo).
+	local run = createOrRestoreRun(player, profile)
+
+	-- Guarda a partida no perfil para o botão "Reconectar" do lobby.
+	local handoff = MatchService.Handoff
+	if handoff.AccessCode then
+		profile.LastMatch = {
+			AccessCode = handoff.AccessCode,
+			PrivateServerId = handoff.PrivateServerId or game.PrivateServerId,
+			MapId = MatchService.MapId,
+			Time = os.time(),
+		}
+	end
+	syncRunToProfile(player)
+	DataService.SyncProfile(player)
+
+	-- Estado do jogador e aviso para os outros serviços.
+	sendPlayerState(player, run)
+	MatchService.RunReady:Fire(player, run)
+
+	-- Conquista de jogar com amigos (IsFriendsWith espera a web: roda separado).
+	task.spawn(firePlayWithFriends, player)
+end
+
 local function onPlayerAdded(player)
 	if playerTroves[player] then
 		return -- já tratado (PlayerAdded + lista inicial)
@@ -873,33 +945,14 @@ local function onPlayerAdded(player)
 	end
 
 	-- Espera o perfil (se não carregar, o DataService expulsa o jogador).
+	-- Se outro servidor ainda segura a trava do perfil, o DataService espera ela vencer
+	-- (6 x 5 s + as leituras), o que passa dos 30 s do WaitForProfile. Nesse caso quem
+	-- termina o trabalho é o DataService.ProfileLoaded (ligado no Start), que chama
+	-- setupPlayerRun quando o perfil finalmente chega.
 	local profile = DataService.WaitForProfile(player)
-	if not profile or player.Parent ~= Players or not accepted[player] then
-		return
+	if profile then
+		setupPlayerRun(player, profile)
 	end
-
-	-- Run (memória, save ou novo).
-	local run = createOrRestoreRun(player, profile)
-
-	-- Guarda a partida no perfil para o botão "Reconectar" do lobby.
-	local handoff = MatchService.Handoff
-	if handoff.AccessCode then
-		profile.LastMatch = {
-			AccessCode = handoff.AccessCode,
-			PrivateServerId = handoff.PrivateServerId or game.PrivateServerId,
-			MapId = MatchService.MapId,
-			Time = os.time(),
-		}
-	end
-	syncRunToProfile(player)
-	DataService.SyncProfile(player)
-
-	-- Estado do jogador e aviso para os outros serviços.
-	sendPlayerState(player, run)
-	MatchService.RunReady:Fire(player, run)
-
-	-- Conquista de jogar com amigos (IsFriendsWith espera a web: roda separado).
-	task.spawn(firePlayWithFriends, player)
 end
 
 local function onPlayerRemoving(player)
@@ -907,6 +960,7 @@ local function onPlayerRemoving(player)
 	syncRunToProfile(player)
 
 	accepted[player] = nil
+	runReadyPlayers[player] = nil
 	incomeAccum[player.UserId] = nil
 
 	if characterTroves[player] then
@@ -1101,6 +1155,22 @@ function MatchService.GetCoins(player)
 	return run and run.Coins or 0
 end
 
+-- Chamado pelo SaveAll quando o Init não conseguiu ler o save do time (teamSaveBlocked).
+-- Lê de novo e só libera a gravação quando é seguro: não existe save, ou ele é de outra
+-- partida e esta começou do zero de propósito. Se existe um save que esta partida deveria
+-- ter carregado ("continuar" ou "Reconectar"), nunca gravamos por cima dele.
+local function retryBlockedTeamSave(key)
+	local okLoad, saved, loadError = pcall(DataService.LoadRun, key)
+	if not okLoad or loadError ~= nil then
+		return false -- o DataStore ainda está falhando: continua sem gravar
+	end
+	if saved ~= nil and (MatchService.Handoff.Resume or isSavedByThisMatch(saved)) then
+		return false
+	end
+	teamSaveBlocked = false
+	return true
+end
+
 -- Salva o time (DataService.SaveRun), copia os runs para os perfis e marca
 -- RunSaves[mapa] no perfil do dono (para o lobby oferecer "Continuar").
 function MatchService.SaveAll()
@@ -1116,6 +1186,11 @@ function MatchService.SaveAll()
 		if player.Parent == Players then
 			syncRunToProfile(player)
 		end
+	end
+
+	-- O Init não conseguiu ler o save do time: tenta ler de novo antes de gravar por cima.
+	if teamSaveBlocked and not retryBlockedTeamSave(key) then
+		return false
 	end
 
 	local hostPlayer = Players:GetPlayerByUserId(MatchService.GetHostUserId())
@@ -1293,15 +1368,30 @@ function MatchService.Init()
 	ensureWorkspaceFolder("Coins")
 	ensureWorkspaceFolder("Turrets")
 
-	-- 4. "Continuar partida": carrega o save do time.
-	if handoff.Resume and not bounceEveryone then
+	-- 4. Save do time.
+	--    * "Continuar partida" (Resume): carrega o save do time.
+	--    * Partida criada pelo lobby (handoff com CreatedAt) SEM Resume: também lê o save,
+	--      porque este pode ser o mesmo servidor reservado aberto de novo pelo "Reconectar"
+	--      (todos saíram, ele fechou, e o handoff do MemoryStore ainda diz Resume = false).
+	--      Se o save foi gravado por esta partida (isSavedByThisMatch), restauramos tudo;
+	--      senão é um save antigo e a partida começa do zero, como antes.
+	if not bounceEveryone and (handoff.Resume or handoff.CreatedAt ~= nil) then
 		local key = getRunKey()
 		if key then
-			local okLoad, saved = pcall(DataService.LoadRun, key)
-			if not okLoad then
-				warn("[MatchService] Falha ao carregar a partida salva: " .. tostring(saved))
+			-- LoadRun devolve (nil, "error") quando o DataStore falhou (diferente de "não existe save").
+			local okLoad, saved, loadError = pcall(DataService.LoadRun, key)
+			if not okLoad or loadError ~= nil then
+				-- Não conseguimos LER o save: não sabemos o que tem lá. Para não apagar um
+				-- progresso bom com um time vazio, o SaveAll não grava por cima até conseguir ler.
+				teamSaveBlocked = true
+				warn("[MatchService] Falha ao carregar a partida salva: " .. tostring(if okLoad then loadError else saved))
 			elseif saved ~= nil then
-				applyTeamSave(saved)
+				if handoff.Resume then
+					applyTeamSave(saved)
+				elseif isSavedByThisMatch(saved) then
+					applyTeamSave(saved)
+					resumingSameMatch = true
+				end
 			end
 		end
 	end
@@ -1329,6 +1419,14 @@ function MatchService.Init()
 end
 
 function MatchService.Start()
+	-- Perfil que chegou depois de onPlayerAdded desistir de esperar (trava de outro servidor
+	-- demorando para vencer): cria o run agora. setupPlayerRun ignora quem já tem o run pronto.
+	DataService.ProfileLoaded:Connect(function(player, profile)
+		if accepted[player] then
+			setupPlayerRun(player, profile)
+		end
+	end)
+
 	-- Jogadores (inclusive os que chegaram enquanto o servidor preparava o mapa).
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)

@@ -68,6 +68,7 @@ local FRIEND_CACHE_TTL = 300 -- por quanto tempo confiamos numa resposta de amiz
 local FRIEND_FAIL_RETRY = 30 -- se a checagem falhou, tenta de novo depois disso (s)
 local TELEPORT_STUCK_TIMEOUT = 75 -- depois do teleporte "dar certo", quem ficou para trás volta a esperar (s)
 local JOIN_RESEND_DELAYS = { 3, 8 } -- reenvia o PartyState para quem acabou de entrar (s)
+local MIN_BROADCAST_INTERVAL = 0.25 -- tempo mínimo entre dois envios do PartyState para todos (s)
 
 -- Limites de frequência (pedidos por segundo e rajada) de cada Request.
 local RATE_CREATE = { Rate = 1, Burst = 3 }
@@ -149,6 +150,7 @@ local friendPending = {} -- ["a:b"] = true enquanto a checagem está em andament
 
 local serviceTrove = Trove.new() -- conexões do serviço
 local broadcastScheduled = false -- já tem um envio de PartyState marcado?
+local lastBroadcastAt = -math.huge -- os.clock() do último envio para todos
 
 -------------------------------------------------------------------------------
 -- Ajudantes gerais
@@ -552,18 +554,30 @@ local function broadcastNow()
 end
 
 -- Marca um envio para o fim deste quadro (várias mudanças seguidas viram um envio só).
+-- Além disso, há no máximo um envio a cada MIN_BROADCAST_INTERVAL: cada envio manda o
+-- estado inteiro para TODOS os jogadores do lobby, então sem esse limite um jogador
+-- trocando opções sem parar (cada pedido tem o seu próprio limite de frequência) faria
+-- o servidor mandar dezenas de mensagens grandes por segundo. As mudanças que chegam
+-- nesse intervalo esperam um pouquinho e vão todas juntas no próximo envio.
 scheduleBroadcast = function()
 	if broadcastScheduled then
 		return
 	end
 	broadcastScheduled = true
-	task.defer(function()
+	local function run()
 		broadcastScheduled = false
+		lastBroadcastAt = os.clock()
 		local ok, err = pcall(broadcastNow)
 		if not ok then
 			warn("[PartyService] Erro ao enviar PartyState: " .. tostring(err))
 		end
-	end)
+	end
+	local waitTime = MIN_BROADCAST_INTERVAL - (os.clock() - lastBroadcastAt)
+	if waitTime > 0 then
+		task.delay(waitTime, run) -- enviou há pouco: espera completar o intervalo
+	else
+		task.defer(run) -- faz tempo que não envia: manda no fim deste quadro
+	end
 end
 
 -------------------------------------------------------------------------------

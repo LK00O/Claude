@@ -383,7 +383,14 @@ Commands.reset = {
 		local stats = StatService.Get(player)
 
 		-- Manda o estado novo para o cliente.
-		StateService.Set(player, "Coins", MatchService.GetCoins(player))
+		-- Com a carteira do time (SharedWallet), "Coins" é um valor GLOBAL (SetAll), igual ao
+		-- MatchService faz. Um valor só deste jogador (Set) esconderia o global para sempre:
+		-- o StateService prefere o valor do jogador, e a HUD dele pararia de acompanhar o cofre.
+		if GameConfig.SharedWallet then
+			StateService.SetAll("Coins", MatchService.GetCoins(player))
+		else
+			StateService.Set(player, "Coins", MatchService.GetCoins(player))
+		end
 		StateService.Set(player, "Income", 0)
 		StateService.Set(player, "PlayerUpgrades", run.Upgrades)
 		StateService.Set(player, "Ingredients", run.Ingredients)

@@ -977,6 +977,12 @@ local function onInputBegan(input, gameProcessed)
 		return
 	end
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		-- Um clique dado com o mouse solto (janela aberta ou modo cursor do HUD) serve
+		-- para usar a interface ou para voltar a mirar: não vira tiro quando o mouse
+		-- volta a ficar preso. Para atirar, o jogador clica de novo.
+		if isModalOpen() or callController("CameraController", "IsCursorFree") == true then
+			return
+		end
 		mouseHeld = true
 	elseif input.KeyCode == Enum.KeyCode.ButtonR2 then
 		gamepadHeld = true

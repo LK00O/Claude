@@ -258,9 +258,28 @@ end
 -- Raio da LINHA DE VISÃO: usa CanQuery, igual às balas dos jogadores (seção 7.3).
 -- Assim cercas e decoração baixa (CanQuery = false) não atrapalham a mira das torretas.
 local function buildSightParams()
+	local list = buildExcludeList()
+	-- Inverno: o piso da plataforma elevada (ctx.Platform) também é ignorado. Os pads da
+	-- base ficam EM CIMA dele, a poucos studs da borda; sem isso, o raio da cabeça até um
+	-- brainrot no vale batia no próprio piso e as torretas dos pads quase nunca atiravam
+	-- (a fileira de trás, nunca). Isso não cria "tiro através da plataforma": os brainrots
+	-- nunca ficam em cima dela e uma torreta no vale mira por baixo do piso (onde os
+	-- pilares continuam bloqueando normalmente).
+	-- Pelo mesmo motivo ignoramos a pasta "TurretPads" ao lado do piso: os pads são discos
+	-- baixinhos, e o raio da fileira de trás (que desce em diagonal) raspava no pad da
+	-- fileira da frente.
+	local ctx = getContext()
+	if ctx and typeof(ctx.Platform) == "Instance" and ctx.Platform:IsA("BasePart") then
+		table.insert(list, ctx.Platform)
+		local structure = ctx.Platform.Parent
+		local pads = structure and structure:FindFirstChild("TurretPads")
+		if pads then
+			table.insert(list, pads)
+		end
+	end
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = buildExcludeList()
+	params.FilterDescendantsInstances = list
 	params.RespectCanCollide = false
 	params.IgnoreWater = true
 	return params

@@ -125,6 +125,7 @@ local spendSerial = 0
 
 local hitSerial = 0
 local cursorMode = false
+local cursorClickPending = false -- clique no mundo começou no modo cursor (sai ao soltar)
 local votedLocally = false -- este jogador já votou no portal atual
 local voteBusy = false
 
@@ -326,6 +327,8 @@ end
 
 local function setCursorMode(on)
 	on = on == true
+	-- Qualquer troca (ou confirmação) do modo cancela um clique pendente antigo.
+	cursorClickPending = false
 	if on == cursorMode then
 		return
 	end
@@ -1625,8 +1628,11 @@ function HUDController.Start()
 			return
 		end
 		-- No modo cursor, clicar no jogo (fora dos botões) volta a mirar.
+		-- Só saímos do modo cursor quando o botão é SOLTO (InputEnded, abaixo): assim,
+		-- enquanto o botão desce, o mouse ainda está "solto" e a arma ignora esse clique
+		-- (ele serve só para voltar a mirar; para atirar, é preciso clicar de novo).
 		if cursorMode and input.UserInputType == Enum.UserInputType.MouseButton1 and not gameProcessed then
-			setCursorMode(false)
+			cursorClickPending = true
 			return
 		end
 		if gameProcessed then
@@ -1639,6 +1645,13 @@ function HUDController.Start()
 				return
 			end
 			enterPlacement()
+		end
+	end)
+
+	-- Soltou o clique que começou no mundo durante o modo cursor: agora sim volta a mirar.
+	trove:Connect(UserInputService.InputEnded, function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 and cursorClickPending then
+			setCursorMode(false)
 		end
 	end)
 

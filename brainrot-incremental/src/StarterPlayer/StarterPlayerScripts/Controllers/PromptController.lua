@@ -35,6 +35,9 @@ local PromptController = {}
 local interactAction = Keybinds.ById.Interact
 local DEFAULT_INTERACT_KEY = interactAction and interactAction.Default or Enum.KeyCode.E
 
+-- Atributo (local, não vai para o servidor) que marca os prompts que usam a tecla do jogador.
+local MANAGED_ATTRIBUTE = "InteractManaged"
+
 -- Por quanto tempo guardamos um pedido que chegou antes de alguém registrar a ação.
 local PENDING_TTL = 10
 
@@ -167,13 +170,19 @@ local function trackPrompt(prompt)
 		return
 	end
 	-- Só trocamos prompts que usam a tecla padrão (um prompt com outra tecla
-	-- de propósito continua como está).
-	if prompt.KeyboardKeyCode ~= DEFAULT_INTERACT_KEY and prompt.KeyboardKeyCode ~= currentKey then
+	-- de propósito continua como está, ex.: o "ModePrompt" da torreta, na tecla F).
+	-- Não basta a tecla ser igual à do jogador: se o Interagir fosse F, o ModePrompt
+	-- seria "adotado" por engano e iria junto para a próxima tecla escolhida.
+	-- Por isso marcamos os prompts adotados com um atributo (só neste cliente): um
+	-- prompt que saiu do workspace e voltou já com a tecla do jogador é reconhecido.
+	local adopted = prompt:GetAttribute(MANAGED_ATTRIBUTE) == true
+	if prompt.KeyboardKeyCode ~= DEFAULT_INTERACT_KEY and not adopted then
 		return
 	end
 
 	local connections = {}
 	managedPrompts[prompt] = connections
+	prompt:SetAttribute(MANAGED_ATTRIBUTE, true)
 	applyKey(prompt)
 
 	-- Se o servidor voltar a tecla para a padrão, colocamos a do jogador de novo.

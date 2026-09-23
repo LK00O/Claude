@@ -17,7 +17,8 @@
 --   UIKit.Pop(inst)                               efeito de "pulo"
 --   UIKit.OpenModal / CloseModal / IsAnyModalOpen / ModalChanged
 --   UIKit.PlaySound(key)                          som de Config.Game.Sounds com o volume do jogador
--- Extras: UIKit.GetScale(), UIKit.Darken(cor, t), UIKit.Lighten(cor, t).
+-- Extras: UIKit.GetScale(), UIKit.Darken(cor, t), UIKit.Lighten(cor, t),
+--   UIKit.CloseAllWindows() (fecha todas as janelas abertas, como o Esc).
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -778,6 +779,13 @@ local function closeAllWindows(except)
 	for _, window in ipairs(toClose) do
 		window.Close()
 	end
+end
+
+-- UIKit.CloseAllWindows() — fecha todas as janelas abertas (o mesmo que o Esc faz).
+-- Usado, por exemplo, pela cena final: cada janela fecha com a própria animação e
+-- desliga a própria tela no fim, então ninguém de fora precisa mexer nessas telas.
+function UIKit.CloseAllWindows()
+	closeAllWindows(nil)
 end
 
 -- Esc (teclado) ou B (controle) fecham a janela aberta.

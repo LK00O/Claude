@@ -409,6 +409,8 @@ function TurretFactory.Build(ownerName, colors)
 	)
 	-- Modo de mira: tecla F. Dois prompts com a MESMA tecla no mesmo lugar fariam o
 	-- Roblox mostrar só um deles (Exclusivity = OnePerButton), então este usa outra tecla.
+	-- No controle usamos o direcional para a direita: o botão Y já é o atalho do HUD para
+	-- colocar torreta (HUDController), e um aperto de Y perto da torreta faria as duas coisas.
 	makePrompt(
 		modeAttachment,
 		"ModePrompt",
@@ -417,7 +419,7 @@ function TurretFactory.Build(ownerName, colors)
 		"TurretMode",
 		0,
 		Enum.KeyCode.F,
-		Enum.KeyCode.ButtonY
+		Enum.KeyCode.DPadRight
 	)
 
 	model.PrimaryPart = base
