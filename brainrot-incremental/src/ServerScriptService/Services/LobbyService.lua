@@ -49,6 +49,7 @@ local SOON_REFRESH_DELAY = 5 -- depois que alguém entra, atualiza o quadro em ~
 local MIN_READ_SPACING = 15 -- intervalo mínimo entre duas leituras do placar (s)
 local ROW_GAP = 4 -- espaço entre as linhas do quadro (pixels)
 local ROW_ATTRIBUTE = "LeaderboardRow" -- marca as linhas criadas por este serviço
+local MODULE_WAIT_TIMEOUT = 10 -- espera máxima pelo módulo MapBuilder (s)
 
 -- Limite do Request "Reconnect" (teleporte é pesado: 1 a cada 2 s, rajada de 2).
 local RECONNECT_RATE = { Rate = 0.5, Burst = 2 }
@@ -138,7 +139,13 @@ end
 -- (placar gravando, Reconectar) continua funcionando.
 local function buildLobby()
 	local ok, result = pcall(function()
-		local MapBuilder = require(ServerScriptService:WaitForChild("World"):WaitForChild("MapBuilder"))
+		-- Espera no máximo alguns segundos: se o módulo não existir, não trava o Main.
+		local world = ServerScriptService:WaitForChild("World", MODULE_WAIT_TIMEOUT)
+		local module = world and world:WaitForChild("MapBuilder", MODULE_WAIT_TIMEOUT)
+		if not module then
+			error("World/MapBuilder não encontrado")
+		end
+		local MapBuilder = require(module)
 		return MapBuilder.Build("Lobby")
 	end)
 	if not ok then
