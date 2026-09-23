@@ -20,6 +20,7 @@
 --   StallWindow.Open(stallId)   abre a janela de uma barraca (extra)
 --   StallWindow.Close()         fecha (extra)
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local GuiService = game:GetService("GuiService")
@@ -152,11 +153,26 @@ local function getLevel(def)
 	return math.max(0, math.floor(num(levels[def.Id], 0)))
 end
 
+-- true se há outros jogadores na lista do time (TeamList).
+local function hasTeammates()
+	local list = StateController.Get("TeamList")
+	if type(list) ~= "table" then
+		return false
+	end
+	for _, entry in ipairs(list) do
+		if type(entry) == "table" and entry.UserId ~= Players.LocalPlayer.UserId then
+			return true
+		end
+	end
+	return false
+end
+
 -- Espelho no cliente de UpgradeService.IsShelfMaxed(shelf): todos os upgrades do mapa
 -- (de barracas que existem no mapa) com Shelf <= shelf estão no máximo.
 -- O cliente só enxerga os níveis DESTE jogador nos upgrades "Player". Com a regra
 -- Config.Game.WeaponMaxRule = "AnyPlayer", basta ALGUÉM do time ter maxado; então um
--- upgrade "Player" que você não maxou não bloqueia o botão (o servidor confere de verdade).
+-- upgrade "Player" que você não maxou não bloqueia o botão quando há outros jogadores
+-- no time (o servidor confere de verdade). Jogando sozinho, conta só o seu nível.
 -- Devolve (podeTentar, listaDosQueFaltam, listaDosSeusQueTalvezFaltem).
 local function computeShelfStatus(shelf)
 	local mapDef, mapId = getMap()
@@ -165,7 +181,7 @@ local function computeShelfStatus(shelf)
 	if not mapDef then
 		return false, missing, ownMissing
 	end
-	local anyPlayerRule = GameConfig.WeaponMaxRule ~= "AllPlayers"
+	local anyPlayerRule = GameConfig.WeaponMaxRule ~= "AllPlayers" and hasTeammates()
 	for _, def in ipairs(Upgrades.ByMap[mapId] or {}) do
 		if def.Shelf <= shelf and mapHasStall(mapDef, def.Stall) then
 			if not Formulas.IsUpgradeMaxed(def, getLevel(def)) then
@@ -1411,6 +1427,7 @@ local function startListening()
 	listenTrove:Add(StateController.OnChanged("Quest", cheap))
 	listenTrove:Add(StateController.OnChanged("Turrets", cheap))
 	listenTrove:Add(StateController.OnChanged("Supreme", cheap))
+	listenTrove:Add(StateController.OnChanged("TeamList", cheap)) -- quem está no time (regra do "Melhorar Barraca")
 	listenTrove:Add(StateController.OnChanged("PlayerUpgrades", full))
 	listenTrove:Add(StateController.OnChanged("TeamUpgrades", full))
 	listenTrove:Add(StateController.OnChanged("ShelfLevel", full))
