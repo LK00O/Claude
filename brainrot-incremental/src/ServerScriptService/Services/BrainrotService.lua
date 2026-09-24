@@ -900,6 +900,23 @@ local function isLive(entity)
 	return type(entity) == "table" and not entity.Dead and entities[entity.Id] == entity
 end
 
+-- BrainrotService.GetDamageMult(entity) -> number
+-- Brainrot lento (congelado pelo Canhão de Gelato ou pela Torreta Congelante) fica frágil:
+-- leva mais dano enquanto a lentidão dura. Ex.: 20% mais lento com bônus 0,5 = ×1,1 (+10%).
+-- O CombatService usa a mesma conta para mostrar o número de dano certo na tela.
+function BrainrotService.GetDamageMult(entity)
+	if type(entity) ~= "table" then
+		return 1
+	end
+	local slowBonus = tonumber(GameConfig.SlowDamageBonus) or 0
+	local slowFactor = tonumber(entity.SlowFactor) or 1
+	local slowUntil = tonumber(entity.SlowUntil) or 0
+	if slowBonus > 0 and slowFactor < 1 and slowUntil > now() then
+		return 1 + (1 - slowFactor) * slowBonus
+	end
+	return 1
+end
+
 -- BrainrotService.Damage(entity, amount, attacker?, info) -> dealt, killed
 -- O escudo de gelo absorve primeiro; o que sobra vai para a vida.
 function BrainrotService.Damage(entity, amount, attacker, info)
@@ -916,12 +933,8 @@ function BrainrotService.Damage(entity, amount, attacker, info)
 		entity.LastHitBy = player
 	end
 
-	-- Brainrot lento (congelado pelo Canhão de Gelato ou pela Torreta Congelante) fica frágil:
-	-- leva mais dano enquanto a lentidão dura. Ex.: 20% mais lento com bônus 0,5 = +10% de dano.
-	local slowBonus = tonumber(GameConfig.SlowDamageBonus) or 0
-	if slowBonus > 0 and entity.SlowFactor < 1 and entity.SlowUntil > now() then
-		amount *= 1 + (1 - entity.SlowFactor) * slowBonus
-	end
+	-- Brainrot lento fica frágil (ver BrainrotService.GetDamageMult).
+	amount *= BrainrotService.GetDamageMult(entity)
 
 	local remaining = amount
 	local dealt = 0

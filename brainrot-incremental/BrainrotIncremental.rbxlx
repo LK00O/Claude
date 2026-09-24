@@ -4878,6 +4878,23 @@ local function isLive(entity)
 	return type(entity) == "table" and not entity.Dead and entities[entity.Id] == entity
 end
 
+-- BrainrotService.GetDamageMult(entity) -> number
+-- Brainrot lento (congelado pelo Canhão de Gelato ou pela Torreta Congelante) fica frágil:
+-- leva mais dano enquanto a lentidão dura. Ex.: 20% mais lento com bônus 0,5 = ×1,1 (+10%).
+-- O CombatService usa a mesma conta para mostrar o número de dano certo na tela.
+function BrainrotService.GetDamageMult(entity)
+	if type(entity) ~= "table" then
+		return 1
+	end
+	local slowBonus = tonumber(GameConfig.SlowDamageBonus) or 0
+	local slowFactor = tonumber(entity.SlowFactor) or 1
+	local slowUntil = tonumber(entity.SlowUntil) or 0
+	if slowBonus > 0 and slowFactor < 1 and slowUntil > now() then
+		return 1 + (1 - slowFactor) * slowBonus
+	end
+	return 1
+end
+
 -- BrainrotService.Damage(entity, amount, attacker?, info) -> dealt, killed
 -- O escudo de gelo absorve primeiro; o que sobra vai para a vida.
 function BrainrotService.Damage(entity, amount, attacker, info)
@@ -4894,12 +4911,8 @@ function BrainrotService.Damage(entity, amount, attacker, info)
 		entity.LastHitBy = player
 	end
 
-	-- Brainrot lento (congelado pelo Canhão de Gelato ou pela Torreta Congelante) fica frágil:
-	-- leva mais dano enquanto a lentidão dura. Ex.: 20% mais lento com bônus 0,5 = +10% de dano.
-	local slowBonus = tonumber(GameConfig.SlowDamageBonus) or 0
-	if slowBonus > 0 and entity.SlowFactor < 1 and entity.SlowUntil > now() then
-		amount *= 1 + (1 - entity.SlowFactor) * slowBonus
-	end
+	-- Brainrot lento fica frágil (ver BrainrotService.GetDamageMult).
+	amount *= BrainrotService.GetDamageMult(entity)
 
 	local remaining = amount
 	local dealt = 0
@@ -6465,6 +6478,9 @@ local function applyHit(player, entity, position, stats)
 		damage *= math.max(1, statNumber(stats, "CritMult", 1))
 	end
 
+	-- Lê o bônus de "frágil" ANTES do dano (o brainrot pode morrer neste tiro), para o
+	-- número na tela mostrar o dano que realmente entrou.
+	local shownDamage = damage * BrainrotService.GetDamageMult(entity)
 	local _, killed = BrainrotService.Damage(entity, damage, player, { Crit = crit, Source = "Gun" })
 	killed = killed == true
 
@@ -6480,7 +6496,7 @@ local function applyHit(player, entity, position, stats)
 		BrainrotService.ApplySlow(entity, 1 - slowPower, GameConfig.SlowDuration)
 	end
 
-	return { Position = position, Damage = damage, Crit = crit, Killed = killed }
+	return { Position = position, Damage = shownDamage, Crit = crit, Killed = killed }
 end
 
 -- Simula cada projétil, com perfuração. Devolve (hits, endpoints, critCount).
@@ -11470,6 +11486,7 @@ local MSG_IN_OTHER_PARTY = "Saia do seu grupo atual para entrar em outro."
 local MSG_FULL = "O grupo está cheio."
 local MSG_FRIENDS_ONLY = "Só amigos do dono podem entrar."
 local MSG_INVITE_ONLY = "Só convidados podem entrar."
+local MSG_KICKED = "Você foi expulso deste grupo. Só entra de novo se o dono convidar."
 local MSG_COUNTDOWN_RUNNING = "A partida deste grupo já está começando."
 local MSG_TELEPORTING = "O grupo já está entrando na partida."
 local MSG_BUSY_COUNTDOWN = "Cancele a contagem regressiva antes."
@@ -11821,6 +11838,10 @@ local function joinBlockReason(party, player, isFriend)
 		return MSG_FULL
 	end
 	local invited = party.Invited[userId] == true
+	-- Expulso não volta sozinho (nem em grupo Público/Amigos); um convite novo do dono perdoa.
+	if party.Kicked and party.Kicked[userId] and not invited then
+		return MSG_KICKED
+	end
 	if party.Privacy == "Friends" and not (isFriend or invited) then
 		return MSG_FRIENDS_ONLY
 	end

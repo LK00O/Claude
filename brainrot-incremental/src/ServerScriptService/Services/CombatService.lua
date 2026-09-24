@@ -462,6 +462,9 @@ local function applyHit(player, entity, position, stats)
 		damage *= math.max(1, statNumber(stats, "CritMult", 1))
 	end
 
+	-- Lê o bônus de "frágil" ANTES do dano (o brainrot pode morrer neste tiro), para o
+	-- número na tela mostrar o dano que realmente entrou.
+	local shownDamage = damage * BrainrotService.GetDamageMult(entity)
 	local _, killed = BrainrotService.Damage(entity, damage, player, { Crit = crit, Source = "Gun" })
 	killed = killed == true
 
@@ -477,7 +480,7 @@ local function applyHit(player, entity, position, stats)
 		BrainrotService.ApplySlow(entity, 1 - slowPower, GameConfig.SlowDuration)
 	end
 
-	return { Position = position, Damage = damage, Crit = crit, Killed = killed }
+	return { Position = position, Damage = shownDamage, Crit = crit, Killed = killed }
 end
 
 -- Simula cada projétil, com perfuração. Devolve (hits, endpoints, critCount).

@@ -96,6 +96,7 @@ local MSG_IN_OTHER_PARTY = "Saia do seu grupo atual para entrar em outro."
 local MSG_FULL = "O grupo está cheio."
 local MSG_FRIENDS_ONLY = "Só amigos do dono podem entrar."
 local MSG_INVITE_ONLY = "Só convidados podem entrar."
+local MSG_KICKED = "Você foi expulso deste grupo. Só entra de novo se o dono convidar."
 local MSG_COUNTDOWN_RUNNING = "A partida deste grupo já está começando."
 local MSG_TELEPORTING = "O grupo já está entrando na partida."
 local MSG_BUSY_COUNTDOWN = "Cancele a contagem regressiva antes."
@@ -447,6 +448,10 @@ local function joinBlockReason(party, player, isFriend)
 		return MSG_FULL
 	end
 	local invited = party.Invited[userId] == true
+	-- Expulso não volta sozinho (nem em grupo Público/Amigos); um convite novo do dono perdoa.
+	if party.Kicked and party.Kicked[userId] and not invited then
+		return MSG_KICKED
+	end
 	if party.Privacy == "Friends" and not (isFriend or invited) then
 		return MSG_FRIENDS_ONLY
 	end
