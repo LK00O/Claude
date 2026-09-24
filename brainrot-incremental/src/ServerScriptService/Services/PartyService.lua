@@ -599,6 +599,7 @@ local function createParty(host, mapId, maxPlayers, privacy, resume)
 		Members = { host.UserId },
 		Ready = {},
 		Invited = {},
+		Kicked = {}, -- [userId] = true: expulsos (o convite do Roblox não os traz de volta)
 		State = "Waiting",
 		CountdownEnd = nil,
 	}
@@ -704,6 +705,8 @@ local function removeMember(party, userId, cause)
 	if cause == "Kicked" then
 		-- Expulso perde o convite (senão poderia entrar de novo num grupo "Só convidados").
 		party.Invited[userId] = nil
+		-- E fica marcado, para o convite antigo do Roblox não convidar de novo sozinho.
+		party.Kicked[userId] = true
 	end
 
 	-- Grupo vazio some.
@@ -1280,6 +1283,7 @@ local function onPartyInvite(player, targetUserId)
 	end
 
 	party.Invited[targetUserId] = true
+	party.Kicked[targetUserId] = nil -- o dono convidou de propósito: perdoa a expulsão
 	StateService.Notify(target, NOTE_INVITED:format(player.DisplayName, mapDisplayName(party.MapId)), "info", 8)
 	scheduleBroadcast()
 	return true, true
@@ -1333,6 +1337,10 @@ local function acceptRobloxInvite(player)
 	end
 	local userId = player.UserId
 	if table.find(party.Members, userId) or party.Invited[userId] then
+		return
+	end
+	-- Quem foi expulso só volta se o dono convidar de novo pela lista do servidor.
+	if party.Kicked[userId] then
 		return
 	end
 
