@@ -193,13 +193,14 @@ Todo handler **valida tipos** (`typeof`) e faixas de todos os argumentos antes d
 | `PlayerUpgrades` | jogador | `{[upgradeId] = level}` |
 | `TeamUpgrades` | global | `{[upgradeId] = level}` |
 | `ShelfLevel` | global | `number` (1..MaxShelf) |
+| `ShelfReady` | global | `boolean` — `UpgradeService.IsShelfMaxed(Team.ShelfLevel)`: a prateleira atual pode ser melhorada (o botão "Melhorar Barraca" usa isto) |
 | `Recipes` | global | `{[recipeId] = true}` (receitas permanentes aplicadas nesta partida) |
 | `Buffs` | global | `{TimedEnchantUntil = number, NextWaveGiant = boolean}` |
 | `Quest` | jogador | `{Active = nil \| {Id, Type, Text, Target, Progress, Reward}, CooldownEnd = number}` |
 | `Ingredients` | jogador | `{[ingredientId] = count}` |
 | `Supreme` | global | `{Progress = 0..1, Height = number}` |
 | `Heat` | jogador | `{Value = number, Capacity = number, Overheated = boolean}` |
-| `Portal` | global | `{Open = boolean, Target = mapId?, Votes = number, Needed = number, Decision = "Host"\|"Majority"}` |
+| `Portal` | global | `{Open = boolean, Target = mapId?, Votes = number, Needed = number, Decision = "Host"\|"Majority", Decider = userId?}` (`Decider` só no modo Host: quem pode ativar agora; o HUD mostra "Entrar" só para ele) |
 | `Turrets` | global | `{Placed = number, Max = number}` |
 | `Gamepasses` | jogador | `{DoubleCoins = boolean, AutoCollect = boolean, ExtraTurret = boolean}` |
 | `Board` | global | `{CooldownEnd = number}` |
@@ -293,6 +294,7 @@ Todos retornam uma tabela. Valores de custo/valor/vida são escritos em **unidad
   ExplosionDamageFraction = 0.4, ExplosionBaseRadius = 6,
   IgniteDpsFraction = 0.1, IgniteDuration = 3, IgniteRadius = 10,
   SlowDuration = 2,
+  SlowDamageBonus = 0.5,                        -- brainrot lento leva dano × (1 + (1 - SlowFactor) × isto)
   AttractSpeed = 3, AttractStopDistance = 18,
   FrozenShieldFraction = 0.5,
   WalkSpeed = 16, SprintSpeed = 26,
@@ -451,6 +453,7 @@ W_TurretAim    Turret   1 Team   Mira das Torretas         9 70    1.54 TurretAc
 W_Visibility   Brainrot 2 Team   Farol da Nevasca          5 400   1.9  Visibility Add 1
 W_Magnet       Brainrot 2 Team   Ímã de Moedas            10 600   1.48 MagnetRadius Add 4
 W_AutoCollect  Brainrot 2 Team   Coleta Automática         1 1e5   1    AutoCollect Add 1
+W_Attract      Brainrot 2 Team   Atrair Brainrots Valiosos 1 2e4   1    AttractValuable Add 1
 W_TurretFreeze Turret   2 Team   Torreta Congelante        5 1e3   1.72 TurretSlow Add 0.1
 W_IceAura      Brainrot 2 Team   Aura de Gelo             10 600   1.54 EnchantChance Add 0.03
 W_TierLuck     Brainrot 2 Team   Sorte de Tier            10 1.6e3 1.54 TierLuck Add 0.15
@@ -736,9 +739,9 @@ Entidade:
 ```
 - `BrainrotService.SpawnWave(triggeredBy?) -> ok, msg` — respeita `Board.CooldownEnd` (`Config.Game.BoardCooldown`), `MaxBrainrotsAlive`; quantidade = `teamStats.SpawnCount`. Sorteio: peso do tier × (`Low` 1, `Medium` 1+TierLuck, `High` 1+2·TierLuck). Gigante com `GiantChance` (ou todos se `Buffs.NextWaveGiant`, que depois volta a false). Encantamento com `EnchantChance` (ou sempre, se `now < Buffs.TimedEnchantUntil`), escolhido por peso (com `MapOverrides`). Congelado com `MapDef.FrozenChance` (escudo = `FrozenShieldFraction` × vida máx). Posição aleatória dentro de `FieldArea`, longe de jogadores (`PlayerExclusionRadius`), de outros brainrots (`MinBrainrotSpacing`), fora da plataforma/oásis/cova (ver 7.5), até `SpawnAttempts` tentativas. Tamanho alvo = `GrowthMult × (Giant 3 ou 1) × enchant.SizeMult`; começa em 25% e cresce até 100% em `def.GrowTime / enchant.GrowthMult` s (ease-out). Efeito `"Spawn"`.
 - Board: conecta `ctx.BoardPrompt.Triggered` → `SpawnWave(player)`; se estiver em recarga, `Notify` com o tempo.
-- Loop 5 Hz: crescimento (`Model:ScaleTo(def.BaseScale * SizeFactor)` e `PivotTo` na posição), `MaxHealth` recalculado mantendo `HealthFrac`, barra de vida, queimadura (`BurnDps`), atração (se `teamStats.AttractValuable >= 1`: `High` ou `Giant` andam até o jogador mais perto a `AttractSpeed × SlowFactor` até `AttractStopDistance`, sem sair da `FieldArea`), cor dos arco-íris, respawn automático (`AutoRespawn >= 1` e vivos < `AutoRespawnThreshold × SpawnCount` e fora da recarga). `StateService.SetAll("Alive", n)`.
+- Loop 5 Hz: crescimento (`Model:ScaleTo(def.BaseScale * SizeFactor)` e `PivotTo` na posição), `MaxHealth` recalculado mantendo `HealthFrac`, barra de vida, queimadura (`BurnDps`), atração (se `teamStats.AttractValuable >= 1`: `High` ou `Giant` andam até o jogador mais perto a `AttractSpeed × SlowFactor` até `AttractStopDistance`, sem sair da `FieldArea`; no Inverno a atração vem de `W_Attract`), cor dos arco-íris, respawn automático (`AutoRespawn >= 1` e vivos < `AutoRespawnThreshold × SpawnCount` e fora da recarga). `StateService.SetAll("Alive", n)`.
 - `BrainrotService.GetEntity(id)`, `GetEntityFromPart(part)` (sobe até o Model com atributo `"BrainrotId"`), `GetAlive() -> {entity}`, `GetFolder()`.
-- `BrainrotService.Damage(entity, amount, attacker?, info) -> dealt, killed` — `info = {Crit = boolean, Source = "Gun"|"Turret"|"Explosion"|"Burn"|"Splash", TurretOwnerUserId = number?}`. Escudo de gelo absorve primeiro (ao quebrar: remove o bloco e efeito `"IceBreak"`). Guarda `LastHitBy` quando `attacker` é Player.
+- `BrainrotService.Damage(entity, amount, attacker?, info) -> dealt, killed` — `info = {Crit = boolean, Source = "Gun"|"Turret"|"Explosion"|"Burn"|"Splash", TurretOwnerUserId = number?}`. Enquanto o brainrot está lento (`SlowUntil > agora`), o dano é multiplicado por `1 + (1 - SlowFactor) × Config.Game.SlowDamageBonus` (congelado fica frágil). Escudo de gelo absorve primeiro (ao quebrar: remove o bloco e efeito `"IceBreak"`). Guarda `LastHitBy` quando `attacker` é Player.
 - `BrainrotService.ApplySlow(entity, factor, duration)`, `BrainrotService.Ignite(entity, dps, duration)`.
 - `BrainrotService.Kill(entity, killer?, info)` — valor = `Formulas.BrainrotCoinValue × Formulas.EnchantCoinMult × teamStats.CoinMult`. Se `info.Source == "Turret"`: com `Config.Game.TurretCoinSplit == "Team"` divide `valor × teamStats.TurretCoinMult` igualmente entre os jogadores com run (`AddCoins(p, parte, "Turret")`); com `"Owner"` (padrão), se o dono está no servidor: `MatchService.AddCoins(dono, valor × teamStats.TurretCoinMult, "Turret")`; senão `CoinService.SpawnCoins(valor, pos)`. Explosão (chance `ExplodeChance`): dano `ExplosionDamageFraction × MaxHealth` nos vizinhos em `ExplosionBaseRadius + 3 × SizeFactor`, `Source = "Explosion"`, efeito `"Explosion"`, dispara `Exploded`. Encantamento Fogo: `Ignite` nos vizinhos em `IgniteRadius`. Receitas: `RecipeService.RollIngredient(killer, entity)` se o mapa tem receitas. Supremo: `SupremeService.OnKill(entity)` se o mapa tem supremo. Galáctico: `StateService.NotifyAll(..., "rare")`. Efeito `"Death"`. Stats do matador: `Kills.<Tier>`, `KillsTotal`, `Giants`, `Enchanted`, `Galactic`. Dispara `Killed`.
 - Sinais: `BrainrotService.Killed: Signal(killer: Player?, entity, info)`, `BrainrotService.Exploded: Signal(player?)`, `BrainrotService.Spawned: Signal(entity)`.
@@ -753,15 +756,16 @@ Entidade:
 - `CharacterAdded`: solda um modelo simples de arma na mão direita (cor da skin equipada, `Config.Cosmetics`), para os outros verem.
 
 ### 8.7 `UpgradeService`
-- `BuyUpgrade(upgradeId, amount)`: upgrade existe e é do mapa atual; `def.Shelf <= Team.ShelfLevel`; stall existe no mapa; `amount` inteiro 1..1000 ou `"max"`; calcula custo com `Formulas`; `MatchService.SpendCoins`; soma níveis no escopo certo; `StatService.Invalidate`; envia `PlayerUpgrades` ou `TeamUpgrades`; compra de time → `NotifyAll("<Nome> comprou <Upgrade> (nv. N)")`; efeito `"Purchase"` na barraca; `ProgressionService.CheckCompletion()`.
-- `BuyShelf()`: só se `IsShelfMaxed(Team.ShelfLevel)` e `ShelfLevel < MaxShelf`; custo `Formulas.ShelfCost`; `ShelfLevel += 1`; `MapBuilder.SetShelfLevel(ctx, level)`; `SetAll("ShelfLevel")`; `NotifyAll`.
+- `BuyUpgrade(upgradeId, amount)`: upgrade existe e é do mapa atual; `def.Shelf <= Team.ShelfLevel`; stall existe no mapa; `amount` inteiro 1..1000 ou `"max"`; calcula custo com `Formulas`; `MatchService.SpendCoins`; soma níveis no escopo certo; `StatService.Invalidate`; envia `PlayerUpgrades` ou `TeamUpgrades`; compra de time → `NotifyAll("<Nome> comprou <Upgrade> (nv. N)")`; efeito `"Purchase"` na barraca; publica `ShelfReady`; `ProgressionService.CheckCompletion()`.
+- `BuyShelf()`: só se `IsShelfMaxed(Team.ShelfLevel)` e `ShelfLevel < MaxShelf`; custo `Formulas.ShelfCost`; `ShelfLevel += 1`; `MapBuilder.SetShelfLevel(ctx, level)`; `SetAll("ShelfLevel")` e `PublishShelfReady()`; `NotifyAll`.
+- `UpgradeService.PublishShelfReady()` — `StateService.SetAll("ShelfReady", IsShelfMaxed(Team.ShelfLevel))`, só quando o valor muda; chamado no `Start` (valor inicial), depois de `BuyUpgrade` e `BuyShelf`, em `MatchService.RunReady` e num laço de 1 s (pega saída de jogadores e comandos de teste como `maxall`/`reset`).
 - `UpgradeService.IsShelfMaxed(shelf) -> boolean` — todos os upgrades do mapa com `Shelf <= shelf` estão no máximo: `Team` pelo nível do time; `Player` conforme `Config.Game.WeaponMaxRule` (`"AnyPlayer"`: algum run, inclusive de quem saiu, tem o nível máximo; `"AllPlayers"`: todos os jogadores presentes).
 - `UpgradeService.IsActComplete()` — `ShelfLevel == MaxShelf` e `IsShelfMaxed(MaxShelf)`.
 - `UpgradeService.GetLevel(player, def)`.
 
 ### 8.8 `ProgressionService`
 - `CheckCompletion()` — se `IsActComplete()` e ainda não marcado: `SetAll("Completed", true)`; se o mapa tem `Next`, abre o portal (`MapBuilder.OpenPortal`), `NotifyAll("Portal para <Next> aberto!", "rare")`, efeito `"Portal"`, `SetAll("Portal", {...})`. No Deserto, só avisa que o foco agora é o Supremo.
-- Portal: `Config.Game.PortalDecision == "Host"` → só o host ativa (os outros recebem aviso); `"Majority"` → cada prompt/`VotePortal` registra voto; com votos ≥ `ceil(jogadores/2)` → `MatchService.CompleteAct()`. Votos de quem saiu são removidos.
+- Portal: `Config.Game.PortalDecision == "Host"` → só o host ativa (se ele saiu, o participante mais antigo presente; publicado em `Portal.Decider`, republicado em RunReady, PlayerAdded e PlayerRemoving; os outros recebem aviso); `"Majority"` → cada prompt/`VotePortal` registra voto; com votos ≥ `ceil(jogadores/2)` → `MatchService.CompleteAct()`. Votos de quem saiu são removidos.
 
 ### 8.9 `QuestService`
 - `TakeQuest`: sem missão ativa e fora da espera; escolhe template aleatório cujos `Requires` o time atende; calcula alvo e recompensa (5.10); `Quest` do jogador.
@@ -870,7 +874,7 @@ Espera `workspace:GetAttribute("Role")` (usa `GetAttributeChangedSignal` se aind
 - `EndingController`: `Net.On("Ending")` → desliga a câmera do jogador, câmera sobe mostrando o Supremo na frente do sol, tela escurece, música `"Ending"`, créditos rolando com `Names` e "Obrigado por jogar!", dura `Duration`.
 
 ### 10.4 Janelas
-- `StallWindow`: `PromptController.Register("Stall", fn)`. Mostra os upgrades daquela barraca no mapa atual, agrupados por prateleira (prateleiras acima de `ShelfLevel` aparecem trancadas com cadeado e o custo para liberar). Cada linha: nome, descrição, `nível/máx`, efeito atual → próximo (`Formulas`/`NumberFormat.Stat`), custo (verde se dá, vermelho se não), botões `x1`, `x10`, `Máx`. Botão "Melhorar Barraca (prateleira N)" com o custo (`BuyShelf`), só ativo quando `IsShelfMaxed` (calcular no cliente com os estados). Na barraca `Quest`, um painel no topo: missão ativa com progresso ou botão "Pegar missão" / tempo de espera, e "Abandonar". Na barraca `Turret`: botões "Colocar torreta" (fecha a janela e chama `PlacementController.Enter()`) e "Chamar torretas de volta", e contagem `Placed/Max`. Na barraca `Growth`: progresso do Supremo e botão para abrir a `SupremeWindow`. Atualiza sozinha quando o estado muda.
+- `StallWindow`: `PromptController.Register("Stall", fn)`. Mostra os upgrades daquela barraca no mapa atual, agrupados por prateleira (prateleiras acima de `ShelfLevel` aparecem trancadas com cadeado e o custo para liberar). Cada linha: nome, descrição, `nível/máx`, efeito atual → próximo (`Formulas`/`NumberFormat.Stat`), custo (verde se dá, vermelho se não), botões `x1`, `x10`, `Máx`. Botão "Melhorar Barraca (prateleira N)" com o custo (`BuyShelf`), ativo quando o global `ShelfReady` é `true` (o servidor decide, porque a regra `AnyPlayer` conta até runs de quem já saiu; o cliente calcula com `PlayerUpgrades`/`TeamUpgrades` só a lista do texto "Faltam N: ..."). Na barraca `Quest`, um painel no topo: missão ativa com progresso ou botão "Pegar missão" / tempo de espera, e "Abandonar". Na barraca `Turret`: botões "Colocar torreta" (fecha a janela e chama `PlacementController.Enter()`) e "Chamar torretas de volta", e contagem `Placed/Max`. Na barraca `Growth`: progresso do Supremo e botão para abrir a `SupremeWindow`. Atualiza sozinha quando o estado muda.
 - `CauldronWindow`: `Register("Cauldron")`. Inventário de ingredientes, 3 espaços de seleção, custo da receita (se reconhecida no Livro), botão "Cozinhar" (`Craft`), aba "Livro de Receitas" (conhecidas: nome, ingredientes, efeito; desconhecidas: `???` + dica). Também abre pelo botão do HUD.
 - `SupremeWindow`: `Register("Supreme")`. Barra de progresso ("X% do céu"), altura, botões "Alimentar 10% / 50% / 100% das moedas" (`FeedSupreme`).
 - `SettingsWindow`: `Register("Settings")`. Sensibilidade, Inverter Y, FOV, Alternar corrida, volumes, números de dano, e remapear teclas (clica e aperta a nova tecla; "Restaurar padrão"). Salva com `SaveSettings` (debounce de 1 s). As outras partes leem de `Profile.Settings`.

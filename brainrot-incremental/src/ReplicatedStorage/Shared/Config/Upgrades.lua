@@ -109,7 +109,9 @@ local W = Adder("Winter")
 W("W_Damage", "Weapon", 1, "Player", "Dano", "+25% de dano por nível", 25, 10, 1.33, "Damage", "Pow", 1.25)
 W("W_FireRate", "Weapon", 1, "Player", "Cadência", "+8% de tiros por segundo por nível", 20, 15, 1.36, "FireRate", "Mult", 0.08)
 W("W_Splash", "Weapon", 1, "Player", "Raio da Explosão", "+1,5 stud no raio da explosão de gelato por nível", 10, 200, 1.84, "SplashRadius", "Add", 1.5)
-W("W_Slow", "Weapon", 1, "Player", "Congelamento", "Os tiros deixam os brainrots +5% mais lentos por nível", 10, 150, 1.72, "SlowPower", "Add", 0.05)
+-- Lentidão: por GameConfig.SlowDuration (2 s) o brainrot atingido anda mais devagar
+-- (só os que andam, com W_Attract) e fica frágil: leva mais dano (GameConfig.SlowDamageBonus).
+W("W_Slow", "Weapon", 1, "Player", "Congelamento", "Por 2 s, o brainrot atingido fica +5% mais lento e mais frágil (leva mais dano) por nível", 10, 150, 1.72, "SlowPower", "Add", 0.05)
 W("W_Crit", "Weapon", 1, "Player", "Chance de Crítico", "+3% de chance de acerto crítico por nível", 15, 100, 1.54, "CritChance", "Add", 0.03)
 W("W_Caliber", "Weapon", 1, "Player", "Calibre", "Bolas de gelato +10% maiores por nível: fica mais fácil acertar", 10, 60, 1.48, "Caliber", "Mult", 0.1)
 
@@ -134,7 +136,12 @@ W("W_TurretAim", "Turret", 1, "Team", "Mira das Torretas", "+4% de precisão das
 W("W_Visibility", "Brainrot", 2, "Team", "Farol da Nevasca", "A neblina da nevasca fica 25% mais fraca por nível", 5, 400, 1.9, "Visibility", "Add", 1)
 W("W_Magnet", "Brainrot", 2, "Team", "Ímã de Moedas", "Puxa as moedas próximas até você: +4 studs de raio por nível", 10, 600, 1.48, "MagnetRadius", "Add", 4)
 W("W_AutoCollect", "Brainrot", 2, "Team", "Coleta Automática", "Toda moeda vai sozinha para o jogador mais perto", 1, 1e5, 1, "AutoCollect", "Add", 1)
-W("W_TurretFreeze", "Turret", 2, "Team", "Torreta Congelante", "Os tiros das torretas deixam os brainrots +10% mais lentos por nível", 5, 1e3, 1.72, "TurretSlow", "Add", 0.1)
+-- Sem este upgrade nenhum brainrot anda no Inverno (os upgrades não passam de um ato
+-- para o outro). Com ele, os brainrots de tier Alto e os Gigantes andam até o jogador
+-- e os tiros de gelo os deixam mais lentos (além de mais frágeis). É 1 nível só (o stat é
+-- "ligado/desligado") e barato: custo base = 1/5 do Prado, a mesma regra dos outros.
+W("W_Attract", "Brainrot", 2, "Team", "Atrair Brainrots Valiosos", "Brainrots de tier Alto e Gigantes andam devagar até o jogador mais perto", 1, 2e4, 1, "AttractValuable", "Add", 1)
+W("W_TurretFreeze", "Turret", 2, "Team", "Torreta Congelante", "Por 2 s, quem a torreta acerta fica +10% mais lento e mais frágil (leva mais dano) por nível", 5, 1e3, 1.72, "TurretSlow", "Add", 0.1)
 W("W_IceAura", "Brainrot", 2, "Team", "Aura de Gelo", "+3% de chance de nascer brainrot encantado por nível (o Gelo vale muito mais aqui!)", 10, 600, 1.54, "EnchantChance", "Add", 0.03)
 W("W_TierLuck", "Brainrot", 2, "Team", "Sorte de Tier", "Brainrots de tier Médio e Alto aparecem mais: +15% de sorte por nível", 10, 1.6e3, 1.54, "TierLuck", "Add", 0.15)
 W("W_CritMult", "Weapon", 2, "Player", "Multiplicador de Crítico", "+0,25× de dano nos acertos críticos por nível", 10, 1e3, 1.54, "CritMult", "Add", 0.25)

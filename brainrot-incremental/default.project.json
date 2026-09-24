@@ -3,7 +3,10 @@
   "tree": {
     "$className": "DataModel",
     "Workspace": {
-      "$className": "Workspace"
+      "$className": "Workspace",
+      "$properties": {
+        "StreamingEnabled": false
+      }
     },
     "Lighting": {
       "$className": "Lighting"

@@ -5,7 +5,8 @@
 --   * prateleiras liberadas: cada upgrade com nome, descrição, nível/máx, efeito atual → próximo,
 --     custo (verde se dá para comprar, vermelho se não) e botões x1, x10 e Máx;
 --   * o painel "Melhorar Barraca (prateleira N)", que só fica ativo quando TODOS os upgrades
---     liberados de TODAS as barracas estão no máximo (conta feita aqui no cliente com o estado);
+--     liberados de TODAS as barracas estão no máximo (quem responde é o servidor, pela chave
+--     global "ShelfReady"; a conta local aqui no cliente serve só para o texto "Faltam ...");
 --   * prateleiras trancadas: aparecem com cadeado, mostrando o que vem por aí.
 -- Barracas especiais ganham um painel no topo:
 --   * Missões: missão ativa com progresso ou botão "Pegar missão" (com o tempo de espera) e "Abandonar";
@@ -20,7 +21,6 @@
 --   StallWindow.Open(stallId)   abre a janela de uma barraca (extra)
 --   StallWindow.Close()         fecha (extra)
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local GuiService = game:GetService("GuiService")
@@ -153,27 +153,17 @@ local function getLevel(def)
 	return math.max(0, math.floor(num(levels[def.Id], 0)))
 end
 
--- true se há outros jogadores na lista do time (TeamList).
-local function hasTeammates()
-	local list = StateController.Get("TeamList")
-	if type(list) ~= "table" then
-		return false
-	end
-	for _, entry in ipairs(list) do
-		if type(entry) == "table" and entry.UserId ~= Players.LocalPlayer.UserId then
-			return true
-		end
-	end
-	return false
-end
-
--- Espelho no cliente de UpgradeService.IsShelfMaxed(shelf): todos os upgrades do mapa
--- (de barracas que existem no mapa) com Shelf <= shelf estão no máximo.
--- O cliente só enxerga os níveis DESTE jogador nos upgrades "Player". Com a regra
--- Config.Game.WeaponMaxRule = "AnyPlayer", basta ALGUÉM do time ter maxado; então um
--- upgrade "Player" que você não maxou não bloqueia o botão quando há outros jogadores
--- no time (o servidor confere de verdade). Jogando sozinho, conta só o seu nível.
--- Devolve (podeTentar, listaDosQueFaltam, listaDosSeusQueTalvezFaltem).
+-- A prateleira "shelf" (a atual) pode ser melhorada? Espelha UpgradeService.IsShelfMaxed.
+-- Quem dá a palavra final é o SERVIDOR, pela chave global "ShelfReady". O cliente não
+-- consegue fazer essa conta sozinho: ele só enxerga os níveis "Player" DESTE jogador, e
+-- com a regra Config.Game.WeaponMaxRule = "AnyPlayer" vale o nível de QUALQUER run do
+-- time, até de quem já saiu da partida (antes o cliente olhava só quem está no time
+-- agora e travava o botão que o servidor aceitaria).
+-- A lista local serve só para os textos do painel ("Faltam ..."):
+--   * missing: faltam com certeza (upgrades do time e, na regra "AllPlayers", os seus);
+--   * ownMissing: upgrades "Player" que VOCÊ não maxou, mas outro jogador (mesmo um que
+--     já saiu) pode ter maxado (regra "AnyPlayer").
+-- Devolve (pronta, listaDosQueFaltam, listaDosSeusQueTalvezFaltem).
 local function computeShelfStatus(shelf)
 	local mapDef, mapId = getMap()
 	local missing = {} -- faltam com certeza
@@ -181,7 +171,7 @@ local function computeShelfStatus(shelf)
 	if not mapDef then
 		return false, missing, ownMissing
 	end
-	local anyPlayerRule = GameConfig.WeaponMaxRule ~= "AllPlayers" and hasTeammates()
+	local anyPlayerRule = GameConfig.WeaponMaxRule ~= "AllPlayers"
 	for _, def in ipairs(Upgrades.ByMap[mapId] or {}) do
 		if def.Shelf <= shelf and mapHasStall(mapDef, def.Stall) then
 			if not Formulas.IsUpgradeMaxed(def, getLevel(def)) then
@@ -193,7 +183,13 @@ local function computeShelfStatus(shelf)
 			end
 		end
 	end
-	return #missing == 0, missing, ownMissing
+	-- Resposta do servidor (true/false). Se ela ainda não chegou (nil), deixamos tentar:
+	-- o servidor confere tudo de novo quando o botão é apertado.
+	local serverReady = StateController.Get("ShelfReady") ~= false
+	-- "#missing == 0" também entra: logo depois de liberar uma prateleira, a chave
+	-- ShelfLevel pode chegar um instante antes da ShelfReady nova, e os upgrades do time
+	-- da prateleira nova (ainda no nível 0) já mostram que ela não está pronta.
+	return serverReady and #missing == 0, missing, ownMissing
 end
 
 -- "A, B, C e mais 2" (nomes dos upgrades de uma lista).
@@ -1066,9 +1062,10 @@ local function refreshUnlockPanel(coins)
 	local canPay = coins >= cost
 
 	if ready and #ownMissing > 0 then
-		-- Só faltam upgrades "Só você" que outro jogador do time pode já ter maxado.
+		-- O servidor disse que está pronta, mas você não maxou alguns upgrades "Só você":
+		-- alguém do time (talvez alguém que já saiu) maxou por você.
 		unlock.Info.Text = (
-			"Upgrades do time no máximo! Você ainda não maxou: %s. Se alguém do time já maxou, dá para melhorar%s."
+			"Tudo no máximo! Você ainda não maxou: %s, mas alguém do time já maxou, então dá para melhorar%s."
 		):format(joinNames(ownMissing), if canPay then "" else " (junte " .. NumberFormat.Abbrev(cost) .. " moedas)")
 	elseif ready then
 		if canPay then
@@ -1086,10 +1083,17 @@ local function refreshUnlockPanel(coins)
 		for _, def in ipairs(ownMissing) do
 			table.insert(all, def)
 		end
-		unlock.Info.Text = ("Deixe no máximo todos os upgrades liberados de todas as barracas. Faltam %d: %s."):format(
-			#all,
-			joinNames(all)
-		)
+		if #all > 0 then
+			unlock.Info.Text = ("Deixe no máximo todos os upgrades liberados de todas as barracas. Faltam %d: %s."):format(
+				#all,
+				joinNames(all)
+			)
+		else
+			-- Os seus estão todos no máximo, mas o servidor ainda diz "não": na regra
+			-- "AllPlayers", falta outro jogador do time maxar os upgrades "Só você" dele.
+			unlock.Info.Text =
+				'Os seus upgrades estão no máximo! Falta o resto do time deixar no máximo os upgrades "Só você" dele.'
+		end
 	end
 
 	unlock.Button.Text = if cost < math.huge then "Melhorar (" .. NumberFormat.Abbrev(cost) .. ")" else "Melhorar"
@@ -1150,10 +1154,10 @@ local function refreshHeader(coins)
 		header.Shelf.Text = "Barraca no nível máximo!"
 		header.Shelf.TextColor3 = Theme.Rare
 	else
-		local ready, _, ownMissing = computeShelfStatus(shelfLevel)
-		local sure = ready and #ownMissing == 0
-		header.Shelf.Text = ("Prateleira %d de %d%s"):format(shelfLevel, maxShelf, if sure then " — pronta para melhorar!" else "")
-		header.Shelf.TextColor3 = if sure then Theme.Success else Theme.TextDim
+		-- "ready" já é a resposta do servidor (chave ShelfReady), então dá para confiar.
+		local ready = computeShelfStatus(shelfLevel)
+		header.Shelf.Text = ("Prateleira %d de %d%s"):format(shelfLevel, maxShelf, if ready then " — pronta para melhorar!" else "")
+		header.Shelf.TextColor3 = if ready then Theme.Success else Theme.TextDim
 	end
 end
 
@@ -1427,7 +1431,7 @@ local function startListening()
 	listenTrove:Add(StateController.OnChanged("Quest", cheap))
 	listenTrove:Add(StateController.OnChanged("Turrets", cheap))
 	listenTrove:Add(StateController.OnChanged("Supreme", cheap))
-	listenTrove:Add(StateController.OnChanged("TeamList", cheap)) -- quem está no time (regra do "Melhorar Barraca")
+	listenTrove:Add(StateController.OnChanged("ShelfReady", cheap)) -- resposta do servidor para o "Melhorar Barraca"
 	listenTrove:Add(StateController.OnChanged("PlayerUpgrades", full))
 	listenTrove:Add(StateController.OnChanged("TeamUpgrades", full))
 	listenTrove:Add(StateController.OnChanged("ShelfLevel", full))

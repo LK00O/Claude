@@ -916,6 +916,13 @@ function BrainrotService.Damage(entity, amount, attacker, info)
 		entity.LastHitBy = player
 	end
 
+	-- Brainrot lento (congelado pelo Canhão de Gelato ou pela Torreta Congelante) fica frágil:
+	-- leva mais dano enquanto a lentidão dura. Ex.: 20% mais lento com bônus 0,5 = +10% de dano.
+	local slowBonus = tonumber(GameConfig.SlowDamageBonus) or 0
+	if slowBonus > 0 and entity.SlowFactor < 1 and entity.SlowUntil > now() then
+		amount *= 1 + (1 - entity.SlowFactor) * slowBonus
+	end
+
 	local remaining = amount
 	local dealt = 0
 

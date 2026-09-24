@@ -6,7 +6,8 @@
 --       não foi marcado: marca "Completed" e abre o portal (ou, no Deserto, avisa que o
 --       foco agora é o Supremo).
 --   Portal (prompt no mapa ou Request "VotePortal"):
---       Config.Game.PortalDecision == "Host"     -> só o dono ativa;
+--       Config.Game.PortalDecision == "Host"     -> só o dono ativa (se ele saiu, o jogador
+--                                                   mais antigo presente; vai em Portal.Decider);
 --       Config.Game.PortalDecision == "Majority" -> cada jogador vota; com votos >= metade
 --                                                   (arredondada para cima) -> MatchService.CompleteAct().
 --       Votos de quem sai do servidor são removidos.
@@ -100,14 +101,20 @@ local function getNeeded(exclude)
 end
 
 -- Publica a chave global "Portal".
+-- Decider: no modo "Host", o UserId de quem pode ativar o portal agora (o dono ou,
+-- se ele saiu, quem ficou no lugar). Assim o HUD mostra o botão só para essa pessoa,
+-- em vez de adivinhar (antes, sem o dono, todo mundo via o botão e só um conseguia).
+-- No modo "Majority" fica nil (todo mundo vota).
 local function publishPortal(exclude)
 	local mapDef = Svc("MatchService").GetMapDef()
+	local decision = getDecision()
 	StateService.SetAll("Portal", {
 		Open = portalOpen,
 		Target = (portalOpen and mapDef) and mapDef.Next or nil,
 		Votes = countVotes(exclude),
 		Needed = getNeeded(exclude),
-		Decision = getDecision(),
+		Decision = decision,
+		Decider = if decision == "Host" then getEffectiveHostUserId(exclude) else nil,
 	})
 end
 
@@ -286,6 +293,13 @@ function ProgressionService.Start()
 	MatchService.RunReady:Connect(function()
 		publishPortal()
 		ProgressionService.CheckCompletion()
+	end)
+
+	-- Jogador entrou: quem volta para a partida já tem o run na memória, então passa a
+	-- contar (e, se for o dono, volta a decidir no modo "Host") antes do RunReady.
+	-- Republica logo para o "Decider" e o "Needed" do HUD não ficarem atrasados.
+	Players.PlayerAdded:Connect(function()
+		publishPortal()
 	end)
 
 	-- Jogador saiu: tira o voto dele e reconfere (menos gente = menos votos necessários).

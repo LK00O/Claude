@@ -74,6 +74,9 @@ local Game = {
 	-- Duração da lentidão causada por tiros (segundos).
 	SlowDuration = 2,
 
+	-- Brainrot lento fica frágil: dano × (1 + lentidão × este valor). 20% mais lento = +10% de dano.
+	SlowDamageBonus = 0.5,
+
 	-- Upgrade "Atrair Brainrots Valiosos": velocidade (studs/s) e distância onde param.
 	AttractSpeed = 3,
 	AttractStopDistance = 18,

@@ -1569,23 +1569,28 @@ function refreshPortal()
 	ui.PortalButton.BackgroundColor3 = Theme.Success
 
 	if portal.Decision == "Host" then
-		-- Só o dono decide. Se o dono saiu, qualquer um pode tentar (o servidor escolhe quem manda).
+		-- Só uma pessoa decide: o servidor manda quem é em portal.Decider (o dono ou,
+		-- se ele saiu, quem ficou no lugar). Antes o HUD tentava adivinhar pela TeamList
+		-- e, sem o dono, mostrava o botão para todo mundo, mas o servidor só aceitava um.
+		local deciderId = portal.Decider
+		local canDecide = deciderId ~= nil and deciderId == LocalPlayer.UserId
 		local match = StateController.Get("Match")
 		local hostId = type(match) == "table" and match.HostUserId or nil
-		local hostPresent = false
-		local teamList = StateController.Get("TeamList")
-		if type(teamList) == "table" then
-			for _, entry in ipairs(teamList) do
-				if type(entry) == "table" and entry.UserId == hostId then
-					hostPresent = true
-					break
+		local othersText = "O dono da partida decide quando o time entra."
+		if deciderId ~= nil and deciderId ~= hostId then
+			-- O dono saiu: mostra o nome de quem ficou no lugar (se estiver na TeamList).
+			othersText = "Quem ficou no lugar do dono decide quando o time entra."
+			local teamList = StateController.Get("TeamList")
+			if type(teamList) == "table" then
+				for _, entry in ipairs(teamList) do
+					if type(entry) == "table" and entry.UserId == deciderId and type(entry.Name) == "string" then
+						othersText = entry.Name .. " decide quando o time entra (o dono saiu)."
+						break
+					end
 				end
 			end
 		end
-		local canDecide = hostId == LocalPlayer.UserId or not hostPresent
-		ui.PortalInfo.Text = if canDecide
-			then "Você decide quando o time entra no portal."
-			else "O dono da partida decide quando o time entra."
+		ui.PortalInfo.Text = if canDecide then "Você decide quando o time entra no portal." else othersText
 		ui.PortalButton.Visible = canDecide
 		ui.PortalButton.Text = "Entrar"
 		ui.PortalButton:SetAttribute("Disabled", voteBusy)

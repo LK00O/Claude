@@ -135,14 +135,15 @@ Todos os números estão em `ReplicatedStorage > Shared > Config`:
 | `Game` | Regras gerais: velocidade, limite de brainrots, carteira compartilhada, votação do portal |
 | `Maps` | Os três mapas, multiplicadores de custo/vida por ato, iluminação |
 | `Weapons` / `Stats` | Arma inicial e todos os atributos (dano, cadência, crítico, perfuração...) |
-| `Upgrades` | As 88 linhas de upgrade de cada barraca (custo, efeito, nível máximo) |
+| `Upgrades` | Todos os upgrades de cada barraca (custo, efeito, nível máximo) |
 | `Brainrots` / `Enchants` | Vida, valor e tamanho de cada brainrot; encantamentos (Dourado, Gelo, Fogo, Arco-íris...) |
 | `Quests` / `Recipes` | Missões e receitas do caldeirão do Deserto |
 | `Achievements` / `Cosmetics` | Conquistas e skins da loja do lobby |
 | `Keybinds` | Teclas padrão (o jogador pode remapear nas Configurações) |
 
 **Atenção:** os valores de custo, dano e vida foram criados para este projeto (o jogo original não
-publica esses números). Jogue alguns atos e ajuste as tabelas ao seu gosto.
+publica esses números). Eles foram ajustados com uma simulação para cada ato durar cerca de 35 a 50
+minutos jogando sozinho. Jogue alguns atos e ajuste as tabelas ao seu gosto.
 
 ### Badges e game passes (opcional)
 - **Badges:** crie em Creator Hub > sua experiência > Engajamento > Badges e coloque o id em

@@ -1011,6 +1011,9 @@ local Game = {
 	-- Duração da lentidão causada por tiros (segundos).
 	SlowDuration = 2,
 
+	-- Brainrot lento fica frágil: dano × (1 + lentidão × este valor). 20% mais lento = +10% de dano.
+	SlowDamageBonus = 0.5,
+
 	-- Upgrade "Atrair Brainrots Valiosos": velocidade (studs/s) e distância onde param.
 	AttractSpeed = 3,
 	AttractStopDistance = 18,
@@ -1829,7 +1832,9 @@ local W = Adder("Winter")
 W("W_Damage", "Weapon", 1, "Player", "Dano", "+25% de dano por nível", 25, 10, 1.33, "Damage", "Pow", 1.25)
 W("W_FireRate", "Weapon", 1, "Player", "Cadência", "+8% de tiros por segundo por nível", 20, 15, 1.36, "FireRate", "Mult", 0.08)
 W("W_Splash", "Weapon", 1, "Player", "Raio da Explosão", "+1,5 stud no raio da explosão de gelato por nível", 10, 200, 1.84, "SplashRadius", "Add", 1.5)
-W("W_Slow", "Weapon", 1, "Player", "Congelamento", "Os tiros deixam os brainrots +5% mais lentos por nível", 10, 150, 1.72, "SlowPower", "Add", 0.05)
+-- Lentidão: por GameConfig.SlowDuration (2 s) o brainrot atingido anda mais devagar
+-- (só os que andam, com W_Attract) e fica frágil: leva mais dano (GameConfig.SlowDamageBonus).
+W("W_Slow", "Weapon", 1, "Player", "Congelamento", "Por 2 s, o brainrot atingido fica +5% mais lento e mais frágil (leva mais dano) por nível", 10, 150, 1.72, "SlowPower", "Add", 0.05)
 W("W_Crit", "Weapon", 1, "Player", "Chance de Crítico", "+3% de chance de acerto crítico por nível", 15, 100, 1.54, "CritChance", "Add", 0.03)
 W("W_Caliber", "Weapon", 1, "Player", "Calibre", "Bolas de gelato +10% maiores por nível: fica mais fácil acertar", 10, 60, 1.48, "Caliber", "Mult", 0.1)
 
@@ -1854,7 +1859,12 @@ W("W_TurretAim", "Turret", 1, "Team", "Mira das Torretas", "+4% de precisão das
 W("W_Visibility", "Brainrot", 2, "Team", "Farol da Nevasca", "A neblina da nevasca fica 25% mais fraca por nível", 5, 400, 1.9, "Visibility", "Add", 1)
 W("W_Magnet", "Brainrot", 2, "Team", "Ímã de Moedas", "Puxa as moedas próximas até você: +4 studs de raio por nível", 10, 600, 1.48, "MagnetRadius", "Add", 4)
 W("W_AutoCollect", "Brainrot", 2, "Team", "Coleta Automática", "Toda moeda vai sozinha para o jogador mais perto", 1, 1e5, 1, "AutoCollect", "Add", 1)
-W("W_TurretFreeze", "Turret", 2, "Team", "Torreta Congelante", "Os tiros das torretas deixam os brainrots +10% mais lentos por nível", 5, 1e3, 1.72, "TurretSlow", "Add", 0.1)
+-- Sem este upgrade nenhum brainrot anda no Inverno (os upgrades não passam de um ato
+-- para o outro). Com ele, os brainrots de tier Alto e os Gigantes andam até o jogador
+-- e os tiros de gelo os deixam mais lentos (além de mais frágeis). É 1 nível só (o stat é
+-- "ligado/desligado") e barato: custo base = 1/5 do Prado, a mesma regra dos outros.
+W("W_Attract", "Brainrot", 2, "Team", "Atrair Brainrots Valiosos", "Brainrots de tier Alto e Gigantes andam devagar até o jogador mais perto", 1, 2e4, 1, "AttractValuable", "Add", 1)
+W("W_TurretFreeze", "Turret", 2, "Team", "Torreta Congelante", "Por 2 s, quem a torreta acerta fica +10% mais lento e mais frágil (leva mais dano) por nível", 5, 1e3, 1.72, "TurretSlow", "Add", 0.1)
 W("W_IceAura", "Brainrot", 2, "Team", "Aura de Gelo", "+3% de chance de nascer brainrot encantado por nível (o Gelo vale muito mais aqui!)", 10, 600, 1.54, "EnchantChance", "Add", 0.03)
 W("W_TierLuck", "Brainrot", 2, "Team", "Sorte de Tier", "Brainrots de tier Médio e Alto aparecem mais: +15% de sorte por nível", 10, 1.6e3, 1.54, "TierLuck", "Add", 0.15)
 W("W_CritMult", "Weapon", 2, "Player", "Multiplicador de Crítico", "+0,25× de dano nos acertos críticos por nível", 10, 1e3, 1.54, "CritMult", "Add", 0.25)
@@ -4882,6 +4892,13 @@ function BrainrotService.Damage(entity, amount, attacker, info)
 	local player = asPlayer(attacker)
 	if player then
 		entity.LastHitBy = player
+	end
+
+	-- Brainrot lento (congelado pelo Canhão de Gelato ou pela Torreta Congelante) fica frágil:
+	-- leva mais dano enquanto a lentidão dura. Ex.: 20% mais lento com bônus 0,5 = +10% de dano.
+	local slowBonus = tonumber(GameConfig.SlowDamageBonus) or 0
+	if slowBonus > 0 and entity.SlowFactor < 1 and entity.SlowUntil > now() then
+		amount *= 1 + (1 - entity.SlowFactor) * slowBonus
 	end
 
 	local remaining = amount
@@ -11956,6 +11973,7 @@ local function createParty(host, mapId, maxPlayers, privacy, resume)
 		Members = { host.UserId },
 		Ready = {},
 		Invited = {},
+		Kicked = {}, -- [userId] = true: expulsos (o convite do Roblox não os traz de volta)
 		State = "Waiting",
 		CountdownEnd = nil,
 	}
@@ -12061,6 +12079,8 @@ local function removeMember(party, userId, cause)
 	if cause == "Kicked" then
 		-- Expulso perde o convite (senão poderia entrar de novo num grupo "Só convidados").
 		party.Invited[userId] = nil
+		-- E fica marcado, para o convite antigo do Roblox não convidar de novo sozinho.
+		party.Kicked[userId] = true
 	end
 
 	-- Grupo vazio some.
@@ -12637,6 +12657,7 @@ local function onPartyInvite(player, targetUserId)
 	end
 
 	party.Invited[targetUserId] = true
+	party.Kicked[targetUserId] = nil -- o dono convidou de propósito: perdoa a expulsão
 	StateService.Notify(target, NOTE_INVITED:format(player.DisplayName, mapDisplayName(party.MapId)), "info", 8)
 	scheduleBroadcast()
 	return true, true
@@ -12690,6 +12711,10 @@ local function acceptRobloxInvite(player)
 	end
 	local userId = player.UserId
 	if table.find(party.Members, userId) or party.Invited[userId] then
+		return
+	end
+	-- Quem foi expulso só volta se o dono convidar de novo pela lista do servidor.
+	if party.Kicked[userId] then
 		return
 	end
 
@@ -12786,7 +12811,8 @@ return PartyService
 --       não foi marcado: marca "Completed" e abre o portal (ou, no Deserto, avisa que o
 --       foco agora é o Supremo).
 --   Portal (prompt no mapa ou Request "VotePortal"):
---       Config.Game.PortalDecision == "Host"     -> só o dono ativa;
+--       Config.Game.PortalDecision == "Host"     -> só o dono ativa (se ele saiu, o jogador
+--                                                   mais antigo presente; vai em Portal.Decider);
 --       Config.Game.PortalDecision == "Majority" -> cada jogador vota; com votos >= metade
 --                                                   (arredondada para cima) -> MatchService.CompleteAct().
 --       Votos de quem sai do servidor são removidos.
@@ -12880,14 +12906,20 @@ local function getNeeded(exclude)
 end
 
 -- Publica a chave global "Portal".
+-- Decider: no modo "Host", o UserId de quem pode ativar o portal agora (o dono ou,
+-- se ele saiu, quem ficou no lugar). Assim o HUD mostra o botão só para essa pessoa,
+-- em vez de adivinhar (antes, sem o dono, todo mundo via o botão e só um conseguia).
+-- No modo "Majority" fica nil (todo mundo vota).
 local function publishPortal(exclude)
 	local mapDef = Svc("MatchService").GetMapDef()
+	local decision = getDecision()
 	StateService.SetAll("Portal", {
 		Open = portalOpen,
 		Target = (portalOpen and mapDef) and mapDef.Next or nil,
 		Votes = countVotes(exclude),
 		Needed = getNeeded(exclude),
-		Decision = getDecision(),
+		Decision = decision,
+		Decider = if decision == "Host" then getEffectiveHostUserId(exclude) else nil,
 	})
 end
 
@@ -13066,6 +13098,13 @@ function ProgressionService.Start()
 	MatchService.RunReady:Connect(function()
 		publishPortal()
 		ProgressionService.CheckCompletion()
+	end)
+
+	-- Jogador entrou: quem volta para a partida já tem o run na memória, então passa a
+	-- contar (e, se for o dono, volta a decidir no modo "Host") antes do RunReady.
+	-- Republica logo para o "Decider" e o "Needed" do HUD não ficarem atrasados.
+	Players.PlayerAdded:Connect(function()
+		publishPortal()
 	end)
 
 	-- Jogador saiu: tira o voto dele e reconfere (menos gente = menos votos necessários).
@@ -17282,6 +17321,8 @@ return TurretService
 --       -> libera a próxima prateleira de todas as barracas (quando tudo abaixo está no máximo).
 --
 --   UpgradeService.IsShelfMaxed(shelf)  -> todos os upgrades até essa prateleira estão no máximo?
+--   UpgradeService.PublishShelfReady()  -> manda aos clientes a chave global "ShelfReady"
+--                                          (= IsShelfMaxed(ShelfLevel): o "Melhorar Barraca" pode ser usado?)
 --   UpgradeService.IsActComplete()      -> última prateleira liberada e tudo no máximo?
 --   UpgradeService.GetLevel(player, def) -> nível atual (do jogador ou do time, conforme o escopo)
 
@@ -17315,8 +17356,13 @@ end
 local MIN_AMOUNT = 1
 local MAX_AMOUNT = 1000
 local MAX_ID_LENGTH = 64
+-- De quanto em quanto tempo (s) a chave "ShelfReady" é conferida de novo (rede de segurança).
+local SHELF_READY_INTERVAL = 1
 
 local UpgradeService = {}
+
+-- Último valor mandado na chave "ShelfReady" (nil = ainda não mandamos nenhum).
+local lastShelfReady = nil
 
 -------------------------------------------------------------------------------
 -- Ajudantes
@@ -17459,6 +17505,32 @@ function UpgradeService.IsActComplete()
 	return MatchService.GetTeam().ShelfLevel >= maxShelf and UpgradeService.IsShelfMaxed(maxShelf)
 end
 
+-- Publica a chave global "ShelfReady": true quando a prateleira atual inteira está no
+-- máximo, ou seja, quando o BuyShelf aceitaria o pedido (sem contar as moedas).
+-- Por que o servidor calcula isso e não o cliente? O cliente só enxerga os níveis "Player"
+-- DELE. Com a regra "AnyPlayer" vale o run de QUALQUER jogador, até de quem já saiu da
+-- partida (ele continua em MatchService.Runs), e isso o cliente não tem como saber.
+-- Só manda quando o valor muda (quem entrar depois recebe o valor atual no estado completo).
+function UpgradeService.PublishShelfReady()
+	local MatchService = Svc("MatchService")
+	if not MatchService.GetMapDef() then
+		return
+	end
+	local ready = UpgradeService.IsShelfMaxed(MatchService.GetTeam().ShelfLevel)
+	if ready ~= lastShelfReady then
+		lastShelfReady = ready
+		StateService.SetAll("ShelfReady", ready)
+	end
+end
+
+-- Mesma coisa, mas protegido: um erro aqui não pode estragar uma compra já paga.
+local function refreshShelfReady()
+	local ok, err = pcall(UpgradeService.PublishShelfReady)
+	if not ok then
+		warn("[UpgradeService] Erro ao publicar ShelfReady: " .. tostring(err))
+	end
+end
+
 -- Compra níveis de um upgrade. Devolve (true, {Level, Spent}) ou (false, mensagem).
 function UpgradeService.BuyUpgrade(player, upgradeId, amount)
 	-- Validação do id.
@@ -17534,6 +17606,8 @@ function UpgradeService.BuyUpgrade(player, upgradeId, amount)
 	end
 
 	firePurchaseEffect(def.Stall)
+	-- Esta compra pode ter deixado a prateleira toda no máximo: avisa os clientes.
+	refreshShelfReady()
 	checkCompletion()
 
 	return true, { Level = newLevel, Spent = cost }
@@ -17581,6 +17655,8 @@ function UpgradeService.BuyShelf(player)
 	end
 
 	StateService.SetAll("ShelfLevel", nextShelf)
+	-- Prateleira nova = upgrades novos no nível 0: normalmente volta a ser false.
+	refreshShelfReady()
 	StateService.NotifyAll(
 		("%s melhorou as barracas! Prateleira %d liberada."):format(player.DisplayName, nextShelf),
 		"success",
@@ -17610,7 +17686,26 @@ function UpgradeService.Init()
 	end, { Rate = 2, Burst = 4 })
 end
 
-function UpgradeService.Start() end
+function UpgradeService.Start()
+	-- Valor inicial (o MatchService.Init já carregou o save do time, se havia um).
+	refreshShelfReady()
+
+	-- Um jogador entrou ou voltou: o run dele (talvez restaurado com upgrades no máximo)
+	-- passa a contar, e na regra "AllPlayers" ele também precisa estar no máximo.
+	Svc("MatchService").RunReady:Connect(function()
+		refreshShelfReady()
+	end)
+
+	-- Rede de segurança (1 vez por segundo): pega as mudanças que não passam por aqui,
+	-- como um jogador saindo (regra "AllPlayers") e os comandos de teste (maxall, reset).
+	-- A conta é barata e a chave só vai pela rede quando o valor muda.
+	task.spawn(function()
+		while true do
+			task.wait(SHELF_READY_INTERVAL)
+			refreshShelfReady()
+		end
+	end)
+end
 
 return UpgradeService
 ]]></string>
@@ -27360,23 +27455,28 @@ function refreshPortal()
 	ui.PortalButton.BackgroundColor3 = Theme.Success
 
 	if portal.Decision == "Host" then
-		-- Só o dono decide. Se o dono saiu, qualquer um pode tentar (o servidor escolhe quem manda).
+		-- Só uma pessoa decide: o servidor manda quem é em portal.Decider (o dono ou,
+		-- se ele saiu, quem ficou no lugar). Antes o HUD tentava adivinhar pela TeamList
+		-- e, sem o dono, mostrava o botão para todo mundo, mas o servidor só aceitava um.
+		local deciderId = portal.Decider
+		local canDecide = deciderId ~= nil and deciderId == LocalPlayer.UserId
 		local match = StateController.Get("Match")
 		local hostId = type(match) == "table" and match.HostUserId or nil
-		local hostPresent = false
-		local teamList = StateController.Get("TeamList")
-		if type(teamList) == "table" then
-			for _, entry in ipairs(teamList) do
-				if type(entry) == "table" and entry.UserId == hostId then
-					hostPresent = true
-					break
+		local othersText = "O dono da partida decide quando o time entra."
+		if deciderId ~= nil and deciderId ~= hostId then
+			-- O dono saiu: mostra o nome de quem ficou no lugar (se estiver na TeamList).
+			othersText = "Quem ficou no lugar do dono decide quando o time entra."
+			local teamList = StateController.Get("TeamList")
+			if type(teamList) == "table" then
+				for _, entry in ipairs(teamList) do
+					if type(entry) == "table" and entry.UserId == deciderId and type(entry.Name) == "string" then
+						othersText = entry.Name .. " decide quando o time entra (o dono saiu)."
+						break
+					end
 				end
 			end
 		end
-		local canDecide = hostId == LocalPlayer.UserId or not hostPresent
-		ui.PortalInfo.Text = if canDecide
-			then "Você decide quando o time entra no portal."
-			else "O dono da partida decide quando o time entra."
+		ui.PortalInfo.Text = if canDecide then "Você decide quando o time entra no portal." else othersText
 		ui.PortalButton.Visible = canDecide
 		ui.PortalButton.Text = "Entrar"
 		ui.PortalButton:SetAttribute("Disabled", voteBusy)
@@ -40791,7 +40891,8 @@ return SettingsWindow
 --   * prateleiras liberadas: cada upgrade com nome, descrição, nível/máx, efeito atual → próximo,
 --     custo (verde se dá para comprar, vermelho se não) e botões x1, x10 e Máx;
 --   * o painel "Melhorar Barraca (prateleira N)", que só fica ativo quando TODOS os upgrades
---     liberados de TODAS as barracas estão no máximo (conta feita aqui no cliente com o estado);
+--     liberados de TODAS as barracas estão no máximo (quem responde é o servidor, pela chave
+--     global "ShelfReady"; a conta local aqui no cliente serve só para o texto "Faltam ...");
 --   * prateleiras trancadas: aparecem com cadeado, mostrando o que vem por aí.
 -- Barracas especiais ganham um painel no topo:
 --   * Missões: missão ativa com progresso ou botão "Pegar missão" (com o tempo de espera) e "Abandonar";
@@ -40806,7 +40907,6 @@ return SettingsWindow
 --   StallWindow.Open(stallId)   abre a janela de uma barraca (extra)
 --   StallWindow.Close()         fecha (extra)
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local GuiService = game:GetService("GuiService")
@@ -40939,27 +41039,17 @@ local function getLevel(def)
 	return math.max(0, math.floor(num(levels[def.Id], 0)))
 end
 
--- true se há outros jogadores na lista do time (TeamList).
-local function hasTeammates()
-	local list = StateController.Get("TeamList")
-	if type(list) ~= "table" then
-		return false
-	end
-	for _, entry in ipairs(list) do
-		if type(entry) == "table" and entry.UserId ~= Players.LocalPlayer.UserId then
-			return true
-		end
-	end
-	return false
-end
-
--- Espelho no cliente de UpgradeService.IsShelfMaxed(shelf): todos os upgrades do mapa
--- (de barracas que existem no mapa) com Shelf <= shelf estão no máximo.
--- O cliente só enxerga os níveis DESTE jogador nos upgrades "Player". Com a regra
--- Config.Game.WeaponMaxRule = "AnyPlayer", basta ALGUÉM do time ter maxado; então um
--- upgrade "Player" que você não maxou não bloqueia o botão quando há outros jogadores
--- no time (o servidor confere de verdade). Jogando sozinho, conta só o seu nível.
--- Devolve (podeTentar, listaDosQueFaltam, listaDosSeusQueTalvezFaltem).
+-- A prateleira "shelf" (a atual) pode ser melhorada? Espelha UpgradeService.IsShelfMaxed.
+-- Quem dá a palavra final é o SERVIDOR, pela chave global "ShelfReady". O cliente não
+-- consegue fazer essa conta sozinho: ele só enxerga os níveis "Player" DESTE jogador, e
+-- com a regra Config.Game.WeaponMaxRule = "AnyPlayer" vale o nível de QUALQUER run do
+-- time, até de quem já saiu da partida (antes o cliente olhava só quem está no time
+-- agora e travava o botão que o servidor aceitaria).
+-- A lista local serve só para os textos do painel ("Faltam ..."):
+--   * missing: faltam com certeza (upgrades do time e, na regra "AllPlayers", os seus);
+--   * ownMissing: upgrades "Player" que VOCÊ não maxou, mas outro jogador (mesmo um que
+--     já saiu) pode ter maxado (regra "AnyPlayer").
+-- Devolve (pronta, listaDosQueFaltam, listaDosSeusQueTalvezFaltem).
 local function computeShelfStatus(shelf)
 	local mapDef, mapId = getMap()
 	local missing = {} -- faltam com certeza
@@ -40967,7 +41057,7 @@ local function computeShelfStatus(shelf)
 	if not mapDef then
 		return false, missing, ownMissing
 	end
-	local anyPlayerRule = GameConfig.WeaponMaxRule ~= "AllPlayers" and hasTeammates()
+	local anyPlayerRule = GameConfig.WeaponMaxRule ~= "AllPlayers"
 	for _, def in ipairs(Upgrades.ByMap[mapId] or {}) do
 		if def.Shelf <= shelf and mapHasStall(mapDef, def.Stall) then
 			if not Formulas.IsUpgradeMaxed(def, getLevel(def)) then
@@ -40979,7 +41069,13 @@ local function computeShelfStatus(shelf)
 			end
 		end
 	end
-	return #missing == 0, missing, ownMissing
+	-- Resposta do servidor (true/false). Se ela ainda não chegou (nil), deixamos tentar:
+	-- o servidor confere tudo de novo quando o botão é apertado.
+	local serverReady = StateController.Get("ShelfReady") ~= false
+	-- "#missing == 0" também entra: logo depois de liberar uma prateleira, a chave
+	-- ShelfLevel pode chegar um instante antes da ShelfReady nova, e os upgrades do time
+	-- da prateleira nova (ainda no nível 0) já mostram que ela não está pronta.
+	return serverReady and #missing == 0, missing, ownMissing
 end
 
 -- "A, B, C e mais 2" (nomes dos upgrades de uma lista).
@@ -41852,9 +41948,10 @@ local function refreshUnlockPanel(coins)
 	local canPay = coins >= cost
 
 	if ready and #ownMissing > 0 then
-		-- Só faltam upgrades "Só você" que outro jogador do time pode já ter maxado.
+		-- O servidor disse que está pronta, mas você não maxou alguns upgrades "Só você":
+		-- alguém do time (talvez alguém que já saiu) maxou por você.
 		unlock.Info.Text = (
-			"Upgrades do time no máximo! Você ainda não maxou: %s. Se alguém do time já maxou, dá para melhorar%s."
+			"Tudo no máximo! Você ainda não maxou: %s, mas alguém do time já maxou, então dá para melhorar%s."
 		):format(joinNames(ownMissing), if canPay then "" else " (junte " .. NumberFormat.Abbrev(cost) .. " moedas)")
 	elseif ready then
 		if canPay then
@@ -41872,10 +41969,17 @@ local function refreshUnlockPanel(coins)
 		for _, def in ipairs(ownMissing) do
 			table.insert(all, def)
 		end
-		unlock.Info.Text = ("Deixe no máximo todos os upgrades liberados de todas as barracas. Faltam %d: %s."):format(
-			#all,
-			joinNames(all)
-		)
+		if #all > 0 then
+			unlock.Info.Text = ("Deixe no máximo todos os upgrades liberados de todas as barracas. Faltam %d: %s."):format(
+				#all,
+				joinNames(all)
+			)
+		else
+			-- Os seus estão todos no máximo, mas o servidor ainda diz "não": na regra
+			-- "AllPlayers", falta outro jogador do time maxar os upgrades "Só você" dele.
+			unlock.Info.Text =
+				'Os seus upgrades estão no máximo! Falta o resto do time deixar no máximo os upgrades "Só você" dele.'
+		end
 	end
 
 	unlock.Button.Text = if cost < math.huge then "Melhorar (" .. NumberFormat.Abbrev(cost) .. ")" else "Melhorar"
@@ -41936,10 +42040,10 @@ local function refreshHeader(coins)
 		header.Shelf.Text = "Barraca no nível máximo!"
 		header.Shelf.TextColor3 = Theme.Rare
 	else
-		local ready, _, ownMissing = computeShelfStatus(shelfLevel)
-		local sure = ready and #ownMissing == 0
-		header.Shelf.Text = ("Prateleira %d de %d%s"):format(shelfLevel, maxShelf, if sure then " — pronta para melhorar!" else "")
-		header.Shelf.TextColor3 = if sure then Theme.Success else Theme.TextDim
+		-- "ready" já é a resposta do servidor (chave ShelfReady), então dá para confiar.
+		local ready = computeShelfStatus(shelfLevel)
+		header.Shelf.Text = ("Prateleira %d de %d%s"):format(shelfLevel, maxShelf, if ready then " — pronta para melhorar!" else "")
+		header.Shelf.TextColor3 = if ready then Theme.Success else Theme.TextDim
 	end
 end
 
@@ -42213,7 +42317,7 @@ local function startListening()
 	listenTrove:Add(StateController.OnChanged("Quest", cheap))
 	listenTrove:Add(StateController.OnChanged("Turrets", cheap))
 	listenTrove:Add(StateController.OnChanged("Supreme", cheap))
-	listenTrove:Add(StateController.OnChanged("TeamList", cheap)) -- quem está no time (regra do "Melhorar Barraca")
+	listenTrove:Add(StateController.OnChanged("ShelfReady", cheap)) -- resposta do servidor para o "Melhorar Barraca"
 	listenTrove:Add(StateController.OnChanged("PlayerUpgrades", full))
 	listenTrove:Add(StateController.OnChanged("TeamUpgrades", full))
 	listenTrove:Add(StateController.OnChanged("ShelfLevel", full))
@@ -44846,6 +44950,7 @@ return UIKit
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
+      <bool name="StreamingEnabled">false</bool>
     </Properties>
   </Item>
 </roblox>

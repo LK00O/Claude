@@ -9,6 +9,8 @@
 --       -> libera a próxima prateleira de todas as barracas (quando tudo abaixo está no máximo).
 --
 --   UpgradeService.IsShelfMaxed(shelf)  -> todos os upgrades até essa prateleira estão no máximo?
+--   UpgradeService.PublishShelfReady()  -> manda aos clientes a chave global "ShelfReady"
+--                                          (= IsShelfMaxed(ShelfLevel): o "Melhorar Barraca" pode ser usado?)
 --   UpgradeService.IsActComplete()      -> última prateleira liberada e tudo no máximo?
 --   UpgradeService.GetLevel(player, def) -> nível atual (do jogador ou do time, conforme o escopo)
 
@@ -42,8 +44,13 @@ end
 local MIN_AMOUNT = 1
 local MAX_AMOUNT = 1000
 local MAX_ID_LENGTH = 64
+-- De quanto em quanto tempo (s) a chave "ShelfReady" é conferida de novo (rede de segurança).
+local SHELF_READY_INTERVAL = 1
 
 local UpgradeService = {}
+
+-- Último valor mandado na chave "ShelfReady" (nil = ainda não mandamos nenhum).
+local lastShelfReady = nil
 
 -------------------------------------------------------------------------------
 -- Ajudantes
@@ -186,6 +193,32 @@ function UpgradeService.IsActComplete()
 	return MatchService.GetTeam().ShelfLevel >= maxShelf and UpgradeService.IsShelfMaxed(maxShelf)
 end
 
+-- Publica a chave global "ShelfReady": true quando a prateleira atual inteira está no
+-- máximo, ou seja, quando o BuyShelf aceitaria o pedido (sem contar as moedas).
+-- Por que o servidor calcula isso e não o cliente? O cliente só enxerga os níveis "Player"
+-- DELE. Com a regra "AnyPlayer" vale o run de QUALQUER jogador, até de quem já saiu da
+-- partida (ele continua em MatchService.Runs), e isso o cliente não tem como saber.
+-- Só manda quando o valor muda (quem entrar depois recebe o valor atual no estado completo).
+function UpgradeService.PublishShelfReady()
+	local MatchService = Svc("MatchService")
+	if not MatchService.GetMapDef() then
+		return
+	end
+	local ready = UpgradeService.IsShelfMaxed(MatchService.GetTeam().ShelfLevel)
+	if ready ~= lastShelfReady then
+		lastShelfReady = ready
+		StateService.SetAll("ShelfReady", ready)
+	end
+end
+
+-- Mesma coisa, mas protegido: um erro aqui não pode estragar uma compra já paga.
+local function refreshShelfReady()
+	local ok, err = pcall(UpgradeService.PublishShelfReady)
+	if not ok then
+		warn("[UpgradeService] Erro ao publicar ShelfReady: " .. tostring(err))
+	end
+end
+
 -- Compra níveis de um upgrade. Devolve (true, {Level, Spent}) ou (false, mensagem).
 function UpgradeService.BuyUpgrade(player, upgradeId, amount)
 	-- Validação do id.
@@ -261,6 +294,8 @@ function UpgradeService.BuyUpgrade(player, upgradeId, amount)
 	end
 
 	firePurchaseEffect(def.Stall)
+	-- Esta compra pode ter deixado a prateleira toda no máximo: avisa os clientes.
+	refreshShelfReady()
 	checkCompletion()
 
 	return true, { Level = newLevel, Spent = cost }
@@ -308,6 +343,8 @@ function UpgradeService.BuyShelf(player)
 	end
 
 	StateService.SetAll("ShelfLevel", nextShelf)
+	-- Prateleira nova = upgrades novos no nível 0: normalmente volta a ser false.
+	refreshShelfReady()
 	StateService.NotifyAll(
 		("%s melhorou as barracas! Prateleira %d liberada."):format(player.DisplayName, nextShelf),
 		"success",
@@ -337,6 +374,25 @@ function UpgradeService.Init()
 	end, { Rate = 2, Burst = 4 })
 end
 
-function UpgradeService.Start() end
+function UpgradeService.Start()
+	-- Valor inicial (o MatchService.Init já carregou o save do time, se havia um).
+	refreshShelfReady()
+
+	-- Um jogador entrou ou voltou: o run dele (talvez restaurado com upgrades no máximo)
+	-- passa a contar, e na regra "AllPlayers" ele também precisa estar no máximo.
+	Svc("MatchService").RunReady:Connect(function()
+		refreshShelfReady()
+	end)
+
+	-- Rede de segurança (1 vez por segundo): pega as mudanças que não passam por aqui,
+	-- como um jogador saindo (regra "AllPlayers") e os comandos de teste (maxall, reset).
+	-- A conta é barata e a chave só vai pela rede quando o valor muda.
+	task.spawn(function()
+		while true do
+			task.wait(SHELF_READY_INTERVAL)
+			refreshShelfReady()
+		end
+	end)
+end
 
 return UpgradeService
