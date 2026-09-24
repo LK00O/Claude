@@ -25,7 +25,7 @@ src/
     Shared/                      (Folder)
       Config/                    (Folder)  Game, Lobby, Maps, Stats, Weapons, Upgrades, Brainrots,
                                            Enchants, Coins, Quests, Recipes, Achievements, Cosmetics, Keybinds
-      Util/                      (Folder)  Signal, Trove, Net, NumberFormat, Formulas, PlaceRole, Tables
+      Util/                      (Folder)  Signal, Trove, Net, NumberFormat, Formulas, PlaceRole, Tables, Gamepasses
   ServerScriptService/
     Main.server.lua              (Script: inicializa tudo)
     Services/                    (Folder)  DataService, StateService, SettingsService, TravelService,
@@ -42,7 +42,8 @@ src/
       Controllers/               (Folder)  StateController, NotifyController, PromptController,
                                            CameraController, MovementController, MobileController,
                                            MusicController, WeaponController, EffectsController,
-                                           HUDController, PlacementController, EndingController
+                                           HUDController, PlacementController, EndingController,
+                                           ChatTagController
       UI/                        (Folder)  UIKit, StallWindow, CauldronWindow, SupremeWindow,
                                            SettingsWindow, DebugPanel, LobbyUI
 ```
@@ -144,7 +145,7 @@ Cliente:
 | `SetTurretMode` | `turretId: string, mode: "Valuable"\|"Nearest"` | `true` | TurretService |
 | `Craft` | `ingredientIds: {string}` | `{RecipeId, Name, NewDiscovery: boolean}` | RecipeService |
 | `FeedSupreme` | `fraction: number (0.1, 0.5 ou 1)` | `{Spent, Progress}` | SupremeService |
-| `BuyGamepass` | `key: string` | `true` | MonetizationService |
+| `BuyGamepass` | `key: "DoubleCoins"\|"AutoCollect"\|"ExtraTurret"\|"VIP"\|"DoubleDamage"` | `true` | MonetizationService (lobby e partida) |
 | `PartyCreate` | `opts: {MapId, MaxPlayers, Privacy, Resume}` | `partyId` | PartyService |
 | `PartyJoin` | `partyId: string` | `true` | PartyService |
 | `PartyLeave` | — | `true` | PartyService |
@@ -180,7 +181,8 @@ Todo handler **valida tipos** (`typeof`) e faixas de todos os argumentos antes d
 ### 3.2 Cliente: `Controllers/StateController.lua`
 - `Init()`: conecta `Net.On("State")`, depois chama `Request("GetFullState")` e aplica tudo.
 - `StateController.Get(key)`, `StateController.OnChanged(key, fn(value)) -> conexão` (chama `fn` quando a chave muda), `StateController.Changed: Signal(key, value)`.
-- `StateController.GetStats()` → `Formulas.ComputeStats(Match.MapId, PlayerUpgrades, TeamUpgrades, Recipes, {DoubleCoins = Gamepasses.DoubleCoins})`, com cache refeito quando `Match`, `PlayerUpgrades`, `TeamUpgrades`, `Recipes` ou `Gamepasses` mudam. `StateController.StatsChanged: Signal(stats)`. Se não há `Match` (lobby), retorna `nil`.
+- `StateController.GetStats()` → `Formulas.ComputeStats(Match.MapId, PlayerUpgrades, TeamUpgrades, Recipes, StateController.GetStatExtras())`, com cache refeito quando `Match`, `PlayerUpgrades`, `TeamUpgrades`, `Recipes` ou `Gamepasses` mudam. `StateController.StatsChanged: Signal(stats)`. Se não há `Match` (lobby), retorna `nil`.
+- `StateController.GetStatExtras()` → tabela nova `{DoubleCoins = Gamepasses.DoubleCoins, VIP = Gamepasses.VIP, DoubleDamage = Gamepasses.DoubleDamage}` (os `extras` dos game passes; a `StallWindow` usa o mesmo na prévia do próximo nível).
 - `StateController.WaitFor(key)` — espera até a chave existir.
 
 ### 3.3 Chaves (lista fechada)
@@ -202,7 +204,7 @@ Todo handler **valida tipos** (`typeof`) e faixas de todos os argumentos antes d
 | `Heat` | jogador | `{Value = number, Capacity = number, Overheated = boolean}` |
 | `Portal` | global | `{Open = boolean, Target = mapId?, Votes = number, Needed = number, Decision = "Host"\|"Majority", Decider = userId?}` (`Decider` só no modo Host: quem pode ativar agora; o HUD mostra "Entrar" só para ele) |
 | `Turrets` | global | `{Placed = number, Max = number}` |
-| `Gamepasses` | jogador | `{DoubleCoins = boolean, AutoCollect = boolean, ExtraTurret = boolean}` |
+| `Gamepasses` | jogador | `{DoubleCoins = boolean, AutoCollect = boolean, ExtraTurret = boolean, VIP = boolean, DoubleDamage = boolean}` — `true` = o jogador tem o pass. Enviada no lobby e na partida. |
 | `Board` | global | `{CooldownEnd = number}` |
 | `Alive` | global | `number` brainrots vivos |
 | `TeamList` | global | `{{UserId, Name, Coins}}` (1 Hz) |
@@ -299,8 +301,9 @@ Todos retornam uma tabela. Valores de custo/valor/vida são escritos em **unidad
   FrozenShieldFraction = 0.5,
   WalkSpeed = 16, SprintSpeed = 26,
   DesertHeat = { SafeTime = 20, SlowMultiplier = 0.85 },
-  Gamepasses = { Enabled = false, DoubleCoins = 0, AutoCollect = 0, ExtraTurret = 0 },
-  GamepassAutoCollectRadius = 30,
+  Gamepasses = { Enabled = false, DoubleCoins = 0, AutoCollect = 0, ExtraTurret = 0, VIP = 0, DoubleDamage = 0 },  -- ids (0 = não vende); preços só no Creator Hub
+  GamepassAutoCollectRadius = 30,               -- raio do ímã de quem tem AutoCollect
+  GamepassVipCoinMult = 1.25,                   -- VIP: moedas × 1,25 (multiplica junto com o DoubleCoins)
   Music = { Lobby = 0, Meadow = 0, Winter = 0, Desert = 0, Ending = 0 },
   Sounds = { Shoot = 0, Hit = 0, Crit = 0, Coin = 0, Death = 0, Explosion = 0, Purchase = 0,
              Error = 0, Notify = 0, Turret = 0, Portal = 0, Craft = 0 },  -- 0 = sem som
@@ -554,7 +557,7 @@ Campos ausentes: `SizeMult = 1`, `GrowthMult = 1`, `Maps = nil` (nil = todos os 
   { Id = "Enchanted", Type = "KillEnchanted", Text = "Destrua %s brainrots encantados", Base = 3, Requires = { Stat = "EnchantChance", Min = 0.01 } },
 }, RewardSeconds = 45, RewardFloor = 50, ScalePerUpgradeLevel = 1 / 40 }
 ```
-Alvo = `ceil(Base * (1 + somaDeNíveisDoJogadorETime * ScalePerUpgradeLevel))`; para `Collect`: `max(RewardFloor*CostScale, Income * BaseSeconds)`. Recompensa = `max(RewardFloor * CostScale, Income * RewardSeconds) * stats.QuestReward`.
+Alvo = `ceil(Base * (1 + somaDeNíveisDoJogadorETime * ScalePerUpgradeLevel))`; para `Collect`: `max(RewardFloor*CostScale, Income * BaseSeconds)`. Recompensa = `max(RewardFloor * CostScale, Income * RewardSeconds) * stats.QuestReward`, com `Income = run.IncomeSlow / Formulas.PassCoinMult(passes de moedas do jogador)` (a renda já vem com os passes e o `AddCoins` aplica os passes de novo ao pagar; o HUD e a `StallWindow` mostram `Reward × PassCoinMult`, o que cai na carteira).
 
 ### 5.11 `Config/Recipes.lua`
 ```lua
@@ -621,7 +624,8 @@ Cada um tem `BadgeId = 0` (o dono preenche) e `Tokens`.
 - `Formulas.MaxAffordable(def, currentLevel, coins) -> levels, totalCost`.
 - `Formulas.ShelfCost(mapId, nextShelf) -> number` = `ShelfCosts[nextShelf] * CostScale`.
 - `Formulas.ComputeStats(mapId, playerLevels, teamLevels, recipesApplied, extras) -> stats`:
-  1. copia `Stats.Defaults`; 2. aplica `Weapons[Maps[mapId].Weapon].Stats`; 3. aplica `Maps[mapId].StatOverrides`; 4. percorre `Upgrades.ByMap[mapId]` em ordem aplicando `ApplyEffect` com o nível do escopo certo; 5. aplica efeitos das receitas `Permanent` aplicadas (`Mode/Value` com nível 1); 6. `extras.DoubleCoins` → `CoinMult *= 2`; 7. aplica `Clamps`. `Projectiles` e `Pierce` são arredondados para baixo.
+  1. copia `Stats.Defaults`; 2. aplica `Weapons[Maps[mapId].Weapon].Stats`; 3. aplica `Maps[mapId].StatOverrides`; 4. percorre `Upgrades.ByMap[mapId]` em ordem aplicando `ApplyEffect` com o nível do escopo certo; 5. aplica efeitos das receitas `Permanent` aplicadas (`Mode/Value` com nível 1); 6. game passes: `CoinMult *= Formulas.PassCoinMult(extras)` e, se `extras.DoubleDamage`, `Damage *= Gamepasses.DAMAGE_MULT` (2; só o dano da arma, `TurretDamage` não muda); 7. aplica `Clamps`. `Projectiles` e `Pierce` são arredondados para baixo. `extras = {DoubleCoins = boolean, VIP = boolean, DoubleDamage = boolean}` (passes do próprio jogador; campos ausentes = `false`; nos stats do time vai `{}`).
+- `Formulas.PassCoinMult(extras) -> number` = `(DoubleCoins ? 2 : 1) × (VIP ? Config.Game.GamepassVipCoinMult : 1)`. Usado no passo 6 e no `MatchService.AddCoins` (a mesma conta nos dois).
 - `Formulas.BrainrotMaxHealth(def, mapId, sizeFactor, playerCount)` = `def.BaseHealth * HealthScale * sizeFactor^2 * (1 + Game.HealthScalePerExtraPlayer * (playerCount - 1))`.
 - `Formulas.BrainrotCoinValue(def, mapId, sizeFactor)` = `def.BaseCoinValue * ValueScale * sizeFactor^2`.
 - `Formulas.EnchantCoinMult(enchantDef, mapId, enchantPower)`.
@@ -629,6 +633,14 @@ Cada um tem `BadgeId = 0` (o dono preenche) e `Tokens`.
 - `Formulas.IsUpgradeMaxed(def, level)`.
 
 `sizeFactor` = tamanho relativo do brainrot (1 = tamanho base adulto sem upgrades). A escala do modelo é `def.BaseScale * sizeFactor`.
+
+### 6.4 `Util/Gamepasses.lua`
+Lista dos game passes e a regra de venda, usada pelo servidor (`MonetizationService`) e pelo cliente (HUD e loja do lobby):
+- `Gamepasses.List` = `{ {Key, Name, Description, BuffText, Color} }` na ordem das lojas: `DoubleCoins` ("Moedas em Dobro"), `AutoCollect` ("Coleta Automática"), `ExtraTurret` ("Torreta Extra"), `VIP` ("VIP"), `DoubleDamage` ("Dano em Dobro"). `Gamepasses.ByKey[key]`.
+- `Gamepasses.IsValidKey(key)` (lista fechada), `Gamepasses.GetId(key) -> id?` (só se `Config.Game.Gamepasses.Enabled == true` e id > 0), `Gamepasses.IsForSale(key)` (= ligado aqui), `Gamepasses.AnyForSale()`, `Gamepasses.KeyFromId(passId) -> key?`.
+- `Gamepasses.VipCoinMult()` lê `Config.Game.GamepassVipCoinMult` com valor seguro (valor inválido = sem bônus). `Gamepasses.DAMAGE_MULT = 2` (Dano em Dobro).
+- `Gamepasses.FetchSaleInfo(key, maxAge?) -> {IsForSale, Price}?` — `MarketplaceService:GetProductInfoAsync(id, Enum.InfoType.GamePass)` em `pcall` (pode esperar): `IsForSale` e `PriceInRobux` do Creator Hub. Guarda por id (por `maxAge` s, ou a sessão toda sem `maxAge`); falha = `nil` e não fica guardada. Preços nunca ficam no código.
+- Todos os passes dão bônus fixos e só ao dono: nada de sorte paga, e o jogo nunca vende moedas por Robux (as moedas compram upgrades de sorte, que virariam "itens aleatórios pagos").
 
 ---
 
@@ -696,7 +708,7 @@ Helpers usados pelos builders: `Common.Part(props) -> Part` (ancorado por padrã
 1. `Net.Init()`; registra grupos de colisão com `PhysicsService:RegisterCollisionGroup` (`"Players"`, `"Brainrots"`, `"Coins"`, `"Turrets"`) e regras: `Coins` não colide com `Players`, `Brainrots`, `Coins`, `Turrets`; `Brainrots` não colide com `Players` nem `Brainrots`.
 2. `role = PlaceRole.Get()`; `workspace:SetAttribute("Role", role)`; se debug estiver ligado, `workspace:SetAttribute("DebugEnabled", true)`.
 3. Comuns: `StateService`, `DataService`, `SettingsService`, `AchievementService`, `DebugService` (Init).
-4. Lobby: `LobbyService`, `PartyService`, `ShopService` (Init, depois Start de todos).
+4. Lobby: `LobbyService`, `PartyService`, `ShopService`, `MonetizationService` (Init, depois Start de todos).
 5. Partida: `MatchService.Init()` (resolve a partida e constrói o mapa — pode esperar), depois `StatService, MonetizationService, CoinService, BrainrotService, CombatService, UpgradeService, ProgressionService, QuestService, TurretService, RecipeService, SupremeService` (Init de todos, depois Start de todos), e por fim `MatchService.Start()` (começa a aceitar jogadores).
 6. Cada Init/Start dentro de `pcall`/`xpcall` com `warn` do erro e o nome do serviço (um serviço quebrado não derruba os outros).
 
@@ -713,7 +725,7 @@ Funções:
 - `Init()` — resolve o handoff: no Studio → `MapId = Config.Game.StudioMapId`, sem lista de membros (todos entram), host = primeiro jogador. Em servidor reservado (`game.PrivateServerId ~= ""` e `game.PrivateServerOwnerId == 0`) → lê `MemoryStoreService:GetHashMap(Config.Lobby.HandoffMapName):GetAsync(game.PrivateServerId)` (até 10 tentativas, 1 s entre elas). Sem handoff → usa `TeleportData.MapId` do primeiro jogador (valida que existe) e aceita todos. Servidor público do place de partida → manda todo mundo para o lobby (`TravelService.SendToLobby`). Depois: `ctx = MapBuilder.Build(MapId)`, cria pastas `workspace.Brainrots`, `workspace.Coins`, `workspace.Turrets`, e se `Handoff.Resume`, carrega `DataService.LoadRun("Run_"..host.."_"..MapId)` em `Team`. Publica `StateService.SetAll("Match", ...)`, `"TeamUpgrades"`, `"ShelfLevel"`, `"Recipes"`, `"Buffs"`, `"Completed" = false`.
 - `Start()` — `PlayerAdded` (e jogadores já presentes): confere membro (senão `TravelService.SendToLobby({player})` com Notify e, se falhar, Kick) e limite de jogadores; espera o perfil; cria/restaura o `Run` (cache em memória se voltou; senão `profile.RunData[MapId]` se `Resume` e o `HostUserId` bate; senão novo e limpa `profile.RunData[MapId]`); grava `profile.LastMatch` com `AccessCode`/`PrivateServerId` do handoff; envia chaves de estado do jogador; `CharacterAdded` → partes no grupo `"Players"`, `Humanoid.WalkSpeed = Config.Game.WalkSpeed`, spawn no `ctx.SpawnLocation`. `PlayerRemoving` → salva o run dele no perfil (`RunData[MapId]`), mantém o run em memória. Autosave do time a cada `AutosaveInterval` (e grava `RunSaves[MapId]` no perfil do host se ele estiver presente). Loop de 1 Hz: `TeamList`. Na entrada, `AchievementService.FireEvent(player, "PlayWithFriends", {Count = nº de amigos na partida})`.
 - `GetRun(player)`, `GetRunByUserId(userId)`, `GetTeam()`, `GetMapId()`, `GetMapDef()`, `GetContext()`, `GetHostUserId()`, `IsMember(userId)`, `GetPlayerCount()`.
-- `AddCoins(player, amount, source)` — `source` ∈ `"Pickup"`, `"Quest"`, `"Turret"`, `"Debug"`, `"Refund"`. Multiplica por 2 se o jogador tem o gamepass `DoubleCoins` (exceto `"Refund"`/`"Debug"`). Soma na carteira (ou `Team.SharedCoins` se `SharedWallet`), `IncrementStat("TotalCoins")` (exceto Refund/Debug), atualiza `IncomeEMA` (janela de ~10 s, mostrada no HUD) e `IncomeSlow` (janela de 120 s, usada no alvo e na recompensa das missões), manda `Coins`/`Income` e dispara `MatchService.CoinsAdded: Signal(player, amount, source)`.
+- `AddCoins(player, amount, source)` — `source` ∈ `"Pickup"`, `"Quest"`, `"Turret"`, `"Debug"`, `"Refund"`. Multiplica por `Formulas.PassCoinMult({DoubleCoins = HasPass(player, "DoubleCoins"), VIP = HasPass(player, "VIP")})` (×2, ×1,25 ou ×2,5; exceto `"Refund"`/`"Debug"`). Soma na carteira (ou `Team.SharedCoins` se `SharedWallet`), `IncrementStat("TotalCoins")` (exceto Refund/Debug), atualiza `IncomeEMA` (janela de ~10 s, mostrada no HUD) e `IncomeSlow` (janela de 120 s, usada no alvo e na recompensa das missões), manda `Coins`/`Income` e dispara `MatchService.CoinsAdded: Signal(player, amount, source)`.
 - `SpendCoins(player, amount) -> boolean`, `GetCoins(player) -> number`.
 - `SaveAll()`.
 - `CompleteAct()` — para cada jogador presente: `CompletedMaps[MapId] = true`, `UnlockedMaps[Next] = true`, `Tokens += MapDef.TokensReward`, `Stats.ActsCompleted += 1`, `AchievementService.FireEvent(player, "CompleteMap", {Map = MapId})`, limpa `RunData[MapId]` e `RunSaves[MapId]`; apaga a partida salva do time. Se o mapa tem `Next` → `TravelService.SendToNewMatch(jogadores, {MapId = Next, HostUserId = host atual, MaxPlayers = handoff ou 8, Privacy = handoff ou "Invite", Resume = false})`. Se não tem (Deserto) → marca `GameCompleted = true`, dá a skin `"Rainbow"` (se o jogador ainda não tem) e `TravelService.SendToLobby(jogadores)`.
@@ -722,7 +734,7 @@ Funções:
 
 ### 8.3 `StatService`
 - `StatService.Get(player) -> stats` (cache por jogador), `StatService.GetTeam() -> stats` (calculado com níveis vazios de jogador; usado para stats de time), `StatService.Invalidate(player?)` (nil = todos + time), `StatService.Changed: Signal(player?)`.
-- Usa `Formulas.ComputeStats(MapId, run.Upgrades, Team.Upgrades, Team.Recipes, {DoubleCoins = MonetizationService.HasPass(player, "DoubleCoins")})`.
+- Usa `Formulas.ComputeStats(MapId, run.Upgrades, Team.Upgrades, Team.Recipes, {DoubleCoins = HasPass(player, "DoubleCoins"), VIP = HasPass(player, "VIP"), DoubleDamage = HasPass(player, "DoubleDamage")})`. `GetTeam()` usa `{}` (nenhum pass mexe nos stats do time).
 - Efeitos de ambiente quando o time muda: no Inverno, `Lighting.Atmosphere.Density = MapDef.AtmosphereDensity * MapDef.VisibilityFactor ^ teamStats.Visibility`.
 
 ### 8.4 `CoinService`
@@ -794,16 +806,22 @@ Entidade:
 ### 8.13 `AchievementService` (lobby e partida)
 - Checa conquistas `Stat` em `DataService.StatChanged` e em `DataService.ProfileLoaded` (retroativo). `Stat` usa caminho com ponto (`"Kills.Low"`).
 - `AchievementService.FireEvent(player, eventName, data)` — `CompleteMap` (`data.Map`), `PlayWithFriends` (`data.Count >= Count`).
-- `AchievementService.Award(player, id)` — se ainda não tem: grava `os.time()`, soma `Tokens`, `BadgeService:AwardBadge` se `BadgeId > 0`, `Notify` `"rare"` ("Conquista desbloqueada: ..."), `SyncProfile`.
+- `AchievementService.Award(player, id)` — se ainda não tem: grava `os.time()`, soma `Tokens`, `BadgeService:AwardBadgeAsync` se `BadgeId > 0`, `Notify` `"rare"` ("Conquista desbloqueada: ..."), `SyncProfile`.
 
-### 8.14 `MonetizationService` (partida)
-- Se `Config.Game.Gamepasses.Enabled` e o id > 0: `UserOwnsGamePassAsync` na entrada e `PromptGamePassPurchaseFinished`. `MonetizationService.HasPass(player, key) -> boolean`. Envia `Gamepasses`. Request `BuyGamepass(key)` → `PromptGamePassPurchase`. Quando muda → `StatService.Invalidate(player)`.
+### 8.14 `MonetizationService` (lobby e partida)
+- Passes = `Util/Gamepasses` (`DoubleCoins`, `AutoCollect`, `ExtraTurret`, `VIP`, `DoubleDamage`). Só vale o que tem `Config.Game.Gamepasses.Enabled` e id > 0 (`Gamepasses.GetId`).
+- Entrada: `UserOwnsGamePassAsync` (em `pcall`) para cada pass à venda, até 3 tentativas seguidas (1 s entre elas); o que falhar por erro na web é conferido de novo a cada 30 s (até 4 rodadas). `PromptGamePassPurchaseFinished` (`wasPurchased`) ativa na hora e mostra "Obrigado! Vantagem ativada: ...".
+- Request `BuyGamepass(key)` (lista fechada; `Rate = 1, Burst = 3`): recusa chave desconhecida, loja desligada, pass sem id ou já comprado; confere `Gamepasses.FetchSaleInfo(key, 60)` e recusa com "Esta vantagem não está à venda no momento." se `IsForSale == false` (se o Roblox não responder, segue); senão `PromptGamePassPurchase` em `pcall`.
+- `MonetizationService.HasPass(player, key) -> boolean`. Envia `Gamepasses` (seção 3.3) ao jogador quando muda.
+- Efeitos: `DoubleCoins`/`VIP` → `MatchService.AddCoins` (`Formulas.PassCoinMult`); `DoubleDamage` → `StatService` (`Damage × 2` do dono, via `extras`); `AutoCollect` → `CoinService`; `ExtraTurret` → `TurretService`. Ao ganhar um pass na partida → `StatService.Invalidate(player)`.
+- `VIP` (lobby e partida): `player:SetAttribute("VIP", true)` (replica; o `ChatTagController` põe `[VIP]` no chat) e um `BillboardGui` `"VipTag"` na `Head` (dourado, 58×22 px, `StudsOffsetWorldSpace = (0, 3.2, 0)`, `MaxDistance = 80`, `AlwaysOnTop = false`, `Active = false`), recriado a cada `CharacterAdded`. Na partida `PlayerToHideFrom = dono` (câmera em primeira pessoa).
+- No lobby nada que dependa da partida roda (`workspace.Role ~= "Match"`: sem `StatService`).
 
 ### 8.15 `SettingsService` (lobby e partida)
 - `SaveSettings(tbl)`: valida e limita cada campo (`Sensitivity` 0.05–2, `InvertY` bool, `FOV` 60–110, `ToggleSprint` bool, `MusicVolume`/`SfxVolume` 0–1, `DamageNumbers` bool, `Keybinds` = mapa `actionId → nome de Enum.KeyCode válido`, só actions de `Config.Keybinds`); grava no perfil; `SyncProfile`.
 
 ### 8.16 `TravelService`
-- `TravelService.SendToNewMatch(players, handoff) -> ok, err` — no Studio retorna `false, "O teleporte só funciona no jogo publicado. No Studio, mude Config.Game.StudioRole para \"Match\" para testar a partida."`. Senão: `TeleportService:ReserveServer(Config.Game.MatchPlaceId)` → `accessCode, privateServerId`; completa `handoff.AccessCode`, `handoff.PrivateServerId`, `handoff.Members = {userIds}`, `handoff.CreatedAt = os.time()`; grava no MemoryStore (`HandoffMapName`, chave `privateServerId`, expiração `HandoffExpiration`); para cada jogador grava `profile.LastMatch` e chama `DataService.ReleaseForTeleport`; `TeleportOptions` com `ReservedServerAccessCode` e `SetTeleportData({MapId = handoff.MapId})`; `TeleportService:TeleportAsync(MatchPlaceId, players, options)` com até `TeleportRetries` tentativas (espera 2 s, 4 s). Se falhar de vez → `DataService.Reacquire` em todos e retorna `false, mensagem`.
+- `TravelService.SendToNewMatch(players, handoff) -> ok, err` — no Studio retorna `false, "O teleporte só funciona no jogo publicado. No Studio, mude Config.Game.StudioRole para \"Match\" para testar a partida."`. Senão: `TeleportService:ReserveServerAsync(Config.Game.MatchPlaceId)` → `accessCode, privateServerId`; completa `handoff.AccessCode`, `handoff.PrivateServerId`, `handoff.Members = {userIds}`, `handoff.CreatedAt = os.time()`; grava no MemoryStore (`HandoffMapName`, chave `privateServerId`, expiração `HandoffExpiration`); para cada jogador grava `profile.LastMatch` e chama `DataService.ReleaseForTeleport`; `TeleportOptions` com `ReservedServerAccessCode` e `SetTeleportData({MapId = handoff.MapId})`; `TeleportService:TeleportAsync(MatchPlaceId, players, options)` com até `TeleportRetries` tentativas (espera 2 s, 4 s). Se falhar de vez → `DataService.Reacquire` em todos e retorna `false, mensagem`.
 - `TravelService.SendToLobby(players)` — salva, libera e teleporta para `LobbyPlaceId` (no Studio: `Kick` com mensagem explicando).
 - `TravelService.Reconnect(player) -> ok, err` — usa `profile.LastMatch` (dentro da janela) e teleporta com o `AccessCode` salvo.
 - `TeleportService.TeleportInitFailed` → tenta de novo aquele jogador até 3 vezes; depois `Reacquire` e Notify de erro.
@@ -846,7 +864,7 @@ PartyView = { Id, HostUserId, HostName, MapId, MaxPlayers, Privacy, Resume, Stat
 
 ### 10.1 `Main.client.lua`
 Espera `workspace:GetAttribute("Role")` (usa `GetAttributeChangedSignal` se ainda não existe). Carrega e chama `Init()` e depois `Start()` (cada um em `pcall` com `warn`) na ordem:
-- Sempre: `StateController`, `NotifyController`, `UI/UIKit` (se tiver Init), `PromptController`, `MobileController`, `MusicController`, `MovementController`, `UI/SettingsWindow`, `UI/DebugPanel`.
+- Sempre: `StateController`, `NotifyController`, `UI/UIKit` (se tiver Init), `PromptController`, `MobileController`, `MusicController`, `MovementController`, `ChatTagController`, `UI/SettingsWindow`, `UI/DebugPanel`.
 - Partida: `CameraController`, `EffectsController`, `WeaponController`, `PlacementController`, `HUDController`, `UI/StallWindow`, `UI/CauldronWindow`, `UI/SupremeWindow`, `EndingController`.
 - Lobby: `UI/LobbyUI`.
 
@@ -869,7 +887,8 @@ Espera `workspace:GetAttribute("Role")` (usa `GetAttributeChangedSignal` se aind
 - `MusicController`: toca `Config.Game.Music[mapId ou "Lobby"]` em loop se ≠ 0, volume `MusicVolume`; `MusicController.Play(key)` (usado no final com `"Ending"`).
 - `WeaponController` (partida): atira segurando o botão (mouse 1, R2, botão do celular) quando nenhum modal está aberto, não está colocando torreta e não está superaquecido (`Heat.Overheated`). Intervalo `1 / stats.FireRate`. Direções: `stats.Projectiles` raios em leque horizontal (abertura total `min(stats.Spread × (n-1), 40)` graus) mais um desvio aleatório pequeno. Envia `Net.Fire("Fire", origin = câmera, dirs, shotId)`. Visual local imediato: arma na câmera (viewmodel simples feito de Parts, cor da skin), clarão, som, tracer até o ponto atingido (raycast local), `CameraController.Kick`. `HitConfirm` → hitmarker (`HUDController.ShowHitmarker(crit)`) e números de dano (se `DamageNumbers`) via `EffectsController`.
 - `EffectsController`: `Effect` (explosão de partículas na morte, anel de explosão, poeira no spawn, gelo quebrando, confete), `RemoteShot` e `TurretShots` (tracers), `CoinPopup` (número "+1,2K" subindo e som), números de dano. API: `EffectsController.Tracer(from, to, color, width?)`, `EffectsController.DamageNumber(position, amount, crit)`, `EffectsController.Burst(position, color, size)`. Efeitos locais ficam numa pasta `workspace.ClientEffects` criada pelo cliente; tudo com limite e reciclagem.
-- `HUDController` (partida): moedas (com animação), renda/s, brainrots vivos, recarga do quadro, mira no centro com hitmarker, missão ativa com barra, barra de calor (Deserto), barra do Supremo (Deserto), lista do time, botões (Configurações, Voltar ao lobby com confirmação, Receitas no Deserto, Colocar torreta quando houver torretas), aviso do portal/votos, painel de "Buffs" ativos. `HUDController.ShowHitmarker(crit)`.
+- `HUDController` (partida): moedas (com animação), renda/s, brainrots vivos, recarga do quadro, mira no centro com hitmarker, missão ativa com barra, barra de calor (Deserto), barra do Supremo (Deserto), lista do time, botões (Configurações, Voltar ao lobby com confirmação, Receitas no Deserto, Colocar torreta quando houver torretas, Vantagens quando `Gamepasses.AnyForSale()`), aviso do portal/votos, painel de "Buffs" ativos (receitas, buffs e os passes do jogador: `BuffText` de cada pass; `ExtraTurret` só em mapa com torretas). Janela **Vantagens**: um cartão por pass à venda (nome, descrição, preço lido com `Gamepasses.FetchSaleInfo` — "..." carregando, some se falhar —, botão "Comprar" → `BuyGamepass`, "Já é seu!" ou "Indisponível" desativado se `IsForSale == false`). A recompensa da missão aparece já multiplicada por `Formulas.PassCoinMult`. `HUDController.ShowHitmarker(crit)`.
+- `ChatTagController` (lobby e partida): `TextChatService.OnIncomingMessage` → se `message.TextSource` é de um jogador com o atributo `"VIP" == true`, devolve `TextChatMessageProperties` com `PrefixText = '<font color="#FFCD3C">[VIP]</font> ' .. message.PrefixText`. Não mexe nos `TextChatCommand` do `DebugService`. É o único dono do callback `OnIncomingMessage`.
 - `PlacementController` (Inverno/Deserto): `PlacementController.Enter()` → fantasma verde/vermelho da torreta onde a mira aponta no chão (até 60 studs), `Rotate` (R) gira 45°, clique/R2 confirma (`PlaceTurret`), `Cancel` (Q)/B cancela. No celular, botões Confirmar/Cancelar. `PlacementController.IsActive()`.
 - `EndingController`: `Net.On("Ending")` → desliga a câmera do jogador, câmera sobe mostrando o Supremo na frente do sol, tela escurece, música `"Ending"`, créditos rolando com `Names` e "Obrigado por jogar!", dura `Duration`.
 
@@ -879,4 +898,4 @@ Espera `workspace:GetAttribute("Role")` (usa `GetAttributeChangedSignal` se aind
 - `SupremeWindow`: `Register("Supreme")`. Barra de progresso ("X% do céu"), altura, botões "Alimentar 10% / 50% / 100% das moedas" (`FeedSupreme`).
 - `SettingsWindow`: `Register("Settings")`. Sensibilidade, Inverter Y, FOV, Alternar corrida, volumes, números de dano, e remapear teclas (clica e aperta a nova tecla; "Restaurar padrão"). Salva com `SaveSettings` (debounce de 1 s). As outras partes leem de `Profile.Settings`.
 - `DebugPanel`: se `workspace:GetAttribute("DebugEnabled")`, botão "DEBUG" que abre painel com botões para cada comando do DebugService.
-- `LobbyUI` (pode ser dividido em vários ModuleScripts dentro de `UI/`, com prefixo `Lobby`): botões laterais (Criar Partida, Partidas Abertas, Loja, Conquistas, Configurações, Reconectar se `CanReconnect`), janela **Criar Partida** (mapas de `Config.Maps.Order` com cadeado se não liberado, 1..8 jogadores, privacidade, "Continuar partida salva" se `RunSaves[mapa]`), janela **Meu Grupo** (membros com foto `GetUserThumbnailAsync`, prontos, botões do host: trocar mapa/limite/privacidade, expulsar, passar liderança, convidar jogador do servidor, convite do Roblox via `SocialService:PromptGameInvite`, iniciar/forçar/cancelar; contagem regressiva grande), janela **Partidas Abertas** (lista do `PartyState.Parties` com botão Entrar ou o motivo do bloqueio), popup de convite recebido (Entrar/Recusar), **Loja** de skins (tokens), **Conquistas e Estatísticas**. Registra `CreateParty`, `PartyList`, `Shop`, `Achievements`. Quando o grupo entra em `"Teleporting"`, chama `TeleportService:SetTeleportGui` com uma tela de carregamento com o nome e a cor do mapa.
+- `LobbyUI` (pode ser dividido em vários ModuleScripts dentro de `UI/`, com prefixo `Lobby`): botões laterais (Criar Partida, Partidas Abertas, Loja, Conquistas, Configurações, Reconectar se `CanReconnect`), janela **Criar Partida** (mapas de `Config.Maps.Order` com cadeado se não liberado, 1..8 jogadores, privacidade, "Continuar partida salva" se `RunSaves[mapa]`), janela **Meu Grupo** (membros com foto `GetUserThumbnailAsync`, prontos, botões do host: trocar mapa/limite/privacidade, expulsar, passar liderança, convidar jogador do servidor, convite do Roblox via `SocialService:PromptGameInvite`, iniciar/forçar/cancelar; contagem regressiva grande), janela **Partidas Abertas** (lista do `PartyState.Parties` com botão Entrar ou o motivo do bloqueio), popup de convite recebido (Entrar/Recusar), **Loja** (`LobbyShop`: aba "Skins" com as skins pagas com tokens e, só quando `Gamepasses.AnyForSale()`, aba "Vantagens" com um cartão por pass à venda: nome, descrição, preço em Robux (`Gamepasses.FetchSaleInfo`, "..." carregando, some se falhar) e botão "Comprar" → `Net.Request("BuyGamepass", key)`, "Já é seu!" quando `Gamepasses[key]` ou "Indisponível" (desativado) se o Roblox diz que não está à venda; sem passes à venda não há abas e a janela é só a "Loja de Skins"; `LobbyUI.Open("Shop", "Passes")` abre direto na aba Vantagens), **Conquistas e Estatísticas**. Registra `CreateParty`, `PartyList`, `Shop`, `Achievements`. Quando o grupo entra em `"Teleporting"`, chama `TeleportService:SetTeleportGui` com uma tela de carregamento com o nome e a cor do mapa.

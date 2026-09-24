@@ -14,6 +14,7 @@
 -- Extras (ajudantes usados pelos módulos do cliente):
 --   StateController.GetSettings()             -> configurações do jogador com valores padrão
 --   StateController.GetKeybind(actionId)      -> Enum.KeyCode da ação (Config.Keybinds)
+--   StateController.GetStatExtras()           -> "extras" dos game passes para Formulas.ComputeStats
 --
 -- IMPORTANTE: as tabelas devolvidas por Get/GetStats são as mesmas guardadas aqui.
 -- Leia à vontade, mas não altere (a próxima mensagem do servidor sobrescreve tudo).
@@ -119,10 +120,7 @@ local function computeStats()
 		return nil
 	end
 
-	local gamepasses = values.Gamepasses
-	local extras = {
-		DoubleCoins = type(gamepasses) == "table" and gamepasses.DoubleCoins == true,
-	}
+	local extras = StateController.GetStatExtras()
 
 	local ok, result = pcall(
 		Formulas.ComputeStats,
@@ -230,6 +228,20 @@ function StateController.GetStats()
 		cachedStats = computeStats()
 	end
 	return cachedStats
+end
+
+-- "extras" dos game passes para o Formulas.ComputeStats, lidos da chave "Gamepasses"
+-- (passes deste jogador, igual ao StatService do servidor):
+--   DoubleCoins / VIP -> multiplicam as moedas;  DoubleDamage -> dano da arma × 2
+-- Devolve uma tabela NOVA a cada chamada. A StallWindow usa isto para mostrar o "depois".
+function StateController.GetStatExtras()
+	local gamepasses = values.Gamepasses
+	local passes = type(gamepasses) == "table" and gamepasses or {}
+	return {
+		DoubleCoins = passes.DoubleCoins == true,
+		VIP = passes.VIP == true,
+		DoubleDamage = passes.DoubleDamage == true,
+	}
 end
 
 -- Espera até a chave ter um valor (não nil) e devolve esse valor.

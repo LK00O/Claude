@@ -1,14 +1,26 @@
--- LobbyShop (lobby): a Loja de skins de arma, paga com Brainrot Tokens.
+-- LobbyShop (lobby): a Loja. Tem duas abas:
 --
--- Mostra os Tokens do jogador (Profile.Tokens) e um cartão para cada skin de
--- Config.Cosmetics.Skins, com uma prévia desenhada da arma (cor da arma e do rastro
--- da bala; a skin Arco-íris fica mudando de cor), o nome, o preço e um botão:
---   "Equipada" (já está em uso), "Equipar" (já tem), "Comprar" (dá para pagar)
---   ou "Faltam N" (não tem tokens suficientes).
--- Comprar pede BuyCosmetic e, dando certo, já equipa (EquipCosmetic).
--- Quem confere o preço e desconta os tokens é o servidor (ShopService).
+-- Aba "Skins" (skins de arma, pagas com Brainrot Tokens):
+--   Mostra os Tokens do jogador (Profile.Tokens) e um cartão para cada skin de
+--   Config.Cosmetics.Skins, com uma prévia desenhada da arma (cor da arma e do rastro
+--   da bala; a skin Arco-íris fica mudando de cor), o nome, o preço e um botão:
+--     "Equipada" (já está em uso), "Equipar" (já tem), "Comprar" (dá para pagar)
+--     ou "Faltam N" (não tem tokens suficientes).
+--   Comprar pede BuyCosmetic e, dando certo, já equipa (EquipCosmetic).
+--   Quem confere o preço e desconta os tokens é o servidor (ShopService).
+--
+-- Aba "Vantagens" (game passes, pagos com Robux):
+--   Um cartão para cada pass à venda (Shared/Util/Gamepasses: Config.Game.Gamepasses
+--   com Enabled = true e id > 0) com nome, descrição, preço em Robux (lido do Roblox com
+--   Gamepasses.FetchSaleInfo: "..." enquanto carrega, some se falhar) e o botão "Comprar"
+--   (Request "BuyGamepass", que abre a janela de compra do Roblox), "Já é seu!" ou
+--   "Indisponível" (o pass foi tirado de venda no Creator Hub).
+--   Quem ativa o pass é o servidor (MonetizationService): quando a compra termina, o
+--   estado "Gamepasses" muda e o botão vira "Já é seu!".
+--   Se nenhum pass está à venda, as abas nem aparecem (a janela vira só a Loja de Skins).
 --
 -- Aberta pelo LobbyUI (botão lateral e prompt "Shop"). Recebe o LobbyUI no Init.
+-- LobbyShop.Open("Passes") abre direto na aba Vantagens; Open("Skins") na aba de skins.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -20,6 +32,8 @@ local Util = Shared:WaitForChild("Util")
 local Cosmetics = require(Config:WaitForChild("Cosmetics"))
 local Trove = require(Util:WaitForChild("Trove"))
 local NumberFormat = require(Util:WaitForChild("NumberFormat"))
+local Net = require(Util:WaitForChild("Net"))
+local Gamepasses = require(Util:WaitForChild("Gamepasses"))
 
 local UIFolder = script.Parent
 local ControllersFolder = UIFolder.Parent:WaitForChild("Controllers")
@@ -42,6 +56,15 @@ local CARD_PADDING = 14
 local PREVIEW_HEIGHT = 112
 local RAINBOW_SPEED = 90 -- graus por segundo que o degradê arco-íris gira
 
+-- Abas (só aparecem quando há game passes à venda).
+local TABS = {
+	{ Id = "Skins", Text = "Skins" },
+	{ Id = "Passes", Text = "Vantagens" },
+}
+local TAB_SIZE = UDim2.fromOffset(240, 46)
+local PASS_CARD_MIN_HEIGHT = 104 -- o cartão do pass cresce sozinho se a descrição for longa
+local PASS_BUTTON_SIZE = UDim2.fromOffset(170, 52)
+
 -- Cores do arco-íris (skins com Rainbow = true).
 local RAINBOW = ColorSequence.new({
 	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 70, 70)),
@@ -63,6 +86,9 @@ local listenTrove = Trove.new()
 local cards = {} -- [skinId] = cartão
 local rainbowGradients = {} -- UIGradients que giram (skins arco-íris)
 local busy = false
+local currentTab = "Skins" -- aba aberta: "Skins" ou "Passes"
+local passRows = {} -- cartões dos game passes: {Key, Button, Price, Sale, Loading}
+local passBusy = false -- true enquanto o pedido de compra de um pass não voltou
 
 -------------------------------------------------------------------------------
 -- Ajudantes
@@ -168,14 +194,105 @@ local function onSkinButton(skin)
 	busy = false
 end
 
+-- true se o jogador já tem o pass (estado "Gamepasses" que o servidor manda).
+local function ownsPass(key)
+	local passes = StateController.Get("Gamepasses")
+	return type(passes) == "table" and passes[key] == true
+end
+
+local refresh -- declarada aqui porque buyPass chama e é definida mais abaixo
+
+-- Pede ao servidor para abrir a janela de compra do Roblox (Request "BuyGamepass").
+-- Quem ativa o pass é o servidor, quando a compra termina: aí o estado "Gamepasses"
+-- muda e o botão vira "Já é seu!".
+local function buyPass(key)
+	if passBusy or ownsPass(key) then
+		return
+	end
+	passBusy = true
+	refresh()
+	local ok, result = Net.Request("BuyGamepass", key)
+	passBusy = false
+	refresh()
+	if not ok then
+		Lobby.ShowError(type(result) == "string" and result or "Não deu para abrir a compra agora.")
+	end
+end
+
 -------------------------------------------------------------------------------
 -- Atualização
 -------------------------------------------------------------------------------
 
-local function refresh()
+-- Cartão de cada pass: preço ("..." enquanto carrega; some se não deu para ler) e o
+-- botão: "Comprar", "Abrindo...", "Já é seu!" ou "Indisponível".
+local function refreshPasses()
+	for _, row in ipairs(passRows) do
+		local sale = row.Sale -- {IsForSale, Price} do Roblox, ou nil (carregando / falhou)
+		if ownsPass(row.Key) then
+			row.Button.Text = "Já é seu!"
+			row.Button.BackgroundColor3 = Theme.Info
+			row.Button:SetAttribute("Disabled", true)
+			row.Price.Visible = false
+		elseif sale and not sale.IsForSale then
+			row.Button.Text = "Indisponível"
+			row.Button.BackgroundColor3 = Theme.Disabled
+			row.Button:SetAttribute("Disabled", true)
+			row.Price.Visible = false
+		else
+			row.Button.Text = if passBusy then "Abrindo..." else "Comprar"
+			row.Button.BackgroundColor3 = Theme.Success
+			row.Button:SetAttribute("Disabled", passBusy)
+			if row.Loading then
+				row.Price.Text = "..."
+				row.Price.Visible = true
+			elseif sale and sale.Price then
+				row.Price.Text = NumberFormat.Commas(sale.Price) .. " Robux"
+				row.Price.Visible = true
+			else
+				row.Price.Visible = false -- não deu para ler o preço: esconde
+			end
+		end
+	end
+end
+
+-- Busca no Roblox o preço e o "está à venda?" de cada pass (Gamepasses.FetchSaleInfo, que
+-- guarda o resultado por id). O que falhou tenta de novo na próxima vez que a loja abrir.
+local function loadPassPrices()
+	for _, row in ipairs(passRows) do
+		if not row.Sale and not row.Loading then
+			row.Loading = true
+			task.spawn(function()
+				row.Sale = Gamepasses.FetchSaleInfo(row.Key)
+				row.Loading = false
+				refreshPasses()
+			end)
+		end
+	end
+	refreshPasses()
+end
+
+-- Mostra a aba escolhida e pinta o botão dela.
+local function refreshTabs()
+	if not ui.TabButtons then
+		return -- sem passes à venda: não há abas, só a página de skins
+	end
+	for _, tab in ipairs(TABS) do
+		Lobby.SetSelected(ui.TabButtons[tab.Id], tab.Id == currentTab, tab.Id == "Passes" and Theme.Rare or Theme.Accent)
+		if tab.Id == currentTab and tab.Id == "Passes" then
+			ui.TabButtons[tab.Id].TextColor3 = Theme.TextDark -- texto escuro no botão dourado
+		end
+	end
+	ui.SkinsPage.Visible = currentTab == "Skins"
+	ui.PassesPage.Visible = currentTab == "Passes"
+end
+
+function refresh()
 	if not ui then
 		return
 	end
+	refreshTabs()
+	refreshPasses()
+
 	local tokens = Lobby.GetTokens()
 	ui.Tokens.Text = NumberFormat.Commas(tokens) .. (tokens == 1 and " Brainrot Token" or " Brainrot Tokens")
 
@@ -381,14 +498,163 @@ local function buildCard(parent, skin, order)
 	return { Frame = card, Stroke = stroke, EquippedTag = equippedTag, Price = price, Button = button }
 end
 
+-- Uma página (conteúdo de uma aba), que cresce com o que tem dentro.
+local function makePage(parent, name, order)
+	local page = UIKit.New("Frame", {
+		Name = name,
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		LayoutOrder = order,
+		Parent = parent,
+	})
+	local layout = UIKit.List(page, 10)
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	return page
+end
+
+-- Cartão de um game pass: nome, descrição, preço e botão de compra.
+local function buildPassCard(parent, pass, order)
+	local card = UIKit.New("Frame", {
+		Name = pass.Key,
+		Size = UDim2.new(1, 0, 0, PASS_CARD_MIN_HEIGHT),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundColor3 = Theme.PanelLight,
+		LayoutOrder = order,
+		Parent = parent,
+	})
+	UIKit.Corner(card, 16)
+	UIKit.Stroke(card, 2.5, pass.Color)
+	-- Espaço embaixo da descrição quando o cartão cresce.
+	UIKit.Padding(card, { Top = 0, Bottom = 12, Left = 0, Right = 0 })
+
+	-- Pílula colorida ao lado do nome, na cor do pass.
+	local pill = UIKit.New("Frame", {
+		Name = "Pill",
+		Position = UDim2.fromOffset(14, 13),
+		Size = UDim2.fromOffset(8, 26),
+		BackgroundColor3 = pass.Color,
+		Parent = card,
+	})
+	UIKit.Corner(pill, UDim.new(1, 0))
+
+	UIKit.Label({
+		Name = "PassName",
+		Text = pass.Name,
+		Title = true,
+		TextSize = 24,
+		Color = pass.Color,
+		Position = UDim2.fromOffset(32, 10),
+		Size = UDim2.new(1, -(PASS_BUTTON_SIZE.X.Offset + 60), 0, 30),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = card,
+	})
+	UIKit.Label({
+		Name = "Description",
+		Text = pass.Description,
+		TextSize = 15,
+		Color = Theme.TextDim,
+		Position = UDim2.fromOffset(32, 44),
+		Size = UDim2.new(1, -(PASS_BUTTON_SIZE.X.Offset + 60), 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		Parent = card,
+	})
+	-- Preço (lido do Roblox, nunca escrito no código) em cima do botão.
+	local price = UIKit.Label({
+		Name = "Price",
+		Text = "...",
+		Title = true,
+		TextSize = 20,
+		Color = Theme.Rare,
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -16, 0, 10),
+		Size = UDim2.fromOffset(PASS_BUTTON_SIZE.X.Offset, 24),
+		Parent = card,
+	})
+	local button = UIKit.Button({
+		Name = "Buy",
+		Text = "Comprar",
+		Color = Theme.Success,
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -16, 0, 38),
+		Size = PASS_BUTTON_SIZE,
+		TextSize = 21,
+		Parent = card,
+	}, function()
+		buyPass(pass.Key)
+	end)
+
+	return { Key = pass.Key, Button = button, Price = price }
+end
+
+-- Página "Vantagens": um cartão para cada pass à venda.
+local function buildPassesPage(page)
+	local intro = Lobby.Section(page, nil, 0)
+	UIKit.Label({
+		Name = "Hint",
+		Text = "Vantagens compradas com Robux são suas para sempre. Elas valem em todas as partidas, e o VIP já aparece aqui no lobby.",
+		TextSize = 15,
+		Color = Theme.TextDim,
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		LayoutOrder = 1,
+		Parent = intro,
+	})
+	for index, pass in ipairs(Gamepasses.List) do
+		-- Pass sem id (0) ainda não está à venda: nem aparece.
+		if Gamepasses.IsForSale(pass.Key) then
+			table.insert(passRows, buildPassCard(page, pass, index))
+		end
+	end
+end
+
+local function setTab(tabId)
+	if currentTab == tabId or not ui or not ui.TabButtons then
+		return
+	end
+	currentTab = tabId
+	refresh()
+	if window then
+		window.Content.CanvasPosition = Vector2.zero
+	end
+end
+
 local function build()
-	window = UIKit.Window(WINDOW_NAME, "Loja de Skins", WINDOW_SIZE)
+	-- Com game passes à venda a janela vira "Loja" com duas abas; sem, só skins.
+	local showPasses = Gamepasses.AnyForSale()
+	window = UIKit.Window(WINDOW_NAME, showPasses and "Loja" or "Loja de Skins", WINDOW_SIZE)
 	local content = window.Content
 	Lobby.PrepareContent(content)
 	ui = {}
 
+	if showPasses then
+		ui.TabButtons = {}
+		local tabsRow = Lobby.Row(content, 50, 0, 10, Enum.HorizontalAlignment.Center)
+		for index, tab in ipairs(TABS) do
+			ui.TabButtons[tab.Id] = UIKit.Button({
+				Name = tab.Id,
+				Text = tab.Text,
+				Size = TAB_SIZE,
+				LayoutOrder = index,
+				TextSize = 22,
+				Parent = tabsRow,
+			}, function()
+				setTab(tab.Id)
+			end)
+		end
+		ui.PassesPage = makePage(content, "PassesPage", 2)
+		buildPassesPage(ui.PassesPage)
+	else
+		currentTab = "Skins"
+	end
+	ui.SkinsPage = makePage(content, "SkinsPage", 1)
+	local skinsPage = ui.SkinsPage
+
 	-- Topo: tokens do jogador.
-	local top = Lobby.Section(content, nil, 1)
+	local top = Lobby.Section(skinsPage, nil, 1)
 	local topRow = UIKit.New("Frame", {
 		Name = "Top",
 		Size = UDim2.new(1, 0, 0, 48),
@@ -452,7 +718,7 @@ local function build()
 		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
 		LayoutOrder = 2,
-		Parent = content,
+		Parent = skinsPage,
 	})
 	UIKit.Grid(grid, CARD_SIZE, CARD_PADDING)
 	for index, skin in ipairs(Cosmetics.Skins) do
@@ -464,6 +730,10 @@ end
 local function startListening()
 	listenTrove:Clean()
 	listenTrove:Add(StateController.OnChanged("Profile", function()
+		refresh()
+	end))
+	-- Comprou um pass (ou a posse foi conferida na entrada): troca o botão para "Já é seu!".
+	listenTrove:Add(StateController.OnChanged("Gamepasses", function()
 		refresh()
 	end))
 	if #rainbowGradients > 0 then
@@ -483,6 +753,7 @@ local function ensureWindow()
 	end
 	build()
 	window.OnOpen:Connect(startListening)
+	window.OnOpen:Connect(loadPassPrices)
 	window.OnClose:Connect(function()
 		listenTrove:Clean()
 	end)
@@ -492,11 +763,16 @@ end
 -- API
 -------------------------------------------------------------------------------
 
-function LobbyShop.Open()
+-- Abre a loja. arg = "Passes" abre direto na aba Vantagens; "Skins" na aba de skins
+-- (sem arg, fica na última aba usada).
+function LobbyShop.Open(arg)
 	if not getLobby() then
 		return
 	end
 	ensureWindow()
+	if (arg == "Passes" and ui.TabButtons) or arg == "Skins" then
+		currentTab = arg
+	end
 	refresh()
 	if not window.IsOpen() then
 		window.Content.CanvasPosition = Vector2.zero

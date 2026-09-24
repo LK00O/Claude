@@ -33,6 +33,7 @@ local ALWAYS = {
 	{ ControllersFolder, "MobileController" },
 	{ ControllersFolder, "MusicController" },
 	{ ControllersFolder, "MovementController" },
+	{ ControllersFolder, "ChatTagController" },
 	{ UIFolder, "SettingsWindow" },
 	{ UIFolder, "DebugPanel" },
 }

@@ -148,8 +148,58 @@ minutos jogando sozinho. Jogue alguns atos e ajuste as tabelas ao seu gosto.
 ### Badges e game passes (opcional)
 - **Badges:** crie em Creator Hub > sua experiência > Engajamento > Badges e coloque o id em
   `BadgeId` de cada conquista em `Config/Achievements`.
-- **Game passes:** crie em Monetização > Passes, coloque os ids em `Config/Game > Gamepasses`
-  (`DoubleCoins`, `AutoCollect`, `ExtraTurret`) e mude `Enabled = true`.
+
+#### Game passes
+
+O jogo já vem com **5 game passes** prontos. Eles ficam desligados até você criar os passes no
+Roblox e colar os ids no `Config/Game`:
+
+| Chave no Config | Nome no jogo | O que faz |
+|---|---|---|
+| `DoubleCoins` | Moedas em Dobro | Toda moeda que o dono ganha (brainrots, torretas e missões) vale o dobro. |
+| `AutoCollect` | Coleta Automática | Ímã de moedas desde o começo da partida: as moedas a até 30 studs vêm sozinhas. |
+| `ExtraTurret` | Torreta Extra | +1 torreta no limite do dono (Inverno e Deserto). |
+| `VIP` | VIP | +25% em todas as moedas do dono (com o Moedas em Dobro junto fica ×2,5), etiqueta dourada "VIP" em cima da cabeça (no lobby e na partida) e `[VIP]` dourado antes do nome no chat. |
+| `DoubleDamage` | Dano em Dobro | O dano da arma do dono vale o dobro, em todos os mapas. Só a arma dele: as torretas não mudam. |
+
+Onde o jogador compra: botão **Vantagens** no HUD da partida e aba **Vantagens** na **Loja** do lobby.
+A compra vale na hora, sem sair do jogo, e fica para sempre na conta dele. O **preço** que aparece
+nas lojas é lido do Roblox (é o que você escolhe no Creator Hub, no passo 4): não existe preço no
+código. Se você desligar a venda de um pass no Creator Hub, o botão dele vira **Indisponível**.
+
+> **Regra importante: nunca venda moedas do jogo por Robux** (nem "pacote de moedas", nem produto
+> que dê moedas). As moedas compram upgrades de sorte (Sorte de Tier, chance de encantamento), e
+> com isso esses upgrades passariam a contar como **itens aleatórios pagos** nas regras do Roblox:
+> seria preciso mostrar as chances e, no Brasil, esse tipo de item é bloqueado para menores de
+> idade. Pelo mesmo motivo o jogo não tem pass de sorte: todos os passes dão bônus fixos.
+
+**Passo a passo para colocar os passes à venda:**
+
+1. Publique o jogo primeiro (seção 3): os passes pertencem à experiência.
+2. Abra o **Creator Hub** (create.roblox.com) > **Criações** > clique na **sua experiência** >
+   menu **Monetização** > **Passes**.
+3. Clique em **Criar um passe** (Create a Pass), envie uma imagem, escreva o nome e a descrição
+   (pode copiar da tabela acima) e confirme em **Criar passe**.
+4. Clique no pass criado > **Vendas** (Sales): ligue **Item à venda**, escolha o **preço** em Robux
+   e clique em **Salvar**.
+5. Copie o **id** do pass: na lista de passes, clique nos três pontinhos (**...**) do pass >
+   **Copiar ID do recurso** (Copy Asset ID). O id também é o número que aparece no endereço da página do pass.
+6. Repita os passos 3 a 5 para cada pass que você quiser vender (não precisa criar todos).
+7. No Studio, abra `ReplicatedStorage > Shared > Config > Game`, cole cada id no lugar do `0`
+   e mude `Enabled` para `true`:
+   ```lua
+   Gamepasses = { Enabled = true, DoubleCoins = 1111111, AutoCollect = 2222222, ExtraTurret = 3333333, VIP = 4444444, DoubleDamage = 5555555 },
+   ```
+   Pass com id `0` não aparece nas lojas. Com `Enabled = false` (o padrão) as lojas de vantagens
+   ficam escondidas.
+8. Publique **nos dois places** (Lobby e Partida), como no passo 5 da seção 3.
+
+Para testar no Studio: com os ids preenchidos, clique em **Comprar**. O Studio mostra uma compra de
+teste (não gasta Robux) e a vantagem ativa na hora, só durante aquele teste.
+
+Os bônus podem ser ajustados no mesmo `Config/Game`: `GamepassVipCoinMult` (1.25 = +25% do VIP) e
+`GamepassAutoCollectRadius` (raio do ímã da Coleta Automática). Os textos das lojas acompanham os
+números sozinhos.
 
 ---
 

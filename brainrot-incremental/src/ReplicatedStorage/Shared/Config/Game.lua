@@ -92,10 +92,26 @@ local Game = {
 	DesertHeat = { SafeTime = 20, SlowMultiplier = 0.85 },
 
 	-- Game passes (desligados por padrão). Os números são os IDs dos passes (0 = não existe).
-	Gamepasses = { Enabled = false, DoubleCoins = 0, AutoCollect = 0, ExtraTurret = 0 },
+	-- Para vender: crie o pass no Creator Hub, cole o id aqui e mude Enabled para true
+	-- (passo a passo no README). A lista com nome e descrição fica em Shared/Util/Gamepasses.
+	-- O PREÇO não fica aqui: é o que você escolhe no Creator Hub, e as lojas leem de lá.
+	--   DoubleCoins = Moedas em Dobro      AutoCollect = Coleta Automática
+	--   ExtraTurret = Torreta Extra        VIP = VIP (+moedas, etiqueta e [VIP] no chat)
+	--   DoubleDamage = Dano em Dobro (só a arma do dono; torretas não mudam)
+	--
+	-- REGRA: NUNCA venda moedas do jogo por Robux (nem pacote de moedas, nem produto que dê
+	-- moedas). As moedas compram upgrades de sorte (Sorte de Tier, chance de encantamento), e
+	-- aí esses upgrades virariam "itens aleatórios pagos" pelas regras do Roblox: precisaria
+	-- mostrar as chances e, no Brasil, eles ficam bloqueados para menores de idade. Pelo mesmo
+	-- motivo não existe pass de sorte: os passes só dão bônus fixos (sem sorteio).
+	Gamepasses = { Enabled = false, DoubleCoins = 0, AutoCollect = 0, ExtraTurret = 0, VIP = 0, DoubleDamage = 0 },
 
 	-- Raio do ímã para quem tem o game pass de coleta automática (studs).
 	GamepassAutoCollectRadius = 30,
+
+	-- Pass VIP: multiplica as moedas do dono (1.25 = +25%). Vale nas mesmas moedas que o
+	-- Moedas em Dobro e junta com ele: quem tem os dois ganha ×2 × 1,25 = ×2,5.
+	GamepassVipCoinMult = 1.25,
 
 	-- IDs de música por mapa (0 = sem música).
 	Music = { Lobby = 0, Meadow = 0, Winter = 0, Desert = 0, Ending = 0 },

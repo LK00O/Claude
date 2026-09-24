@@ -47,6 +47,7 @@ local Net = require(Util:WaitForChild("Net"))
 local NumberFormat = require(Util:WaitForChild("NumberFormat"))
 local Formulas = require(Util:WaitForChild("Formulas"))
 local Trove = require(Util:WaitForChild("Trove"))
+local Gamepasses = require(Util:WaitForChild("Gamepasses"))
 
 local Controllers = script.Parent
 local UIKit = require(Controllers.Parent:WaitForChild("UI"):WaitForChild("UIKit"))
@@ -104,18 +105,11 @@ local CURSOR_KEYS = { [Enum.KeyCode.LeftAlt] = true, [Enum.KeyCode.RightAlt] = t
 local TURRET_KEY = Enum.KeyCode.T
 local TURRET_GAMEPAD_KEY = Enum.KeyCode.ButtonY
 
--- Game passes vendidos na janela "Vantagens". Key é a mesma chave do estado "Gamepasses"
--- e de Config.Game.Gamepasses (onde ficam os ids). Só textos aqui: quem vende e ativa
--- o pass é o servidor (MonetizationService, Request "BuyGamepass").
-local PASS_LIST = {
-	{ Key = "DoubleCoins", Name = "Moedas em Dobro", Text = "Toda moeda que você ganha vale o dobro." },
-	{
-		Key = "AutoCollect",
-		Name = "Coleta Automática",
-		Text = "Ímã de moedas desde o começo: as moedas perto de você vêm sozinhas.",
-	},
-	{ Key = "ExtraTurret", Name = "Torreta Extra", Text = "+1 torreta no seu limite (nos mapas com torretas)." },
-}
+-- Os game passes vendidos na janela "Vantagens" (nome, descrição e a regra "está à venda?")
+-- vêm de Shared/Util/Gamepasses, o mesmo módulo que o servidor e a loja do lobby usam.
+-- Quem vende e ativa o pass é o servidor (MonetizationService, Request "BuyGamepass").
+local PASS_WINDOW_SIZE = UDim2.fromOffset(580, 560)
+local PASS_CARD_MIN_HEIGHT = 96 -- o cartão cresce sozinho se a descrição for longa
 
 -------------------------------------------------------------------------------
 -- Estado interno
@@ -525,28 +519,14 @@ end
 -- Janela "Vantagens" (game passes)
 -------------------------------------------------------------------------------
 
--- true se o pass "key" está à venda: passes ligados no Config e id preenchido (> 0).
--- É a mesma regra que o MonetizationService usa no servidor.
-local function isPassForSale(key)
-	local config = GameConfig.Gamepasses
-	if type(config) ~= "table" or config.Enabled ~= true then
-		return false
-	end
-	local id = config[key]
-	return type(id) == "number" and id > 0
-end
-
--- true se pelo menos um pass está à venda. Se nenhum está, o botão "Vantagens" nem aparece.
+-- true se pelo menos um pass está à venda (passes ligados no Config e algum id > 0).
+-- Se nenhum está, o botão "Vantagens" nem aparece. É a mesma regra do servidor.
 local function anyPassForSale()
-	for _, pass in ipairs(PASS_LIST) do
-		if isPassForSale(pass.Key) then
-			return true
-		end
-	end
-	return false
+	return Gamepasses.AnyForSale()
 end
 
--- Atualiza o botão de cada pass: "Comprar", "Abrindo..." ou "Já é seu!".
+-- Atualiza cada cartão: preço ("..." enquanto carrega; some se não deu para ler) e o
+-- botão: "Comprar", "Abrindo...", "Já é seu!" ou "Indisponível" (tirado de venda no Roblox).
 local function refreshPassWindow()
 	if not passWindow then
 		return
@@ -554,16 +534,51 @@ local function refreshPassWindow()
 	local passes = StateController.Get("Gamepasses")
 	for _, row in ipairs(passWindow.Rows) do
 		local owned = type(passes) == "table" and passes[row.Key] == true
+		local sale = row.Sale -- {IsForSale, Price} do Roblox, ou nil (carregando / falhou)
 		if owned then
 			row.Button.Text = "Já é seu!"
 			row.Button.BackgroundColor3 = Theme.Info
 			row.Button:SetAttribute("Disabled", true)
+			row.Price.Visible = false
+		elseif sale and not sale.IsForSale then
+			row.Button.Text = "Indisponível"
+			row.Button.BackgroundColor3 = Theme.Disabled
+			row.Button:SetAttribute("Disabled", true)
+			row.Price.Visible = false
 		else
 			row.Button.Text = if passWindow.Busy then "Abrindo..." else "Comprar"
 			row.Button.BackgroundColor3 = Theme.Success
 			row.Button:SetAttribute("Disabled", passWindow.Busy)
+			if row.Loading then
+				row.Price.Text = "..."
+				row.Price.Visible = true
+			elseif sale and sale.Price then
+				row.Price.Text = NumberFormat.Commas(sale.Price) .. " Robux"
+				row.Price.Visible = true
+			else
+				row.Price.Visible = false -- não deu para ler o preço: esconde
+			end
 		end
 	end
+end
+
+-- Busca no Roblox o preço e o "está à venda?" de cada pass (Gamepasses.FetchSaleInfo, que
+-- guarda o resultado por id). O que falhou tenta de novo na próxima vez que a janela abrir.
+local function loadPassPrices()
+	if not passWindow then
+		return
+	end
+	for _, row in ipairs(passWindow.Rows) do
+		if not row.Sale and not row.Loading then
+			row.Loading = true
+			task.spawn(function()
+				row.Sale = Gamepasses.FetchSaleInfo(row.Key)
+				row.Loading = false
+				refreshPassWindow()
+			end)
+		end
+	end
+	refreshPassWindow()
 end
 
 -- Pede ao servidor para abrir a janela de compra do Roblox (Request "BuyGamepass").
@@ -588,7 +603,7 @@ local function ensurePassWindow()
 	if passWindow then
 		return passWindow
 	end
-	local window = UIKit.Window("Gamepasses", "Vantagens", UDim2.fromOffset(560, 430))
+	local window = UIKit.Window("Gamepasses", "Vantagens", PASS_WINDOW_SIZE)
 	local content = window.Content
 	local layout = UIKit.List(content, 10)
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
@@ -606,19 +621,22 @@ local function ensurePassWindow()
 		Parent = content,
 	})
 
-	for index, pass in ipairs(PASS_LIST) do
+	for index, pass in ipairs(Gamepasses.List) do
 		-- Pass sem id (0) ainda não está à venda: nem aparece na lista.
-		if isPassForSale(pass.Key) then
+		if Gamepasses.IsForSale(pass.Key) then
 			local card = UIKit.New("Frame", {
 				Name = pass.Key,
-				Size = UDim2.new(1, 0, 0, 86),
+				Size = UDim2.new(1, 0, 0, PASS_CARD_MIN_HEIGHT),
+				AutomaticSize = Enum.AutomaticSize.Y,
 				BackgroundColor3 = Theme.PanelDark,
 				BackgroundTransparency = 0.2,
 				LayoutOrder = index,
 				Parent = content,
 			})
 			UIKit.Corner(card, 14)
-			UIKit.Stroke(card, 2, Theme.Stroke)
+			UIKit.Stroke(card, 2, pass.Color)
+			-- Espaço embaixo da descrição quando o cartão cresce.
+			UIKit.Padding(card, { Top = 0, Bottom = 10, Left = 0, Right = 0 })
 			makeLine({
 				Name = "Title",
 				Text = pass.Name,
@@ -626,38 +644,51 @@ local function ensurePassWindow()
 				Position = UDim2.fromOffset(14, 8),
 				Size = UDim2.new(1, -190, 0, 26),
 				TextSize = 21,
-				Color = Theme.Rare,
+				Color = pass.Color,
 				TextXAlignment = Enum.TextXAlignment.Left,
 				Parent = card,
 			})
 			UIKit.Label({
 				Name = "Description",
-				Text = pass.Text,
+				Text = pass.Description,
 				Position = UDim2.fromOffset(14, 36),
-				Size = UDim2.new(1, -190, 0, 42),
+				Size = UDim2.new(1, -190, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
 				TextSize = 15,
 				Color = Theme.TextDim,
 				TextXAlignment = Enum.TextXAlignment.Left,
 				TextYAlignment = Enum.TextYAlignment.Top,
 				Parent = card,
 			})
+			-- Preço (lido do Roblox, nunca escrito no código) em cima do botão.
+			local price = makeLine({
+				Name = "Price",
+				Text = "...",
+				Font = Theme.TitleFont,
+				AnchorPoint = Vector2.new(1, 0),
+				Position = UDim2.new(1, -14, 0, 8),
+				Size = UDim2.fromOffset(156, 22),
+				TextSize = 18,
+				Color = Theme.Coin,
+				Parent = card,
+			})
 			local button = UIKit.Button({
 				Name = "Buy",
 				Text = "Comprar",
 				Color = Theme.Success,
-				AnchorPoint = Vector2.new(1, 0.5),
-				Position = UDim2.new(1, -14, 0.5, 0),
-				Size = UDim2.fromOffset(156, 52),
+				AnchorPoint = Vector2.new(1, 0),
+				Position = UDim2.new(1, -14, 0, 34),
+				Size = UDim2.fromOffset(156, 50),
 				TextSize = 20,
 				Parent = card,
 			}, function()
 				buyPass(pass.Key)
 			end)
-			table.insert(passWindow.Rows, { Key = pass.Key, Button = button })
+			table.insert(passWindow.Rows, { Key = pass.Key, Button = button, Price = price })
 		end
 	end
 
-	window.OnOpen:Connect(refreshPassWindow)
+	window.OnOpen:Connect(loadPassPrices)
 	refreshPassWindow()
 	return passWindow
 end
@@ -1291,7 +1322,9 @@ local function refreshQuest()
 			progress / target,
 			NumberFormat.Abbrev(math.floor(progress)) .. " / " .. NumberFormat.Abbrev(target)
 		)
-		ui.QuestReward.Text = "+" .. NumberFormat.Abbrev(num(active.Reward, 0))
+		-- Mostra o que cai na carteira: o servidor paga a recompensa × os passes de moedas.
+		local reward = num(active.Reward, 0) * Formulas.PassCoinMult(StateController.GetStatExtras())
+		ui.QuestReward.Text = "+" .. NumberFormat.Abbrev(reward)
 	end
 end
 
@@ -1366,17 +1399,20 @@ local function collectBuffs(now)
 		end
 	end
 
-	-- Passes comprados.
+	-- Game passes que estão valendo agora (texto curto de Shared/Util/Gamepasses).
 	local passes = StateController.Get("Gamepasses")
 	if type(passes) == "table" then
-		if passes.DoubleCoins == true then
-			table.insert(list, { Id = "Pass_DoubleCoins", Text = "Passe: moedas ×2", Color = Theme.Coin })
-		end
-		if passes.AutoCollect == true then
-			table.insert(list, { Id = "Pass_AutoCollect", Text = "Passe: ímã de moedas", Color = Theme.Coin })
-		end
-		if passes.ExtraTurret == true and currentMap and currentMap.HasTurrets then
-			table.insert(list, { Id = "Pass_ExtraTurret", Text = "Passe: +1 torreta", Color = Theme.Coin })
+		for _, pass in ipairs(Gamepasses.List) do
+			local active
+			if pass.Key == "ExtraTurret" then
+				-- Torreta extra só faz sentido nos mapas com torretas.
+				active = passes.ExtraTurret == true and currentMap ~= nil and currentMap.HasTurrets == true
+			else
+				active = passes[pass.Key] == true
+			end
+			if active then
+				table.insert(list, { Id = "Pass_" .. pass.Key, Text = pass.BuffText, Color = pass.Color })
+			end
 		end
 	end
 	return list

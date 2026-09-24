@@ -109,7 +109,7 @@ local function awardBadgeAsync(player, badgeId)
 				return -- a badge precisa que o jogador esteja no servidor
 			end
 			local ok, result = pcall(function()
-				return BadgeService:AwardBadge(player.UserId, badgeId)
+				return BadgeService:AwardBadgeAsync(player.UserId, badgeId) -- versão Async (AwardBadge foi descontinuada)
 			end)
 			if ok then
 				return -- deu certo (ou o jogador já tinha a badge)

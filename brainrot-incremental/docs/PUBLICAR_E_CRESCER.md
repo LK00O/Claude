@@ -163,7 +163,8 @@ aparecer na página de comprar Robux.
 6. Publique nos dois places.
 
 O jogo busca o preço direto do Roblox, então o preço mostrado na loja é sempre o certo, mesmo com preço
-regional. Pass que não está à venda não aparece.
+regional. Pass com id `0` não aparece; pass que você tirou de venda no Creator Hub aparece como
+**Indisponível** (botão desligado).
 
 **Duas regras que o jogo segue de propósito:**
 - **Nunca venda moedas do jogo por Robux.** As moedas compram upgrades de sorte (mais brainrots raros).

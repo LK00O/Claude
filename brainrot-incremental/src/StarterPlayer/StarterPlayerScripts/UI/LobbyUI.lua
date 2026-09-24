@@ -9,7 +9,8 @@
 --   * tela de carregamento do teleporte (TeleportService:SetTeleportGui) com o nome e a cor do mapa.
 -- As janelas grandes ficam em módulos separados, todos com o prefixo "Lobby":
 --   LobbyCreate (Criar Partida), LobbyParty (Meu Grupo), LobbyList (Partidas Abertas),
---   LobbyShop (Loja de skins) e LobbyAchievements (Conquistas e Estatísticas).
+--   LobbyShop (Loja: skins e, se houver game passes à venda, a aba "Vantagens")
+--   e LobbyAchievements (Conquistas e Estatísticas).
 -- Eles recebem este módulo no Init e usam as funções de ajuda daqui.
 --
 -- O cliente só PEDE as coisas (Net.Request). Quem decide é o servidor (PartyService,
@@ -24,6 +25,7 @@
 --   LobbyUI.AreAllReady(party) -> (todosProntos, quantosFaltam)
 --   LobbyUI.CountdownSeconds(party) -> segundos que faltam (ou nil sem contagem)
 --   LobbyUI.Open(key, arg?) / IsOpen(key) / CloseAll()   key = "Create" | "Party" | "List" | "Shop" | "Achievements"
+--                                                       (ex.: LobbyUI.Open("Shop", "Passes") abre a aba Vantagens)
 --   LobbyUI.Request(action, ...) -> ok, result          Net.Request que mostra o erro num aviso
 --   LobbyUI.JoinParty(partyId) -> ok                    entra num grupo (sai do atual antes, se precisar)
 --   LobbyUI.GetProfile(), GetTokens(), IsMapUnlocked(id), IsMapCompleted(id), GetRunSave(id)

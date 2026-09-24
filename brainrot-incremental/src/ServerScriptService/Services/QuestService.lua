@@ -205,6 +205,24 @@ local function questIncome(run)
 	return isFiniteNumber(run.IncomeSlow) and math.max(0, run.IncomeSlow) or 0
 end
 
+-- Multiplicador dos game passes de moedas do jogador (Moedas em Dobro, VIP). A renda
+-- (run.IncomeSlow) já vem com ele, e o MatchService.AddCoins aplica de novo quando paga a
+-- missão: a recompensa usa a renda SEM os passes, senão o bônus contaria duas vezes
+-- (×2 virava ×4 e o VIP ×1,25 virava ×1,56).
+local function passCoinMult(player)
+	local ok, mult = pcall(function()
+		local MonetizationService = Svc("MonetizationService")
+		return Formulas.PassCoinMult({
+			DoubleCoins = MonetizationService.HasPass(player, "DoubleCoins") == true,
+			VIP = MonetizationService.HasPass(player, "VIP") == true,
+		})
+	end)
+	if ok and isFiniteNumber(mult) and mult > 0 then
+		return mult
+	end
+	return 1
+end
+
 -- Calcula o alvo da missão (seção 5.10):
 --   Collect: max(RewardFloor × CostScale, Renda × BaseSeconds)
 --   outras:  ceil(Base × (1 + somaDeNíveis × ScalePerUpgradeLevel))
@@ -367,7 +385,7 @@ local function handleTakeQuest(player)
 	local team = MatchService.GetTeam()
 	local target = computeTarget(template, run, team, mapDef)
 	local stats = Svc("StatService").Get(player)
-	local income = questIncome(run) -- média lenta: ver questIncome
+	local income = questIncome(run) / passCoinMult(player) -- média lenta, sem os passes (ver acima)
 	local reward = Formulas.QuestReward(MatchService.GetMapId(), income, statNumber(stats, "QuestReward", 1))
 	reward = isFiniteNumber(reward) and math.max(1, math.floor(reward)) or 1
 

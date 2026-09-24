@@ -221,14 +221,14 @@ local function previewStat(def, newLevel)
 	else
 		playerLevels[def.Id] = newLevel
 	end
-	local passes = StateController.Get("Gamepasses")
+	-- Game passes (Moedas em Dobro, VIP, Dano em Dobro) entram igual ao StateController.
 	local ok, stats = pcall(
 		Formulas.ComputeStats,
 		match.MapId,
 		playerLevels,
 		teamLevels,
 		tableOr(StateController.Get("Recipes")),
-		{ DoubleCoins = type(passes) == "table" and passes.DoubleCoins == true }
+		StateController.GetStatExtras()
 	)
 	if ok and type(stats) == "table" then
 		return stats[def.Stat]
@@ -568,7 +568,9 @@ local function refreshQuestPanel()
 		local progress = math.clamp(num(active.Progress, 0), 0, target)
 		panel.Text.Text = tostring(active.Text or "Missão")
 		panel.Bar.Set(progress / target, NumberFormat.Abbrev(math.floor(progress)) .. " / " .. NumberFormat.Abbrev(target))
-		panel.Reward.Text = "Recompensa: " .. NumberFormat.Abbrev(num(active.Reward, 0)) .. " moedas"
+		-- O servidor paga a recompensa × os passes de moedas (Moedas em Dobro, VIP).
+		local reward = num(active.Reward, 0) * Formulas.PassCoinMult(StateController.GetStatExtras())
+		panel.Reward.Text = "Recompensa: " .. NumberFormat.Abbrev(reward) .. " moedas"
 		if os.clock() > panel.ConfirmUntil then
 			panel.AbandonButton.Text = "Abandonar"
 		end

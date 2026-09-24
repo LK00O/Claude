@@ -5,7 +5,7 @@
 --   2. Descobre o papel do servidor ("Lobby" ou "Match") e grava no atributo "Role"
 --      do Workspace (o cliente lê daí). Se o modo de teste estiver ligado, grava "DebugEnabled".
 --   3. Serviços comuns (lobby e partida): Init.
---   4. Lobby: LobbyService, PartyService, ShopService (Init, depois Start de todos).
+--   4. Lobby: LobbyService, PartyService, ShopService, MonetizationService (Init, depois Start de todos).
 --   5. Partida: MatchService.Init() (resolve a partida e constrói o mapa — pode demorar),
 --      depois o Init de todos os serviços da partida, o Start de todos e, por último,
 --      MatchService.Start() (começa a aceitar jogadores).
@@ -40,10 +40,13 @@ local COMMON_SERVICES = {
 	"TravelService",
 }
 
+-- O MonetizationService aparece nas duas listas (lobby e partida): no lobby ele vende
+-- os game passes e mostra o VIP; na partida também aplica os efeitos dos passes.
 local LOBBY_SERVICES = {
 	"LobbyService",
 	"PartyService",
 	"ShopService",
+	"MonetizationService",
 }
 
 -- Serviços da partida (o MatchService é tratado à parte, antes e depois deles).

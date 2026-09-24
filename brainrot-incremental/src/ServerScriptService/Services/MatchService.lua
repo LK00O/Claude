@@ -37,6 +37,7 @@ local Signal = require(UtilFolder:WaitForChild("Signal"))
 local Trove = require(UtilFolder:WaitForChild("Trove"))
 local Net = require(UtilFolder:WaitForChild("Net"))
 local Tables = require(UtilFolder:WaitForChild("Tables"))
+local Formulas = require(UtilFolder:WaitForChild("Formulas"))
 local PlaceRole = require(UtilFolder:WaitForChild("PlaceRole"))
 
 -- Módulo de mundo (pode ser usado no topo: World não depende de serviços).
@@ -89,7 +90,7 @@ for _, template in ipairs(Quests.Templates) do
 	questTemplatesById[template.Id] = template
 end
 
--- Fontes de moedas que NÃO ganham bônus (gamepass) nem contam como "TotalCoins".
+-- Fontes de moedas que NÃO ganham bônus (game passes Moedas em Dobro e VIP) nem contam como "TotalCoins".
 local NO_BONUS_SOURCES = { Refund = true, Debug = true }
 -- Fontes de moedas que entram no cálculo da renda por segundo.
 -- (Missões ficam de fora: a recompensa depende da renda, e contar ela inflaria a renda.)
@@ -1207,13 +1208,17 @@ function MatchService.AddCoins(player, amount, source)
 		source = "Pickup"
 	end
 
-	-- Gamepass de moedas em dobro (não vale para reembolso nem para o comando de teste).
+	-- Game passes de moedas: Moedas em Dobro (×2) e VIP (×1,25), que se multiplicam.
+	-- Não valem para reembolso nem para o comando de teste. A conta é a mesma do
+	-- Formulas.ComputeStats (Formulas.PassCoinMult), que mostra o multiplicador na tela.
 	local noBonus = NO_BONUS_SOURCES[source] == true
 	if not noBonus then
-		local okPass, hasDouble = callService("MonetizationService", "HasPass", player, "DoubleCoins")
-		if okPass and hasDouble == true then
-			amount *= 2
-		end
+		local okDouble, hasDouble = callService("MonetizationService", "HasPass", player, "DoubleCoins")
+		local okVip, hasVip = callService("MonetizationService", "HasPass", player, "VIP")
+		amount *= Formulas.PassCoinMult({
+			DoubleCoins = okDouble and hasDouble == true,
+			VIP = okVip and hasVip == true,
+		})
 	end
 
 	-- Soma na carteira (individual ou cofre do time).

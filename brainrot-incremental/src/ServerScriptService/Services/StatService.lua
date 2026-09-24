@@ -2,8 +2,9 @@
 -- StatService: calcula os "stats" (dano, cadência, chance de gigante...) de cada jogador
 -- e do time, com cache. Os outros serviços pedem aqui em vez de recalcular toda hora.
 --
---   StatService.Get(player)        -> stats do jogador (upgrades dele + do time + receitas + gamepass)
---   StatService.GetTeam()          -> stats do time (sem upgrades de jogador; usado para regras do campo)
+--   StatService.Get(player)        -> stats do jogador (upgrades dele + do time + receitas + game passes)
+--   StatService.GetTeam()          -> stats do time (sem upgrades de jogador e sem game passes;
+--                                     usado para regras do campo)
 --   StatService.Invalidate(player?) -> joga o cache fora (nil = todos os jogadores + time)
 --   StatService.Changed: Signal(player?)  -> dispara depois de cada Invalidate
 --
@@ -44,12 +45,22 @@ local function isFiniteNumber(value)
 	return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
 end
 
--- Pergunta ao MonetizationService se o jogador tem o gamepass (false se der erro).
-local function hasDoubleCoins(player)
-	local ok, result = pcall(function()
-		return Svc("MonetizationService").HasPass(player, "DoubleCoins")
+-- "extras" dos game passes do jogador para o Formulas.ComputeStats:
+--   DoubleCoins / VIP -> moedas;  DoubleDamage -> dano da arma dele.
+-- Se o MonetizationService der erro, calcula sem passes (melhor do que quebrar os stats).
+local function getPassExtras(player)
+	local ok, extras = pcall(function()
+		local MonetizationService = Svc("MonetizationService")
+		return {
+			DoubleCoins = MonetizationService.HasPass(player, "DoubleCoins") == true,
+			VIP = MonetizationService.HasPass(player, "VIP") == true,
+			DoubleDamage = MonetizationService.HasPass(player, "DoubleDamage") == true,
+		}
 	end)
-	return ok and result == true
+	if ok and type(extras) == "table" then
+		return extras
+	end
+	return {}
 end
 
 -- Calcula os stats de um jogador. Devolve (stats, temRun).
@@ -62,7 +73,7 @@ local function computeForPlayer(player)
 		run and run.Upgrades or {},
 		team.Upgrades,
 		team.Recipes,
-		{ DoubleCoins = hasDoubleCoins(player) }
+		getPassExtras(player)
 	)
 	return stats, run ~= nil
 end
@@ -123,14 +134,15 @@ function StatService.Get(player)
 	return stats
 end
 
--- Stats do time: upgrades do time + receitas, sem upgrades de jogador e sem gamepass.
+-- Stats do time: upgrades do time + receitas, sem upgrades de jogador e sem game passes
+-- (todo pass vale só para o dono: Moedas em Dobro, VIP, Dano em Dobro...).
 function StatService.GetTeam()
 	if teamCache then
 		return teamCache
 	end
 	local MatchService = Svc("MatchService")
 	local team = MatchService.GetTeam()
-	teamCache = Formulas.ComputeStats(MatchService.GetMapId(), {}, team.Upgrades, team.Recipes, { DoubleCoins = false })
+	teamCache = Formulas.ComputeStats(MatchService.GetMapId(), {}, team.Upgrades, team.Recipes, {})
 	return teamCache
 end
 

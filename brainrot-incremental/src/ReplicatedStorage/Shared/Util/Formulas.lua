@@ -10,6 +10,8 @@ local Weapons = require(Config:WaitForChild("Weapons"))
 local Upgrades = require(Config:WaitForChild("Upgrades"))
 local Recipes = require(Config:WaitForChild("Recipes"))
 local Quests = require(Config:WaitForChild("Quests"))
+-- Bônus dos game passes (VIP e Dano em Dobro) lidos do Config.Game, com proteção.
+local Gamepasses = require(script.Parent:WaitForChild("Gamepasses"))
 
 local Formulas = {}
 
@@ -138,11 +140,31 @@ end
 -- Cálculo de todos os stats
 -------------------------------------------------------------------------------
 
+-- Formulas.PassCoinMult(extras) -> multiplicador de moedas dos game passes do jogador.
+--   extras.DoubleCoins -> ×2;  extras.VIP -> × Config.Game.GamepassVipCoinMult (1,25).
+--   Os dois juntos multiplicam: 2 × 1,25 = 2,5.
+-- O MatchService.AddCoins usa esta função nas moedas de verdade e o ComputeStats usa
+-- para mostrar o "Multiplicador de Moedas" na tela: as duas contas são sempre iguais.
+function Formulas.PassCoinMult(extras)
+	local mult = 1
+	if type(extras) ~= "table" then
+		return mult
+	end
+	if extras.DoubleCoins == true then
+		mult *= 2
+	end
+	if extras.VIP == true then
+		mult *= Gamepasses.VipCoinMult()
+	end
+	return mult
+end
+
 -- Formulas.ComputeStats(mapId, playerLevels, teamLevels, recipesApplied, extras) -> stats
 --   playerLevels   = {[upgradeId] = nível} do jogador (upgrades de escopo "Player")
 --   teamLevels     = {[upgradeId] = nível} do time (upgrades de escopo "Team")
 --   recipesApplied = {[recipeId] = true} receitas permanentes feitas nesta partida
---   extras         = {DoubleCoins = boolean}
+--   extras         = {DoubleCoins = boolean, VIP = boolean, DoubleDamage = boolean}
+--                    (game passes do PRÓPRIO jogador; nos stats do time vai vazio)
 -- Devolve uma tabela NOVA {[statKey] = número}.
 function Formulas.ComputeStats(mapId, playerLevels, teamLevels, recipesApplied, extras)
 	playerLevels = playerLevels or {}
@@ -198,9 +220,12 @@ function Formulas.ComputeStats(mapId, playerLevels, teamLevels, recipesApplied, 
 		end
 	end
 
-	-- 6. Gamepass de moedas em dobro.
-	if extras.DoubleCoins then
-		stats.CoinMult *= 2
+	-- 6. Game passes (depois dos upgrades e receitas, antes dos limites).
+	--    Moedas em Dobro e VIP multiplicam o CoinMult (a mesma conta do MatchService.AddCoins).
+	stats.CoinMult *= Formulas.PassCoinMult(extras)
+	--    Dano em Dobro: só o dano da arma do jogador (TurretDamage, das torretas, não muda).
+	if extras.DoubleDamage == true then
+		stats.Damage = (stats.Damage or 0) * Gamepasses.DAMAGE_MULT
 	end
 
 	-- 7. Limites mínimo/máximo de cada stat.

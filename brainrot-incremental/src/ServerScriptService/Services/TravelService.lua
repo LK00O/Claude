@@ -293,7 +293,7 @@ function TravelService.SendToNewMatch(players, handoff)
 	local accessCode, privateServerId
 	for attempt = 1, RESERVE_ATTEMPTS do
 		local ok, codeOrErr, serverId = pcall(function()
-			return TeleportService:ReserveServer(GameConfig.MatchPlaceId)
+			return TeleportService:ReserveServerAsync(GameConfig.MatchPlaceId) -- versão Async (ReserveServer foi descontinuada)
 		end)
 		if ok and type(codeOrErr) == "string" then
 			accessCode, privateServerId = codeOrErr, serverId
