@@ -88,21 +88,26 @@ A experiência tem **dois places**: o **Lobby** (place inicial) e a **Partida**.
 
 1. Com o `.rbxlx` aberto, vá em **Arquivo > Publicar no Roblox**, crie uma experiência nova e dê um nome.
    Esse primeiro place vira o **place inicial**, que será o lobby.
-2. Abra **Exibir > Gerenciador de ativos > Places**, clique com o botão direito e escolha
-   **Adicionar novo place**. Renomeie para "Partida".
-3. Ainda em **Places**, clique com o botão direito em cada place e use **Copiar ID** para pegar os dois números.
+2. Com o mesmo arquivo aberto, vá em **Arquivo > Publicar no Roblox como...**, clique na sua
+   experiência e escolha **Adicionar como novo place** (Add as a new place). Dê o nome "Partida".
+3. Abra **Exibir > Gerenciador de ativos > Places**, clique com o botão direito em cada place e use
+   **Copiar ID do recurso** (Copy Asset ID) para pegar os dois números.
 4. No script `ReplicatedStorage > Shared > Config > Game`, preencha:
    ```lua
    LobbyPlaceId = 1234567890, -- id do place inicial
    MatchPlaceId = 9876543210, -- id do place "Partida"
    ```
 5. Publique de novo **nos dois places**: **Arquivo > Publicar no Roblox como...**, escolha a sua
-   experiência e depois o place (faça uma vez para o Lobby e outra para a Partida).
+   experiência, depois o place e **Substituir** (Overwrite). Faça uma vez para o Lobby e outra para a Partida.
 6. Em **Configurações do jogo**:
    - **Segurança:** ligue **Habilitar acesso do Studio aos serviços de API** (só para testar no Studio;
      nos servidores de verdade o DataStore já funciona).
    - **Permissões:** deixe a experiência **Pública** quando quiser abrir para todos.
-7. Toda vez que mudar o código, publique **nos dois places** para os dois ficarem iguais.
+7. Toda vez que mudar o código, publique **nos dois places** para os dois ficarem iguais e use
+   **Restart Servers** no Creator Hub para os servidores abertos pegarem a versão nova.
+
+O guia completo, com o que a conta precisa ter, a página do jogo, os game passes e como divulgar,
+está em `docs/PUBLICAR_E_CRESCER.md`.
 
 Os teleportes entre lobby e partida, o convite de amigos e o "Continuar partida salva" só funcionam
 depois desses passos, num servidor publicado.
