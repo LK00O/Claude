@@ -7,7 +7,8 @@
 --   2. O servidor NÃO confia no cliente: confere se o personagem está vivo, se a origem
 --      está perto da cabeça, se o número de direções bate com os projéteis, a cadência
 --      (token bucket) e o calor da arma.
---   3. Para cada direção, o servidor faz um Spherecast (um "raio grosso") e aplica o dano
+--   3. Para cada direção, o servidor faz um raio fino contra o mundo (até onde a bala vai) e
+--      um Spherecast (um "raio grosso") que só enxerga os brainrots, e aplica o dano
 --      nos brainrots atingidos (com perfuração, crítico, respingo e lentidão).
 --   4. Manda "HitConfirm" para o atirador (hitmarker e números de dano) e "RemoteShot"
 --      para os outros jogadores (eles desenham o rastro da bala).
@@ -370,20 +371,25 @@ end
 -- Simulação do tiro no servidor
 -------------------------------------------------------------------------------
 
--- Sobe na hierarquia até achar o Model de um brainrot (atributo "BrainrotId").
-local function findBrainrotModel(instance)
-	local current = instance
+-- Tira da lista "candidates" o modelo (filho da pasta Brainrots) que contém a peça atingida.
+-- Assim o próximo Spherecast desse projétil "atravessa" esse brainrot (perfuração).
+-- Devolve false se a peça não é de nenhum candidato (trava de segurança do laço).
+local function removeCandidate(candidates, part)
+	local current = part
 	while current and current ~= workspace do
-		if current:IsA("Model") and current:GetAttribute("BrainrotId") ~= nil then
-			return current
+		local position = table.find(candidates, current)
+		if position then
+			table.remove(candidates, position)
+			return true
 		end
 		current = current.Parent
 	end
-	return nil
+	return false
 end
 
--- Lista base do filtro do raio: personagens, moedas e torretas nunca bloqueiam a bala.
-local function buildBaseExclude()
+-- Filtro do raio FINO (obstáculos do mundo): personagens, moedas, torretas e os brainrots
+-- nunca param a bala nesse raio (os brainrots são tratados pela esfera, em simulateShot).
+local function buildWorldExclude(brainrotFolder)
 	local list = {}
 	for _, other in ipairs(Players:GetPlayers()) do
 		local character = other.Character
@@ -391,13 +397,14 @@ local function buildBaseExclude()
 			table.insert(list, character)
 		end
 	end
-	local coins = workspace:FindFirstChild("Coins")
-	if coins then
-		table.insert(list, coins)
+	for _, name in ipairs({ "Coins", "Turrets" }) do
+		local child = workspace:FindFirstChild(name)
+		if child then
+			table.insert(list, child)
+		end
 	end
-	local turrets = workspace:FindFirstChild("Turrets")
-	if turrets then
-		table.insert(list, turrets)
+	if brainrotFolder then
+		table.insert(list, brainrotFolder)
 	end
 	return list
 end
@@ -473,9 +480,19 @@ local function applyHit(player, entity, position, stats)
 	return { Position = position, Damage = damage, Crit = crit, Killed = killed }
 end
 
--- Faz o Spherecast de cada projétil, com perfuração. Devolve (hits, endpoints, critCount).
+-- Simula cada projétil, com perfuração. Devolve (hits, endpoints, critCount).
 --   hits      = linhas do HitConfirm
 --   endpoints = onde cada projétil terminou (para o rastro dos outros jogadores)
+--
+-- A bala é "gorda" (BulletHitRadius × Caliber) SÓ para acertar brainrots. Por isso são
+-- dois testes por projétil:
+--   1. Raio FINO contra o mundo (chão, pedras, paredes, piso da plataforma...): diz até
+--      onde a bala vai. Antes era a própria esfera grossa que batia no mundo, e no Inverno
+--      ela raspava no piso da plataforma elevada muito antes da borda: o time lá em cima
+--      não acertava os brainrots do vale, mesmo com eles bem na mira (e o upgrade de
+--      Calibre piorava isso em vez de ajudar).
+--   2. Spherecast que só enxerga os brainrots (FilterType Include), até o ponto onde o
+--      raio fino parou. Cada brainrot atingido sai da lista do projétil (perfuração).
 local function simulateShot(player, origin, directions, stats)
 	local BrainrotService = Svc("BrainrotService")
 
@@ -483,53 +500,63 @@ local function simulateShot(player, origin, directions, stats)
 	local range = math.clamp(statNumber(stats, "Range", 350), 1, 1000)
 	local maxTargets = 1 + math.max(0, math.floor(statNumber(stats, "Pierce", 0)))
 
-	local baseExclude = buildBaseExclude()
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.IgnoreWater = true
+	local brainrotFolder = BrainrotService.GetFolder()
+
+	-- Filtro do raio fino (mundo): ignora personagens, moedas, torretas e brainrots.
+	local worldParams = RaycastParams.new()
+	worldParams.FilterType = Enum.RaycastFilterType.Exclude
+	worldParams.FilterDescendantsInstances = buildWorldExclude(brainrotFolder)
+	worldParams.IgnoreWater = true
+
+	-- Filtro da esfera: "Include" = só acerta o que está na lista (os modelos dos brainrots).
+	local brainrotParams = RaycastParams.new()
+	brainrotParams.FilterType = Enum.RaycastFilterType.Include
+	brainrotParams.IgnoreWater = true
+	local brainrotModels = if brainrotFolder then brainrotFolder:GetChildren() else {}
 
 	local hits = {}
 	local endpoints = table.create(#directions)
 	local critCount = 0
 
 	for index, direction in ipairs(directions) do
-		local displacement = direction * range
-		local endpoint = origin + displacement
-		-- Cada projétil tem seu próprio filtro: os brainrots que ele já atingiu são
-		-- adicionados, assim o próximo raio "atravessa" eles (perfuração).
-		local exclude = table.clone(baseExclude)
+		-- 1. Raio fino: até onde a bala vai antes de bater em algo do mundo.
+		local travel = range
+		local endpoint = origin + direction * range -- não bateu em nada: vai até o alcance
+		local wall = workspace:Raycast(origin, direction * range, worldParams)
+		if wall then
+			travel = wall.Distance
+			endpoint = wall.Position -- chão, pedra, parede...: a bala para aqui
+		end
+
+		-- 2. Esfera só contra os brainrots, do cano até esse ponto.
+		-- Cada projétil tem sua própria lista de candidatos (cópia da lista do tiro).
+		local candidates = if travel > MIN_DIRECTION_MAGNITUDE then table.clone(brainrotModels) else {}
+		local displacement = direction * travel
 		local targets = 0
 		local casts = 0
 
-		while targets < maxTargets and casts < MAX_CASTS_PER_PROJECTILE do
+		while targets < maxTargets and casts < MAX_CASTS_PER_PROJECTILE and #candidates > 0 do
 			casts += 1
-			params.FilterDescendantsInstances = exclude
-			local result = workspace:Spherecast(origin, radius, displacement, params)
-			if not result then
-				endpoint = origin + displacement -- não bateu em nada: vai até o alcance
+			brainrotParams.FilterDescendantsInstances = candidates
+			local result = workspace:Spherecast(origin, radius, displacement, brainrotParams)
+			-- Sem acerto (ou peça estranha): a bala segue até o ponto do raio fino.
+			if not result or not removeCandidate(candidates, result.Instance) then
 				break
 			end
 
-			endpoint = result.Position
 			local entity = BrainrotService.GetEntityFromPart(result.Instance)
-			if not entity or entity.Dead then
-				-- Pedaço de um brainrot que acabou de morrer: ignora e continua.
-				local deadModel = findBrainrotModel(result.Instance)
-				if deadModel then
-					table.insert(exclude, deadModel)
-					continue
+			if entity and not entity.Dead then
+				targets += 1
+				local hit = applyHit(player, entity, result.Position, stats)
+				table.insert(hits, hit)
+				if hit.Crit then
+					critCount += 1
 				end
-				break -- chão, pedra, parede...: a bala para aqui
+				if targets >= maxTargets then
+					endpoint = result.Position -- a perfuração acabou: a bala para neste brainrot
+				end
 			end
-
-			targets += 1
-			table.insert(exclude, entity.Model or findBrainrotModel(result.Instance) or result.Instance)
-
-			local hit = applyHit(player, entity, result.Position, stats)
-			table.insert(hits, hit)
-			if hit.Crit then
-				critCount += 1
-			end
+			-- Brainrot que acabou de morrer (sem entidade viva): já saiu da lista, só atravessa.
 		end
 
 		endpoints[index] = endpoint

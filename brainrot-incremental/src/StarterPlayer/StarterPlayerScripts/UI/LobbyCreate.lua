@@ -2,7 +2,8 @@
 --
 -- O jogador escolhe:
 --   1. o mapa (Config.Maps.Order): mapas ainda não liberados aparecem com cadeado e o
---      requisito ("Termine o Ato 1 (Prado Brainrot)");
+--      requisito ("Termine o Ato 1 (Prado Brainrot)"); cada cartão mostra imagem,
+--      descrição e o recorde do jogador naquele mapa (Profile.MapRecords);
 --   2. o máximo de jogadores (Config.Lobby.MinMaxPlayers até MaxPlayersLimit);
 --   3. a privacidade (Público, Só amigos, Só convidados);
 --   4. "Continuar partida salva" ou "Começar do zero" (só aparece se Profile.RunSaves[mapa]).
@@ -19,6 +20,7 @@ local Util = Shared:WaitForChild("Util")
 
 local Maps = require(Config:WaitForChild("Maps"))
 local LobbyConfig = require(Config:WaitForChild("Lobby"))
+local NumberFormat = require(Util:WaitForChild("NumberFormat"))
 local Trove = require(Util:WaitForChild("Trove"))
 
 local UIFolder = script.Parent
@@ -39,6 +41,7 @@ local WINDOW_NAME = "LobbyCreate"
 local WINDOW_SIZE = UDim2.fromOffset(780, 620)
 local MAP_CARD_WIDTH = 222
 local MAP_CARD_HEIGHT = 212
+local RECORD_HEIGHT = 16 -- linha do recorde, logo acima da etiqueta de situação
 local PLAYER_BUTTON_SIZE = UDim2.fromOffset(54, 46)
 local PRIVACY_BUTTON_SIZE = UDim2.fromOffset(200, 46)
 
@@ -89,6 +92,18 @@ local function defaultMapId()
 	return best or Maps.Order[1]
 end
 
+-- Texto do recorde do jogador num mapa: o máximo de moedas que ele ganhou numa partida
+-- nesse mapa (Profile.MapRecords[mapId].BestCoins, gravado pelo servidor da partida).
+local function recordText(mapId)
+	local records = Lobby.GetProfile().MapRecords
+	local record = type(records) == "table" and records[mapId] or nil
+	local best = type(record) == "table" and tonumber(record.BestCoins) or nil
+	if best and best > 0 then
+		return "Recorde: " .. NumberFormat.Abbrev(best) .. " moedas"
+	end
+	return "Recorde: nenhum ainda"
+end
+
 -- Texto do "salvo em ..." de uma partida salva.
 local function savedAtText(saveValue)
 	if type(saveValue) == "number" then
@@ -125,6 +140,9 @@ local function refresh()
 		if stroke then
 			stroke.Thickness = selected and 5 or 2.5
 		end
+
+		-- Recorde do dono neste mapa (a seção 4.2 do prompt pede no cartão).
+		card.Record.Text = recordText(mapId)
 
 		if not unlocked then
 			Lobby.SetTag(card.Status, "Trancado", Theme.Disabled)
@@ -233,7 +251,7 @@ end
 -- Montagem da janela
 -------------------------------------------------------------------------------
 
--- Cartão de um mapa (botão grande com nome, ato, descrição e situação).
+-- Cartão de um mapa (botão grande com nome, ato, descrição, recorde e situação).
 local function buildMapCard(parent, mapId, order)
 	local def = Lobby.GetMapDef(mapId)
 	local color = Lobby.GetMapColor(mapId)
@@ -305,9 +323,22 @@ local function buildMapCard(parent, mapId, order)
 		TextSize = 12,
 		Color = Theme.TextDim,
 		Position = UDim2.fromOffset(0, textTop + 30),
-		Size = UDim2.new(1, 0, 1, -(textTop + 30 + 36)),
+		-- Termina antes da linha do recorde e da etiqueta de situação.
+		Size = UDim2.new(1, 0, 1, -(textTop + 30 + 36 + RECORD_HEIGHT)),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Top,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		Parent = button,
+	})
+	local record = UIKit.Label({
+		Name = "Record",
+		Text = "",
+		TextSize = 13,
+		Color = Theme.Coin,
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 0, 1, -34),
+		Size = UDim2.new(1, 0, 0, RECORD_HEIGHT),
+		TextXAlignment = Enum.TextXAlignment.Left,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		Parent = button,
 	})
@@ -350,7 +381,7 @@ local function buildMapCard(parent, mapId, order)
 		Parent = overlay,
 	})
 
-	return { Button = button, Check = check, Status = status, LockOverlay = overlay, Color = color }
+	return { Button = button, Check = check, Status = status, Record = record, LockOverlay = overlay, Color = color }
 end
 
 local function build()

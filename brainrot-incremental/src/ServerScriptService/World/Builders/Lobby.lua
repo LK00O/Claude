@@ -6,7 +6,8 @@
 --   * Placa grande com o nome do jogo ao norte.
 --   * Terminal "Criar Partida" (ClientAction "CreateParty") e quadro "Partidas Abertas"
 --     (ClientAction "PartyList") logo à frente do spawn.
---   * Placar de líderes (Part com SurfaceGui "Board" que tem o Frame "List").
+--   * Placar de líderes: três painéis (moedas, brainrots destruídos, atos concluídos),
+--     cada um uma Part com SurfaceGui "Board" que tem o Frame "List".
 --   * Barraca de skins (ClientAction "Shop"), estátua de conquistas (ClientAction
 --     "Achievements") e um totem de configurações (ClientAction "Settings").
 --   * Estátuas de brainrots em volta da praça (BrainrotFactory, dentro de pcall),
@@ -14,7 +15,9 @@
 --
 -- Build(folder) devolve o ctx do lobby:
 --   { MapId = "Lobby", Folder, SpawnLocation, CreateTerminal, PartyBoard, Leaderboard,
---     ShopStand, AchievementsStand }
+--     Leaderboards, ShopStand, AchievementsStand }
+--   Leaderboard = o painel de moedas (seção 7.2); Leaderboards = { Coins, Kills, Acts },
+--   os três painéis por Id (o LobbyService desenha um ranking em cada).
 --
 -- Módulo de World: NÃO dá require em nenhum serviço (regra 1.2). A BrainrotFactory é
 -- outro módulo de World, então pode ser usada aqui.
@@ -44,7 +47,9 @@ local PLAZA_Y = GROUND_Y + 0.2
 
 local CENTER = Vector3.new(0, PLAZA_Y, 0)
 local TITLE_POSITION = Vector3.new(0, GROUND_Y, -80)
-local LEADERBOARD_POSITION = Vector3.new(-52, GROUND_Y, -44)
+-- O placar tem três painéis (~47 studs de largura). Ele fica bem no meio de duas
+-- estátuas (as de 180° e 240°, no raio 62), para nenhuma estátua tampar um painel.
+local LEADERBOARD_POSITION = Vector3.new(-58, GROUND_Y, -34)
 local TERMINAL_POSITION = Vector3.new(-24, PLAZA_Y, -24)
 local PARTY_BOARD_POSITION = Vector3.new(24, PLAZA_Y, -24)
 local SHOP_POSITION = Vector3.new(-38, GROUND_Y, 30)
@@ -54,6 +59,16 @@ local BARN_POSITION = Vector3.new(68, GROUND_Y, -66)
 
 local STATUE_RADIUS = 62
 local STATUE_SCALE = 1.8
+
+-- Painéis do placar de líderes (seção 4.1 do prompt: maior dinheiro total, mais
+-- brainrots destruídos e atos concluídos). O Id é a chave em ctx.Leaderboards e é o
+-- mesmo que o LobbyService usa. Offset: -1 = esquerda, 0 = meio, 1 = direita (de quem olha).
+local LEADERBOARD_PANEL_SIZE = Vector3.new(14, 19, 0.8)
+local LEADERBOARD_PANELS = {
+	{ Id = "Kills", PartName = "LeaderboardKills", Title = "TOP BRAINROTS DESTRUÍDOS", TitleColor = Color3.fromRGB(255, 125, 125), Offset = -1 },
+	{ Id = "Coins", PartName = "Leaderboard", Title = "TOP MOEDAS", TitleColor = Color3.fromRGB(255, 215, 80), Offset = 0 },
+	{ Id = "Acts", PartName = "LeaderboardActs", Title = "TOP ATOS CONCLUÍDOS", TitleColor = Color3.fromRGB(125, 215, 255), Offset = 1 },
+}
 
 -- Iluminação de fim de tarde (o lobby não está em Config.Maps).
 local LOBBY_LIGHTING = {
@@ -99,7 +114,11 @@ local function buildTerminal(parent, cframe)
 	local body = Common.Block(model, at(0, 3.1, 0), Vector3.new(3.6, 5, 2.4), rgb(70, 200, 120), Enum.Material.Metal)
 	body.Name = "CreateTerminal"
 	-- Tela inclinada para cima (o topo vai para trás).
-	local screen = Common.Block(model, at(0, 4.3, -1.3) * CFrame.Angles(math.rad(20), 0, 0), Vector3.new(3, 2, 0.15), rgb(90, 220, 255), Enum.Material.Neon, {
+	-- A frente do corpo fica em z = -1.2. Inclinada 20°, a borda de cima da tela anda
+	-- 0,34 stud para trás; com o centro em z = -1.3 o quarto de cima da tela (e o "CRIAR")
+	-- ficava ENTERRADO dentro do corpo. Com o centro em z = -1.55 a face da frente
+	-- inteira fica para fora (a borda de cima chega em z ≈ -1.28, ainda na frente do corpo).
+	local screen = Common.Block(model, at(0, 4.3, -1.55) * CFrame.Angles(math.rad(20), 0, 0), Vector3.new(3, 2, 0.15), rgb(90, 220, 255), Enum.Material.Neon, {
 		Name = "Screen",
 		CanCollide = false,
 		CanQuery = false,
@@ -132,19 +151,10 @@ local function buildPartyBoard(parent, cframe)
 	return board
 end
 
--- Placar de líderes: Part "Leaderboard" com SurfaceGui "Board" e Frame "List" (o LobbyService preenche).
-local function buildLeaderboard(parent, cframe)
-	local model = Common.Model("LeaderboardStation", parent)
-	local function at(x, y, z)
-		return cframe * CFrame.new(x, y, z)
-	end
-	for _, side in ipairs({ -1, 1 }) do
-		Common.Block(model, at(side * 8.6, 11, 0), Vector3.new(1, 22, 1), Common.Colors.DarkWood, Enum.Material.Wood)
-	end
-	local board = Common.Block(model, at(0, 12.5, 0), Vector3.new(16, 20, 0.8), rgb(32, 28, 48), Enum.Material.SmoothPlastic)
-	board.Name = "Leaderboard"
-	Common.Block(model, at(0, 22.8, 0), Vector3.new(18.2, 0.8, 1.2), Common.Colors.Gold, Enum.Material.Metal)
-	Common.Block(model, at(0, 2.2, 0), Vector3.new(18.2, 0.8, 1.2), Common.Colors.Gold, Enum.Material.Metal)
+-- Um painel do placar: Part com SurfaceGui "Board" (título + Frame "List" que o LobbyService preenche).
+local function buildLeaderboardPanel(model, cframe, panel)
+	local board = Common.Block(model, cframe, LEADERBOARD_PANEL_SIZE, rgb(32, 28, 48), Enum.Material.SmoothPlastic)
+	board.Name = panel.PartName
 
 	local gui = Instance.new("SurfaceGui")
 	gui.Name = "Board"
@@ -160,8 +170,8 @@ local function buildLeaderboard(parent, cframe)
 	title.Position = UDim2.fromScale(0.05, 0.02)
 	title.Size = UDim2.fromScale(0.9, 0.1)
 	title.Font = Enum.Font.FredokaOne
-	title.Text = "TOP MOEDAS"
-	title.TextColor3 = rgb(255, 215, 80)
+	title.Text = panel.Title
+	title.TextColor3 = panel.TitleColor
 	title.TextScaled = true
 	title.TextStrokeTransparency = 0.4
 	title.Parent = gui
@@ -184,9 +194,44 @@ local function buildLeaderboard(parent, cframe)
 	gui.Parent = board
 
 	-- No verso, só o nome do placar.
-	Common.Sign(board, Enum.NormalId.Back, "PLACAR DE LÍDERES", rgb(255, 215, 80))
-	model.PrimaryPart = board
+	Common.Sign(board, Enum.NormalId.Back, panel.Title, panel.TitleColor)
 	return board
+end
+
+-- Placar de líderes: três painéis lado a lado (moedas no meio, brainrots destruídos e
+-- atos concluídos dos lados), cada um com SurfaceGui "Board" e Frame "List".
+-- Devolve o painel de moedas (ctx.Leaderboard, seção 7.2) e a tabela de todos os
+-- painéis por Id (ctx.Leaderboards), que o LobbyService usa para desenhar cada ranking.
+local function buildLeaderboard(parent, cframe)
+	local model = Common.Model("LeaderboardStation", parent)
+	local function at(x, y, z)
+		return cframe * CFrame.new(x, y, z)
+	end
+	local panelWidth = LEADERBOARD_PANEL_SIZE.X
+	local step = panelWidth + 1 -- distância entre os centros (1 stud de poste entre dois painéis)
+	local halfWidth = step * 1.5 -- do centro até o meio dos postes das pontas
+
+	-- Postes: entre os painéis e nas duas pontas.
+	for _, x in ipairs({ -halfWidth, -step / 2, step / 2, halfWidth }) do
+		Common.Block(model, at(x, 11, 0), Vector3.new(1, 22, 1), Common.Colors.DarkWood, Enum.Material.Wood)
+	end
+	Common.Block(model, at(0, 22.4, 0), Vector3.new(halfWidth * 2 + 2.2, 0.8, 1.2), Common.Colors.Gold, Enum.Material.Metal)
+	Common.Block(model, at(0, 2.2, 0), Vector3.new(halfWidth * 2 + 2.2, 0.8, 1.2), Common.Colors.Gold, Enum.Material.Metal)
+	-- Plaquinha "PLACAR DE LÍDERES" em cima da viga.
+	local header = Common.Block(model, at(0, 24.3, 0), Vector3.new(22, 3, 0.6), rgb(32, 28, 48), Enum.Material.SmoothPlastic)
+	header.Name = "Header"
+	Common.Sign(header, Enum.NormalId.Front, "PLACAR DE LÍDERES", rgb(255, 215, 80))
+	Common.Sign(header, Enum.NormalId.Back, "PLACAR DE LÍDERES", rgb(255, 215, 80))
+
+	local panels = {}
+	for _, panel in ipairs(LEADERBOARD_PANELS) do
+		-- Offset > 0 = direita de quem olha para o placar (que é o -X local da peça).
+		local panelCFrame = at(-panel.Offset * step, 12.5, 0)
+		panels[panel.Id] = buildLeaderboardPanel(model, panelCFrame, panel)
+	end
+
+	model.PrimaryPart = panels.Coins
+	return panels.Coins, panels
 end
 
 -- Barraca de skins (balcão rosa, toldo listrado e armas em exposição nas cores das skins).
@@ -461,7 +506,7 @@ function Lobby.Build(folder)
 	-- 4. Estações ---------------------------------------------------------------------------------
 	local createTerminal = buildTerminal(stationsFolder, facingCenter(TERMINAL_POSITION))
 	local partyBoard = buildPartyBoard(stationsFolder, facingCenter(PARTY_BOARD_POSITION))
-	local leaderboard = buildLeaderboard(stationsFolder, facingCenter(LEADERBOARD_POSITION))
+	local leaderboard, leaderboards = buildLeaderboard(stationsFolder, facingCenter(LEADERBOARD_POSITION))
 	local shopStand = buildShop(stationsFolder, facingCenter(SHOP_POSITION))
 	local achievementsStand = buildAchievements(stationsFolder, facingCenter(ACHIEVEMENTS_POSITION))
 	buildSettingsKiosk(stationsFolder, facingCenter(SETTINGS_POSITION))
@@ -516,6 +561,9 @@ function Lobby.Build(folder)
 		if math.abs(x) < 34 and z < -66 then
 			return false -- placa do nome
 		end
+		if Vector2.new(x - LEADERBOARD_POSITION.X, z - LEADERBOARD_POSITION.Z).Magnitude < 34 then
+			return false -- placar de líderes (é largo: a copa da árvore entraria nos painéis)
+		end
 		if math.abs(x) < 8 then
 			return false -- caminhos
 		end
@@ -563,6 +611,7 @@ function Lobby.Build(folder)
 		CreateTerminal = createTerminal,
 		PartyBoard = partyBoard,
 		Leaderboard = leaderboard,
+		Leaderboards = leaderboards,
 		ShopStand = shopStand,
 		AchievementsStand = achievementsStand,
 	}

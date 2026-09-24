@@ -118,10 +118,10 @@ Cliente:
 - `Net.Request(action, ...) -> ok, result` — `InvokeServer` dentro de `pcall`; em falha retorna `false, "Erro de conexão"`.
 
 ### 2.4 Tipos de `Effect`
-- `"Death"`: `{Position: Vector3, Size: number, Color: Color3, Enchant: string?, Giant: boolean}`
+- `"Death"`: `{Position: Vector3, Size: number (altura em studs), Color: Color3, Enchant: string?, Giant: boolean}`
 - `"Explosion"`: `{Position: Vector3, Radius: number}`
-- `"Spawn"`: `{Position: Vector3, Size: number}`
-- `"IceBreak"`: `{Position: Vector3, Size: number}`
+- `"Spawn"`: `{Position: Vector3, Size: number (altura em studs)}`
+- `"IceBreak"`: `{Position: Vector3, Size: number (maior lado do bloco de gelo, em studs)}`
 - `"Ingredient"`: `{Position: Vector3, Color: Color3}`
 - `"Purchase"`: `{Position: Vector3}` (confete na barraca)
 - `"Portal"`: `{Position: Vector3}`
@@ -243,6 +243,7 @@ Todo handler **valida tipos** (`typeof`) e faixas de todos os argumentos antes d
   Cosmetics = { Owned = { Classic = true }, Equipped = "Classic" },
   LastMatch = nil,                -- {AccessCode, PrivateServerId, MapId, Time = os.time()}
   RunSaves = {},                  -- [mapId] = os.time() (este jogador é dono de uma partida salva nesse mapa)
+  MapRecords = {},                -- [mapId] = {BestCoins = number} (mais moedas ganhas numa partida desse mapa; mostrado no card do mapa)
   RunData = {},                   -- [mapId] = {HostUserId, Coins, Upgrades, Ingredients, SavedAt}
 }
 ```
@@ -256,7 +257,7 @@ Todo handler **valida tipos** (`typeof`) e faixas de todos os argumentos antes d
 - `DataService.ReleaseForTeleport(player)` — salva e libera a trava; marca o perfil como liberado (autosave e `PlayerRemoving` não salvam mais por cima).
 - `DataService.Reacquire(player)` — se o teleporte falhou, pega a trava de novo e volta a salvar normalmente.
 - `DataService.SyncProfile(player)` — envia `StateService.Set(player, "Profile", DataService.BuildClientView(profile))`, com limite de 2 vezes por segundo (junta chamadas seguidas).
-- `DataService.BuildClientView(profile)` → cópia com `UnlockedMaps, CompletedMaps, GameCompleted, Stats, Achievements, RecipesKnown, Settings, Tokens, Cosmetics, RunSaves` + `CanReconnect: boolean` (há `LastMatch` com menos de `Config.Lobby.ReconnectWindowSeconds`) + `LastMatchMap: string?`. **Não** envia `RunData` nem `AccessCode`.
+- `DataService.BuildClientView(profile)` → cópia com `UnlockedMaps, CompletedMaps, GameCompleted, Stats, Achievements, RecipesKnown, Settings, Tokens, Cosmetics, RunSaves, MapRecords` + `CanReconnect: boolean` (há `LastMatch` com menos de `Config.Lobby.ReconnectWindowSeconds`) + `LastMatchMap: string?`. **Não** envia `RunData` nem `AccessCode`.
 - `DataService.IncrementStat(player, path, amount)` — `path` tipo `"Kills.Low"` ou `"TotalCoins"`; soma, dispara `StatChanged` e chama `SyncProfile`.
 - `DataService.StatChanged: Signal(player, path, newValue)`.
 - `DataService.LoadRun(key) -> table|nil`, `DataService.SaveRun(key, data)`, `DataService.DeleteRun(key)` — partidas do time (com `pcall` e 3 tentativas).
@@ -281,6 +282,7 @@ Todos retornam uma tabela. Valores de custo/valor/vida são escritos em **unidad
   AutosaveInterval = 60, SessionLockTimeout = 90,
   SharedWallet = false,                         -- true = todas as moedas vão para um cofre do time
   WeaponMaxRule = "AnyPlayer",                  -- "AnyPlayer" ou "AllPlayers" (para concluir o ato)
+  TurretCoinSplit = "Owner",                    -- moedas de abate das torretas: "Owner" (dono) ou "Team" (divididas entre o time)
   PortalDecision = "Majority",                  -- "Host" ou "Majority"
   HealthScalePerExtraPlayer = 0.35,
   MaxBrainrotsAlive = 60,
@@ -319,7 +321,7 @@ Todos retornam uma tabela. Valores de custo/valor/vida são escritos em **unidad
   Meadow = { Id = "Meadow", Act = 1, DisplayName = "Prado Brainrot", Description = "...", Image = "",
     Weapon = "SpaghettiPistol", Next = "Winter",
     CostScale = 1, ValueScale = 1, HealthScale = 1,
-    MaxShelf = 3, ShelfCosts = { [2] = 2e5, [3] = 5e6 },
+    MaxShelf = 3, ShelfCosts = { [2] = 4e4, [3] = 1e6 },
     TokensReward = 10, FrozenChance = 0,
     Stalls = { "Weapon", "Brainrot", "Quest" },
     HasTurrets = false, HasRecipes = false, HasSupreme = false,
@@ -336,10 +338,10 @@ Todos retornam uma tabela. Valores de custo/valor/vida são escritos em **unidad
     Stalls = { "Weapon", "Brainrot", "Quest", "Turret", "Growth" },
     HasTurrets = true, HasRecipes = true, HasSupreme = true,
     StatOverrides = { TurretDamage = 600 },
-    Supreme = { BrainrotId = "TralaleroSupremo", BaseFullCost = 2e7, MinHeight = 8, MaxHeight = 500 }, ... },
+    Supreme = { BrainrotId = "TralaleroSupremo", BaseFullCost = 1e6, MinHeight = 8, MaxHeight = 500 }, ... },
 }
 ```
-(`Winter` e `Desert` também têm `Id`, `Description`, `Image`, `ShelfCosts`, `MaxShelf`, `Lighting`.)
+(`Winter` e `Desert` também têm `Id`, `Description`, `Image`, `ShelfCosts` (iguais aos do Prado), `MaxShelf`, `Lighting`.)
 Atmosfera no Inverno: `Density = AtmosphereDensity * VisibilityFactor ^ stats.Visibility`.
 
 ### 5.4 `Config/Stats.lua`
@@ -359,7 +361,7 @@ Atmosfera no Inverno: `Density = AtmosphereDensity * VisibilityFactor ^ stats.Vi
     TurretCount = 0, TurretDamage = 0, TurretFireRate = 1, TurretRange = 45,
     TurretAccuracy = 0.6, TurretSlow = 0, TurretCoinMult = 1,
     -- supremo
-    SupremeFeed = 1, SupremePassive = 0.0002, SupremeKill = 0,
+    SupremeFeed = 1, SupremePassive = 0.00005, SupremeKill = 0,
   },
   Clamps = { CritChance = {0, 1}, ExplodeChance = {0, 0.9}, GiantChance = {0, 0.9},
              EnchantChance = {0, 0.95}, TurretAccuracy = {0, 0.99}, SlowPower = {0, 0.8},
@@ -376,10 +378,10 @@ Atmosfera no Inverno: `Density = AtmosphereDensity * VisibilityFactor ^ stats.Vi
               Caliber = 1, Spread = 6, Range = 350 },
     GunColor = Color3, TracerColor = Color3, BulletVisualSpeed = 700, SoundId = 0 },
   GelatoCannon = { DisplayName = "Canhão de Gelato", Map = "Winter",
-    Stats = { Damage = 60, FireRate = 1.5, Caliber = 1.5, Spread = 4, Range = 350, SplashRadius = 6, SlowPower = 0.2, ... } },
+    Stats = { Damage = 300, FireRate = 1.5, Caliber = 1.5, Spread = 4, Range = 350, SplashRadius = 6, SlowPower = 0.2, ... } },
   TralaleroMinigun = { DisplayName = "Metralhadora de Tralalero", Map = "Desert",
     Stats = { Damage = 450, FireRate = 10, Pierce = 1, CritChance = 0.03, Spread = 8, Range = 300,
-              HeatPerShot = 1, HeatCapacity = 40, HeatCooling = 10, ... } },
+              HeatPerShot = 1, HeatCapacity = 40, HeatCooling = 6, ... } },
 }
 ```
 
@@ -388,7 +390,7 @@ Cada upgrade:
 ```lua
 { Id = "M_Damage", Map = "Meadow", Stall = "Weapon", Shelf = 1, Scope = "Player",
   Name = "Dano", Description = "+25% de dano por nível",
-  MaxLevel = 25, BaseCost = 10, CostMult = 1.55,
+  MaxLevel = 25, BaseCost = 10, CostMult = 1.41,
   Stat = "Damage", Mode = "Pow", Value = 1.25 }
 ```
 - `Scope`: `"Player"` (cada jogador tem o seu nível e paga) ou `"Team"` (nível do time; qualquer um paga; vale para todos).
@@ -399,88 +401,100 @@ Cada upgrade:
 
 Prado (`Meadow`):
 ```
-M_Damage       Weapon   1 Player Dano                     25 10    1.55 Damage Pow 1.25
-M_FireRate     Weapon   1 Player Cadência                 20 15    1.6  FireRate Mult 0.08
-M_Projectiles  Weapon   1 Player Projéteis                 8 250   3.2  Projectiles Add 1
-M_Pierce       Weapon   1 Player Perfuração                6 500   3.5  Pierce Add 1
-M_Crit         Weapon   1 Player Chance de Crítico        15 100   1.9  CritChance Add 0.03
-M_Caliber      Weapon   1 Player Calibre                  10 60    1.8  Caliber Mult 0.1
-M_Spawn        Brainrot 1 Team   Mais Brainrots           20 20    1.65 SpawnCount Add 1
-M_Explode      Brainrot 1 Team   Brainrot Explosivo       15 150   1.9  ExplodeChance Add 0.02
-M_Giant        Brainrot 1 Team   Brainrot Gigante         15 200   1.95 GiantChance Add 0.02
-M_Growth       Brainrot 1 Team   Adubo Brainrot           20 40    1.7  GrowthMult Pow 1.1
-M_QuestReward  Quest    1 Player Recompensa de Missão     10 300   2.2  QuestReward Mult 0.2
-M_QuestCooldown Quest   1 Player Espera de Missão          8 300   2.3  QuestCooldown Pow 0.92
-M_CritMult     Weapon   2 Player Multiplicador de Crítico 10 5e3   1.9  CritMult Add 0.25
-M_Damage2      Weapon   2 Player Dano+                    15 1e4   1.6  Damage Pow 1.2
-M_FireRate2    Weapon   2 Player Cadência+                10 1e4   1.7  FireRate Mult 0.06
-M_Magnet       Brainrot 2 Team   Ímã de Moedas            10 3e3   1.8  MagnetRadius Add 4
+M_Damage       Weapon   1 Player Dano                     25 10    1.41 Damage Pow 1.25
+M_FireRate     Weapon   1 Player Cadência                 20 15    1.45 FireRate Mult 0.08
+M_Projectiles  Weapon   1 Player Projéteis                 8 250   2.65 Projectiles Add 1
+M_Pierce       Weapon   1 Player Perfuração                6 500   2.88 Pierce Add 1
+M_Crit         Weapon   1 Player Chance de Crítico        15 100   1.68 CritChance Add 0.03
+M_Caliber      Weapon   1 Player Calibre                  10 60    1.6  Caliber Mult 0.1
+M_Spawn        Brainrot 1 Team   Mais Brainrots           20 20    1.49 SpawnCount Add 1
+M_Explode      Brainrot 1 Team   Brainrot Explosivo       15 150   1.68 ExplodeChance Add 0.02
+M_Giant        Brainrot 1 Team   Brainrot Gigante         15 200   1.71 GiantChance Add 0.02
+M_Growth       Brainrot 1 Team   Adubo Brainrot           20 40    1.53 GrowthMult Pow 1.1
+M_QuestReward  Quest    1 Player Recompensa de Missão     10 300   1.9  QuestReward Mult 0.1
+M_QuestCooldown Quest   1 Player Espera de Missão          8 300   1.98 QuestCooldown Pow 0.92
+M_CritMult     Weapon   2 Player Multiplicador de Crítico 10 5e3   1.68 CritMult Add 0.25
+M_Damage2      Weapon   2 Player Dano+                    15 1e4   1.45 Damage Pow 1.2
+M_FireRate2    Weapon   2 Player Cadência+                10 1e4   1.53 FireRate Mult 0.06
+M_Magnet       Brainrot 2 Team   Ímã de Moedas            10 3e3   1.6  MagnetRadius Add 4
 M_AutoCollect  Brainrot 2 Team   Coleta Automática         1 5e5   1    AutoCollect Add 1
 M_Attract      Brainrot 2 Team   Atrair Brainrots Valiosos 1 1e5   1    AttractValuable Add 1
 M_AutoRespawn  Brainrot 2 Team   Respawn Automático        1 5e4   1    AutoRespawn Add 1
-M_TierLuck     Brainrot 2 Team   Sorte de Tier            10 8e3   1.9  TierLuck Add 0.15
-M_Enchant      Brainrot 2 Team   Chance de Encantamento   10 2e4   1.9  EnchantChance Add 0.02
-M_Spawn2       Brainrot 3 Team   Mais Brainrots+          10 2e5   1.45 SpawnCount Add 1
-M_Explode2     Brainrot 3 Team   Explosivo+               10 2e5   1.45 ExplodeChance Add 0.02
-M_Giant2       Brainrot 3 Team   Gigante+                 10 2e5   1.45 GiantChance Add 0.02
-M_Growth2      Brainrot 3 Team   Adubo+                   10 2e5   1.45 GrowthMult Pow 1.08
-M_CoinMult     Brainrot 3 Team   Multiplicador de Moedas  10 4e5   1.45 CoinMult Mult 0.1
-M_EnchantPower Brainrot 3 Team   Poder de Encantamento    10 4e5   1.45 EnchantPower Mult 0.15
+M_TierLuck     Brainrot 2 Team   Sorte de Tier            10 8e3   1.68 TierLuck Add 0.15
+M_Enchant      Brainrot 2 Team   Chance de Encantamento   10 2e4   1.68 EnchantChance Add 0.02
+M_Spawn2       Brainrot 3 Team   Mais Brainrots+          10 2e5   1.34 SpawnCount Add 1
+M_Explode2     Brainrot 3 Team   Explosivo+               10 2e5   1.34 ExplodeChance Add 0.02
+M_Giant2       Brainrot 3 Team   Gigante+                 10 2e5   1.34 GiantChance Add 0.02
+M_Growth2      Brainrot 3 Team   Adubo+                   10 2e5   1.34 GrowthMult Pow 1.03
+M_CoinMult     Brainrot 3 Team   Multiplicador de Moedas  10 4e5   1.34 CoinMult Mult 0.3
+M_EnchantPower Brainrot 3 Team   Poder de Encantamento    10 4e5   1.34 EnchantPower Mult 0.15
 ```
-Inverno (`Winter`, prefixo `W_`): igual ao Prado em Brainrot/Quest (mesmos números, ids `W_Spawn`, `W_Explode`, `W_Giant`, `W_Growth`, `W_QuestReward`, `W_QuestCooldown`), e:
+Inverno (`Winter`, prefixo `W_`), tabela completa. Os upgrades que também existem no Prado têm o mesmo Máx/Stat/Value, mas `Mult` menores e, nas prateleiras 2 e 3, custo base 1/5 do Prado (o campo pequeno do Prado faz a renda crescer mais rápido lá; meta: cada ato leva ~30 a 60 min jogando sozinho):
 ```
-W_Damage       Weapon   1 Player Dano                     25 10    1.55 Damage Pow 1.25
-W_FireRate     Weapon   1 Player Cadência                 20 15    1.6  FireRate Mult 0.08
-W_Splash       Weapon   1 Player Raio da Explosão         10 200   2.4  SplashRadius Add 1.5
-W_Slow         Weapon   1 Player Congelamento             10 150   2.2  SlowPower Add 0.05
-W_Crit         Weapon   1 Player Chance de Crítico        15 100   1.9  CritChance Add 0.03
-W_Caliber      Weapon   1 Player Calibre                  10 60    1.8  Caliber Mult 0.1
-W_TurretCount  Turret   1 Team   Mais Torretas             8 100   2.6  TurretCount Add 1
-W_TurretDamage Turret   1 Team   Dano das Torretas        20 50    1.7  TurretDamage Pow 1.25
-W_TurretRate   Turret   1 Team   Cadência das Torretas    15 80    1.75 TurretFireRate Mult 0.1
-W_TurretRange  Turret   1 Team   Alcance das Torretas     10 60    1.8  TurretRange Add 5
-W_TurretAim    Turret   1 Team   Mira das Torretas         9 70    1.9  TurretAccuracy Add 0.04
-W_Visibility   Brainrot 2 Team   Farol da Nevasca          5 2e3   2.5  Visibility Add 1
-W_Magnet       Brainrot 2 Team   Ímã de Moedas            10 3e3   1.8  MagnetRadius Add 4
-W_AutoCollect  Brainrot 2 Team   Coleta Automática         1 5e5   1    AutoCollect Add 1
-W_TurretFreeze Turret   2 Team   Torreta Congelante        5 5e3   2.2  TurretSlow Add 0.1
-W_IceAura      Brainrot 2 Team   Aura de Gelo             10 3e3   1.9  EnchantChance Add 0.03
-W_TierLuck     Brainrot 2 Team   Sorte de Tier            10 8e3   1.9  TierLuck Add 0.15
-W_CritMult     Weapon   2 Player Multiplicador de Crítico 10 5e3   1.9  CritMult Add 0.25
-W_Spawn2       Brainrot 3 Team   Mais Brainrots+          10 2e5   1.45 SpawnCount Add 1
-W_Growth2      Brainrot 3 Team   Adubo+                   10 2e5   1.45 GrowthMult Pow 1.08
-W_CoinMult     Brainrot 3 Team   Multiplicador de Moedas  10 4e5   1.45 CoinMult Mult 0.1
-W_EnchantPower Brainrot 3 Team   Poder de Encantamento    10 4e5   1.45 EnchantPower Mult 0.15
-W_TurretCoins  Turret   3 Team   Moedas de Torreta        10 2e5   1.45 TurretCoinMult Mult 0.2
-W_Damage2      Weapon   3 Player Dano+                    15 1e4   1.6  Damage Pow 1.2
+W_Damage       Weapon   1 Player Dano                     25 10    1.33 Damage Pow 1.25
+W_FireRate     Weapon   1 Player Cadência                 20 15    1.36 FireRate Mult 0.08
+W_Splash       Weapon   1 Player Raio da Explosão         10 200   1.84 SplashRadius Add 1.5
+W_Slow         Weapon   1 Player Congelamento             10 150   1.72 SlowPower Add 0.05
+W_Crit         Weapon   1 Player Chance de Crítico        15 100   1.54 CritChance Add 0.03
+W_Caliber      Weapon   1 Player Calibre                  10 60    1.48 Caliber Mult 0.1
+W_Spawn        Brainrot 1 Team   Mais Brainrots           20 20    1.39 SpawnCount Add 1
+W_Explode      Brainrot 1 Team   Brainrot Explosivo       15 150   1.54 ExplodeChance Add 0.02
+W_Giant        Brainrot 1 Team   Brainrot Gigante         15 200   1.57 GiantChance Add 0.02
+W_Growth       Brainrot 1 Team   Adubo Brainrot           20 40    1.42 GrowthMult Pow 1.1
+W_QuestReward  Quest    1 Player Recompensa de Missão     10 300   1.72 QuestReward Mult 0.1
+W_QuestCooldown Quest   1 Player Espera de Missão          8 300   1.78 QuestCooldown Pow 0.92
+W_TurretCount  Turret   1 Team   Mais Torretas             8 100   1.96 TurretCount Add 1
+W_TurretDamage Turret   1 Team   Dano das Torretas        20 50    1.42 TurretDamage Pow 1.25
+W_TurretRate   Turret   1 Team   Cadência das Torretas    15 80    1.45 TurretFireRate Mult 0.1
+W_TurretRange  Turret   1 Team   Alcance das Torretas     10 60    1.48 TurretRange Add 5
+W_TurretAim    Turret   1 Team   Mira das Torretas         9 70    1.54 TurretAccuracy Add 0.04
+W_Visibility   Brainrot 2 Team   Farol da Nevasca          5 400   1.9  Visibility Add 1
+W_Magnet       Brainrot 2 Team   Ímã de Moedas            10 600   1.48 MagnetRadius Add 4
+W_AutoCollect  Brainrot 2 Team   Coleta Automática         1 1e5   1    AutoCollect Add 1
+W_TurretFreeze Turret   2 Team   Torreta Congelante        5 1e3   1.72 TurretSlow Add 0.1
+W_IceAura      Brainrot 2 Team   Aura de Gelo             10 600   1.54 EnchantChance Add 0.03
+W_TierLuck     Brainrot 2 Team   Sorte de Tier            10 1.6e3 1.54 TierLuck Add 0.15
+W_CritMult     Weapon   2 Player Multiplicador de Crítico 10 1e3   1.54 CritMult Add 0.25
+W_Spawn2       Brainrot 3 Team   Mais Brainrots+          10 4e4   1.27 SpawnCount Add 1
+W_Growth2      Brainrot 3 Team   Adubo+                   10 4e4   1.27 GrowthMult Pow 1.03
+W_CoinMult     Brainrot 3 Team   Multiplicador de Moedas  10 8e4   1.27 CoinMult Mult 0.3
+W_EnchantPower Brainrot 3 Team   Poder de Encantamento    10 8e4   1.27 EnchantPower Mult 0.15
+W_TurretCoins  Turret   3 Team   Moedas de Torreta        10 4e4   1.27 TurretCoinMult Mult 0.2
+W_Damage2      Weapon   3 Player Dano+                    15 2e3   1.36 Damage Pow 1.2
 ```
-Deserto (`Desert`, prefixo `D_`): Brainrot/Quest como no Prado (`D_Spawn`, `D_Explode`, `D_Giant`, `D_Growth`, `D_QuestReward`, `D_QuestCooldown`), e:
+Deserto (`Desert`, prefixo `D_`), tabela completa (mesma regra do Inverno):
 ```
-D_Damage       Weapon   1 Player Dano                     25 10    1.55 Damage Pow 1.25
-D_FireRate     Weapon   1 Player Cadência                 20 15    1.6  FireRate Mult 0.08
-D_Projectiles  Weapon   1 Player Projéteis                 5 300   3.4  Projectiles Add 1
-D_Pierce       Weapon   1 Player Perfuração                6 500   3.5  Pierce Add 1
-D_Crit         Weapon   1 Player Chance de Crítico        15 100   1.9  CritChance Add 0.03
-D_Cooling      Weapon   1 Player Resfriamento             15 80    1.8  HeatCooling Mult 0.15
-D_HeatCap      Weapon   1 Player Tanque de Calor          15 80    1.8  HeatCapacity Mult 0.15
+D_Damage       Weapon   1 Player Dano                     25 10    1.33 Damage Pow 1.25
+D_FireRate     Weapon   1 Player Cadência                 20 15    1.36 FireRate Mult 0.08
+D_Projectiles  Weapon   1 Player Projéteis                 5 300   2.44 Projectiles Add 1
+D_Pierce       Weapon   1 Player Perfuração                6 500   2.5  Pierce Add 1
+D_Crit         Weapon   1 Player Chance de Crítico        15 100   1.54 CritChance Add 0.03
+D_Cooling      Weapon   1 Player Resfriamento             15 80    1.48 HeatCooling Mult 0.15
+D_HeatCap      Weapon   1 Player Tanque de Calor          15 80    1.48 HeatCapacity Mult 0.15
+D_Spawn        Brainrot 1 Team   Mais Brainrots           20 20    1.39 SpawnCount Add 1
+D_Explode      Brainrot 1 Team   Brainrot Explosivo       15 150   1.54 ExplodeChance Add 0.02
+D_Giant        Brainrot 1 Team   Brainrot Gigante         15 200   1.57 GiantChance Add 0.02
+D_Growth       Brainrot 1 Team   Adubo Brainrot           20 40    1.42 GrowthMult Pow 1.1
 D_Straw        Brainrot 1 Team   Chapéu de Palha           1 500   1    HeatImmunity Add 1
-D_TurretCount  Turret   1 Team   Mais Torretas             6 150   2.8  TurretCount Add 1
-D_TurretDamage Turret   1 Team   Dano das Torretas        20 50    1.7  TurretDamage Pow 1.25
-D_TurretRate   Turret   1 Team   Cadência das Torretas    15 80    1.75 TurretFireRate Mult 0.1
-D_Fertilizer   Growth   1 Team   Fertilizante Supremo     20 200   1.7  SupremeFeed Mult 0.25
-D_Irrigation   Growth   1 Team   Irrigação                15 300   1.9  SupremePassive Pow 1.15
-D_Roots        Growth   1 Team   Raiz Profunda            10 400   2    SupremeKill Add 0.00002
-D_Magnet       Brainrot 2 Team   Ímã de Moedas            10 3e3   1.8  MagnetRadius Add 4
-D_AutoCollect  Brainrot 2 Team   Coleta Automática         1 5e5   1    AutoCollect Add 1
-D_Attract      Brainrot 2 Team   Atrair Brainrots Valiosos 1 1e5   1    AttractValuable Add 1
-D_AutoRespawn  Brainrot 2 Team   Respawn Automático        1 5e4   1    AutoRespawn Add 1
-D_Enchant      Brainrot 2 Team   Chance de Encantamento   10 2e4   1.9  EnchantChance Add 0.02
-D_CritMult     Weapon   2 Player Multiplicador de Crítico 10 5e3   1.9  CritMult Add 0.25
-D_Ingredients  Brainrot 2 Team   Sorte de Ingredientes    10 3e3   1.9  IngredientLuck Mult 0.2
-D_CoinMult     Brainrot 3 Team   Multiplicador de Moedas  10 4e5   1.45 CoinMult Mult 0.1
-D_EnchantPower Brainrot 3 Team   Poder de Encantamento    10 4e5   1.45 EnchantPower Mult 0.15
-D_Damage2      Weapon   3 Player Dano+                    15 1e4   1.6  Damage Pow 1.2
-D_Spawn2       Brainrot 3 Team   Mais Brainrots+          10 2e5   1.45 SpawnCount Add 1
+D_QuestReward  Quest    1 Player Recompensa de Missão     10 300   1.72 QuestReward Mult 0.1
+D_QuestCooldown Quest   1 Player Espera de Missão          8 300   1.78 QuestCooldown Pow 0.92
+D_TurretCount  Turret   1 Team   Mais Torretas             6 150   2.08 TurretCount Add 1
+D_TurretDamage Turret   1 Team   Dano das Torretas        20 50    1.42 TurretDamage Pow 1.25
+D_TurretRate   Turret   1 Team   Cadência das Torretas    15 80    1.45 TurretFireRate Mult 0.1
+D_Fertilizer   Growth   1 Team   Fertilizante Supremo     20 200   1.42 SupremeFeed Mult 0.25
+D_Irrigation   Growth   1 Team   Irrigação                15 300   1.54 SupremePassive Pow 1.15
+D_Roots        Growth   1 Team   Raiz Profunda            10 400   1.6  SupremeKill Add 0.00002
+D_Magnet       Brainrot 2 Team   Ímã de Moedas            10 600   1.48 MagnetRadius Add 4
+D_AutoCollect  Brainrot 2 Team   Coleta Automática         1 1e5   1    AutoCollect Add 1
+D_Attract      Brainrot 2 Team   Atrair Brainrots Valiosos 1 2e4   1    AttractValuable Add 1
+D_AutoRespawn  Brainrot 2 Team   Respawn Automático        1 1e4   1    AutoRespawn Add 1
+D_Enchant      Brainrot 2 Team   Chance de Encantamento   10 4e3   1.54 EnchantChance Add 0.02
+D_CritMult     Weapon   2 Player Multiplicador de Crítico 10 1e3   1.54 CritMult Add 0.25
+D_Ingredients  Brainrot 2 Team   Sorte de Ingredientes    10 600   1.54 IngredientLuck Mult 0.2
+D_CoinMult     Brainrot 3 Team   Multiplicador de Moedas  10 8e4   1.27 CoinMult Mult 0.3
+D_EnchantPower Brainrot 3 Team   Poder de Encantamento    10 8e4   1.27 EnchantPower Mult 0.15
+D_Damage2      Weapon   3 Player Dano+                    15 2e3   1.36 Damage Pow 1.2
+D_Spawn2       Brainrot 3 Team   Mais Brainrots+          10 4e4   1.27 SpawnCount Add 1
 ```
 
 ### 5.7 `Config/Brainrots.lua`
@@ -535,7 +549,7 @@ Campos ausentes: `SizeMult = 1`, `GrowthMult = 1`, `Maps = nil` (nil = todos os 
   { Id = "Giant", Type = "KillGiant", Text = "Destrua %s brainrot(s) gigante(s)", Base = 1, Requires = { Stat = "GiantChance", Min = 0.01 } },
   { Id = "Crit", Type = "Crit", Text = "Acerte %s críticos", Base = 20 },
   { Id = "Enchanted", Type = "KillEnchanted", Text = "Destrua %s brainrots encantados", Base = 3, Requires = { Stat = "EnchantChance", Min = 0.01 } },
-}, RewardSeconds = 90, RewardFloor = 50, ScalePerUpgradeLevel = 1 / 40 }
+}, RewardSeconds = 45, RewardFloor = 50, ScalePerUpgradeLevel = 1 / 40 }
 ```
 Alvo = `ceil(Base * (1 + somaDeNíveisDoJogadorETime * ScalePerUpgradeLevel))`; para `Collect`: `max(RewardFloor*CostScale, Income * BaseSeconds)`. Recompensa = `max(RewardFloor * CostScale, Income * RewardSeconds) * stats.QuestReward`.
 
@@ -643,7 +657,7 @@ Cada um tem `BadgeId = 0` (o dono preenche) e `Tokens`.
   SnowEmitterPart = Part?,      -- (Inverno)
 }
 ```
-Contexto do Lobby: `{ MapId = "Lobby", Folder, SpawnLocation, CreateTerminal = Part, PartyBoard = Part, Leaderboard = Part (com SurfaceGui "Board" que tem Frame "List"), ShopStand = Part, AchievementsStand = Part }`.
+Contexto do Lobby: `{ MapId = "Lobby", Folder, SpawnLocation, CreateTerminal = Part, PartyBoard = Part, Leaderboard = Part (com SurfaceGui "Board" que tem Frame "List"; é o painel de moedas), Leaderboards = { Coins = Part, Kills = Part, Acts = Part } (mesmo formato), ShopStand = Part, AchievementsStand = Part }`.
 
 ### 7.3 Prompts
 - Todo `ProximityPrompt` tem `RequiresLineOfSight = false`, `MaxActivationDistance = 12`, `HoldDuration = 0`, `KeyboardKeyCode = E`, `Style = Default`.
@@ -696,10 +710,10 @@ Funções:
 - `Init()` — resolve o handoff: no Studio → `MapId = Config.Game.StudioMapId`, sem lista de membros (todos entram), host = primeiro jogador. Em servidor reservado (`game.PrivateServerId ~= ""` e `game.PrivateServerOwnerId == 0`) → lê `MemoryStoreService:GetHashMap(Config.Lobby.HandoffMapName):GetAsync(game.PrivateServerId)` (até 10 tentativas, 1 s entre elas). Sem handoff → usa `TeleportData.MapId` do primeiro jogador (valida que existe) e aceita todos. Servidor público do place de partida → manda todo mundo para o lobby (`TravelService.SendToLobby`). Depois: `ctx = MapBuilder.Build(MapId)`, cria pastas `workspace.Brainrots`, `workspace.Coins`, `workspace.Turrets`, e se `Handoff.Resume`, carrega `DataService.LoadRun("Run_"..host.."_"..MapId)` em `Team`. Publica `StateService.SetAll("Match", ...)`, `"TeamUpgrades"`, `"ShelfLevel"`, `"Recipes"`, `"Buffs"`, `"Completed" = false`.
 - `Start()` — `PlayerAdded` (e jogadores já presentes): confere membro (senão `TravelService.SendToLobby({player})` com Notify e, se falhar, Kick) e limite de jogadores; espera o perfil; cria/restaura o `Run` (cache em memória se voltou; senão `profile.RunData[MapId]` se `Resume` e o `HostUserId` bate; senão novo e limpa `profile.RunData[MapId]`); grava `profile.LastMatch` com `AccessCode`/`PrivateServerId` do handoff; envia chaves de estado do jogador; `CharacterAdded` → partes no grupo `"Players"`, `Humanoid.WalkSpeed = Config.Game.WalkSpeed`, spawn no `ctx.SpawnLocation`. `PlayerRemoving` → salva o run dele no perfil (`RunData[MapId]`), mantém o run em memória. Autosave do time a cada `AutosaveInterval` (e grava `RunSaves[MapId]` no perfil do host se ele estiver presente). Loop de 1 Hz: `TeamList`. Na entrada, `AchievementService.FireEvent(player, "PlayWithFriends", {Count = nº de amigos na partida})`.
 - `GetRun(player)`, `GetRunByUserId(userId)`, `GetTeam()`, `GetMapId()`, `GetMapDef()`, `GetContext()`, `GetHostUserId()`, `IsMember(userId)`, `GetPlayerCount()`.
-- `AddCoins(player, amount, source)` — `source` ∈ `"Pickup"`, `"Quest"`, `"Turret"`, `"Debug"`, `"Refund"`. Multiplica por 2 se o jogador tem o gamepass `DoubleCoins` (exceto `"Refund"`/`"Debug"`). Soma na carteira (ou `Team.SharedCoins` se `SharedWallet`), `IncrementStat("TotalCoins")` (exceto Refund/Debug), atualiza `IncomeEMA` (janela de ~10 s), manda `Coins`/`Income` e dispara `MatchService.CoinsAdded: Signal(player, amount, source)`.
+- `AddCoins(player, amount, source)` — `source` ∈ `"Pickup"`, `"Quest"`, `"Turret"`, `"Debug"`, `"Refund"`. Multiplica por 2 se o jogador tem o gamepass `DoubleCoins` (exceto `"Refund"`/`"Debug"`). Soma na carteira (ou `Team.SharedCoins` se `SharedWallet`), `IncrementStat("TotalCoins")` (exceto Refund/Debug), atualiza `IncomeEMA` (janela de ~10 s, mostrada no HUD) e `IncomeSlow` (janela de 120 s, usada no alvo e na recompensa das missões), manda `Coins`/`Income` e dispara `MatchService.CoinsAdded: Signal(player, amount, source)`.
 - `SpendCoins(player, amount) -> boolean`, `GetCoins(player) -> number`.
 - `SaveAll()`.
-- `CompleteAct()` — para cada jogador presente: `CompletedMaps[MapId] = true`, `UnlockedMaps[Next] = true`, `Tokens += MapDef.TokensReward`, `Stats.ActsCompleted += 1`, `AchievementService.FireEvent(player, "CompleteMap", {Map = MapId})`, limpa `RunData[MapId]` e `RunSaves[MapId]`; apaga a partida salva do time. Se o mapa tem `Next` → `TravelService.SendToNewMatch(jogadores, {MapId = Next, HostUserId = host atual, MaxPlayers = handoff ou 8, Privacy = handoff ou "Invite", Resume = false})`. Se não tem (Deserto) → marca `GameCompleted = true` e `TravelService.SendToLobby(jogadores)`.
+- `CompleteAct()` — para cada jogador presente: `CompletedMaps[MapId] = true`, `UnlockedMaps[Next] = true`, `Tokens += MapDef.TokensReward`, `Stats.ActsCompleted += 1`, `AchievementService.FireEvent(player, "CompleteMap", {Map = MapId})`, limpa `RunData[MapId]` e `RunSaves[MapId]`; apaga a partida salva do time. Se o mapa tem `Next` → `TravelService.SendToNewMatch(jogadores, {MapId = Next, HostUserId = host atual, MaxPlayers = handoff ou 8, Privacy = handoff ou "Invite", Resume = false})`. Se não tem (Deserto) → marca `GameCompleted = true`, dá a skin `"Rainbow"` (se o jogador ainda não tem) e `TravelService.SendToLobby(jogadores)`.
 - Request `ReturnToLobby` → salva o run do jogador e manda ele para o lobby.
 - `MatchService.CoinsAdded: Signal`, `MatchService.RunReady: Signal(player, run)`.
 
@@ -726,7 +740,7 @@ Entidade:
 - `BrainrotService.GetEntity(id)`, `GetEntityFromPart(part)` (sobe até o Model com atributo `"BrainrotId"`), `GetAlive() -> {entity}`, `GetFolder()`.
 - `BrainrotService.Damage(entity, amount, attacker?, info) -> dealt, killed` — `info = {Crit = boolean, Source = "Gun"|"Turret"|"Explosion"|"Burn"|"Splash", TurretOwnerUserId = number?}`. Escudo de gelo absorve primeiro (ao quebrar: remove o bloco e efeito `"IceBreak"`). Guarda `LastHitBy` quando `attacker` é Player.
 - `BrainrotService.ApplySlow(entity, factor, duration)`, `BrainrotService.Ignite(entity, dps, duration)`.
-- `BrainrotService.Kill(entity, killer?, info)` — valor = `Formulas.BrainrotCoinValue × Formulas.EnchantCoinMult × teamStats.CoinMult`. Se `info.Source == "Turret"` e o dono está no servidor: `MatchService.AddCoins(dono, valor × teamStats.TurretCoinMult, "Turret")`; senão `CoinService.SpawnCoins(valor, pos)`. Explosão (chance `ExplodeChance`): dano `ExplosionDamageFraction × MaxHealth` nos vizinhos em `ExplosionBaseRadius + 3 × SizeFactor`, `Source = "Explosion"`, efeito `"Explosion"`, dispara `Exploded`. Encantamento Fogo: `Ignite` nos vizinhos em `IgniteRadius`. Receitas: `RecipeService.RollIngredient(killer, entity)` se o mapa tem receitas. Supremo: `SupremeService.OnKill(entity)` se o mapa tem supremo. Galáctico: `StateService.NotifyAll(..., "rare")`. Efeito `"Death"`. Stats do matador: `Kills.<Tier>`, `KillsTotal`, `Giants`, `Enchanted`, `Galactic`. Dispara `Killed`.
+- `BrainrotService.Kill(entity, killer?, info)` — valor = `Formulas.BrainrotCoinValue × Formulas.EnchantCoinMult × teamStats.CoinMult`. Se `info.Source == "Turret"`: com `Config.Game.TurretCoinSplit == "Team"` divide `valor × teamStats.TurretCoinMult` igualmente entre os jogadores com run (`AddCoins(p, parte, "Turret")`); com `"Owner"` (padrão), se o dono está no servidor: `MatchService.AddCoins(dono, valor × teamStats.TurretCoinMult, "Turret")`; senão `CoinService.SpawnCoins(valor, pos)`. Explosão (chance `ExplodeChance`): dano `ExplosionDamageFraction × MaxHealth` nos vizinhos em `ExplosionBaseRadius + 3 × SizeFactor`, `Source = "Explosion"`, efeito `"Explosion"`, dispara `Exploded`. Encantamento Fogo: `Ignite` nos vizinhos em `IgniteRadius`. Receitas: `RecipeService.RollIngredient(killer, entity)` se o mapa tem receitas. Supremo: `SupremeService.OnKill(entity)` se o mapa tem supremo. Galáctico: `StateService.NotifyAll(..., "rare")`. Efeito `"Death"`. Stats do matador: `Kills.<Tier>`, `KillsTotal`, `Giants`, `Enchanted`, `Galactic`. Dispara `Killed`.
 - Sinais: `BrainrotService.Killed: Signal(killer: Player?, entity, info)`, `BrainrotService.Exploded: Signal(player?)`, `BrainrotService.Spawned: Signal(entity)`.
 
 ### 8.6 `CombatService`
@@ -800,7 +814,7 @@ Entidade:
 ## 9. Lobby
 
 ### 9.1 `LobbyService`
-- `Init`: `ctx = MapBuilder.Build("Lobby")`; placar: `OrderedDataStore` `Config.Lobby.LeaderboardStoreName`, pontuação `floor(log10(TotalCoins + 1) * 1e6)` (moedas podem passar de 2^63); grava na entrada, ao sair e a cada `LeaderboardRefresh`; lê o top `LeaderboardSize` e escreve no `SurfaceGui` (nome + moedas `Abbrev(10^(score/1e6) - 1)`), com cache de nomes.
+- `Init`: `ctx = MapBuilder.Build("Lobby")`; placar: `OrderedDataStore` `Config.Lobby.LeaderboardStoreName`, pontuação `floor(log10(TotalCoins + 1) * 1e6)` (moedas podem passar de 2^63); grava na entrada, ao sair e a cada `LeaderboardRefresh`; lê o top `LeaderboardSize` e escreve no `SurfaceGui` (nome + moedas `Abbrev(10^(score/1e6) - 1)`), com cache de nomes. Há mais dois placares com valor inteiro direto: `LeaderboardStoreName .. "_Kills"` (`Stats.KillsTotal`, painel `ctx.Leaderboards.Kills`) e `LeaderboardStoreName .. "_Acts"` (`Stats.ActsCompleted`, painel `ctx.Leaderboards.Acts`).
 - Request `Reconnect` → `TravelService.Reconnect`.
 
 ### 9.2 `PartyService`

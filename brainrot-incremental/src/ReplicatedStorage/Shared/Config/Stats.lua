@@ -51,7 +51,9 @@ local Stats = {
 
 		-- Supremo
 		SupremeFeed = 1, -- eficiência de alimentar o Supremo com moedas
-		SupremePassive = 0.0002, -- progresso ganho sozinho por segundo (fração de 0 a 1)
+		-- Progresso ganho sozinho por segundo (fração de 0 a 1). 0,00005/s = 100% em ~5,5 h
+		-- sem fazer nada: o Supremo cresce mais por abates, alimentação e Irrigação.
+		SupremePassive = 0.00005,
 		SupremeKill = 0, -- progresso ganho por brainrot destruído
 	},
 

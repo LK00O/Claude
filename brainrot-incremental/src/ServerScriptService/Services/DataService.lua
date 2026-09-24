@@ -84,6 +84,10 @@ local PROFILE_TEMPLATE = {
 	LastMatch = nil,
 	RunSaves = {},
 	RunData = {},
+	-- Recorde do jogador em cada mapa (o lobby mostra no cartão do mapa, seção 4.2 do
+	-- prompt original): [mapId] = { BestCoins = maior quantidade de moedas ganhas numa
+	-- partida nesse mapa }. Chave nova: o reconcile coloca {} nos perfis antigos.
+	MapRecords = {},
 }
 local CURRENT_VERSION = PROFILE_TEMPLATE.Version
 
@@ -371,6 +375,12 @@ local releasingUserIds = {}
 
 -- Controle do SyncProfile: [player] = {Last = os.clock(), Scheduled = boolean}.
 local syncInfo = {}
+
+-- Moedas que cada jogador ganhou NESTA partida (um servidor de partida é um mapa só):
+-- [userId] = moedas. Fica na memória do servidor (e não na sessão), então quem cair e
+-- voltar para a mesma partida continua somando de onde parou. Usado em MapRecords.
+local matchCoinsEarned = {}
+local recordMapId = nil -- mapa desta partida (achado na primeira moeda; nunca muda)
 
 local initialized = false
 local shuttingDown = false
@@ -835,6 +845,7 @@ function DataService.BuildClientView(profile)
 		Tokens = profile.Tokens,
 		Cosmetics = Tables.DeepCopy(profile.Cosmetics),
 		RunSaves = Tables.DeepCopy(profile.RunSaves),
+		MapRecords = Tables.DeepCopy(profile.MapRecords),
 		CanReconnect = false,
 		LastMatchMap = nil,
 	}
@@ -901,6 +912,44 @@ function DataService.SyncProfile(player)
 	end
 end
 
+-- Atualiza o recorde do mapa atual (profile.MapRecords) quando o jogador ganha moedas.
+-- Só vale num servidor de partida: o mapa vem da chave de estado global "Match"
+-- ({MapId, ...}, publicada pelo MatchService no Init). As moedas contadas são as mesmas
+-- de Stats.TotalCoins (o MatchService já tira reembolsos e o comando de teste).
+local function updateMapRecord(player, profile, amount)
+	if amount <= 0 or workspace:GetAttribute("Role") ~= "Match" then
+		return
+	end
+	if recordMapId == nil then
+		local okMatch, match = pcall(function()
+			return Svc("StateService").Get(nil, "Match")
+		end)
+		if okMatch and type(match) == "table" and type(match.MapId) == "string" then
+			recordMapId = match.MapId
+		end
+	end
+	local mapId = recordMapId
+	if mapId == nil then
+		return
+	end
+
+	local earned = (matchCoinsEarned[player.UserId] or 0) + amount
+	matchCoinsEarned[player.UserId] = earned
+
+	if type(profile.MapRecords) ~= "table" then
+		profile.MapRecords = {}
+	end
+	local record = profile.MapRecords[mapId]
+	if type(record) ~= "table" then
+		record = {}
+		profile.MapRecords[mapId] = record
+	end
+	local best = tonumber(record.BestCoins) or 0
+	if earned > best then
+		record.BestCoins = earned
+	end
+end
+
 -- DataService.IncrementStat(player, path, amount) -> novo valor | nil
 -- path com ponto para subtabelas: "Kills.Low", "TotalCoins", "PlayTime"...
 function DataService.IncrementStat(player, path, amount)
@@ -942,6 +991,11 @@ function DataService.IncrementStat(player, path, amount)
 	end
 	local newValue = (current or 0) + amount
 	node[leaf] = newValue
+
+	-- Moedas ganhas numa partida também contam para o recorde do mapa.
+	if path == "TotalCoins" then
+		updateMapRecord(player, profile, amount)
+	end
 
 	DataService.StatChanged:Fire(player, path, newValue)
 	DataService.SyncProfile(player)

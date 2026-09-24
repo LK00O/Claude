@@ -29,6 +29,9 @@ local LobbyConfig = require(ConfigFolder:WaitForChild("Lobby"))
 local Maps = require(ConfigFolder:WaitForChild("Maps"))
 local Upgrades = require(ConfigFolder:WaitForChild("Upgrades"))
 local Recipes = require(ConfigFolder:WaitForChild("Recipes"))
+local Quests = require(ConfigFolder:WaitForChild("Quests"))
+local StatsConfig = require(ConfigFolder:WaitForChild("Stats"))
+local Cosmetics = require(ConfigFolder:WaitForChild("Cosmetics"))
 
 local Signal = require(UtilFolder:WaitForChild("Signal"))
 local Trove = require(UtilFolder:WaitForChild("Trove"))
@@ -60,12 +63,31 @@ local HANDOFF_RETRY_DELAY = 1 -- segundos entre as tentativas
 local TEAM_LOAD_ROUNDS = 4
 local TEAM_LOAD_RETRY_DELAY = 2
 local FIRST_PLAYER_TIMEOUT = 60 -- quanto esperar o 1º jogador quando não há handoff
-local INCOME_WINDOW = 10 -- janela (s) da média móvel da renda por segundo
+local INCOME_WINDOW = 10 -- janela (s) da média móvel da renda por segundo (a que aparece na HUD)
+-- Janela (s) da média LENTA da renda (run.IncomeSlow), usada pelas missões (alvo e recompensa).
+-- A média de 10 s dá um salto enorme quando o jogador pega de uma vez um monte de moedas
+-- acumuladas no caixote (ex.: 60 s de moedas fazem ela ficar ~6x maior por alguns segundos).
+-- Com 120 s (o tempo que uma moeda fica no chão), nem o maior monte possível passa de ~1,4x.
+local INCOME_SLOW_WINDOW = 120
 local TEAM_LIST_INTERVAL = 1 -- TeamList a 1 Hz
 local BOUNCE_KICK_DELAY = 25 -- se o teleporte de volta não acontecer, expulsa depois disso
 local MAX_SAVED_TURRETS = 64 -- trava de segurança ao carregar torretas salvas
 local PLAYERS_GROUP = "Players" -- grupo de colisão dos personagens
 local SAVE_VERSION = 1 -- versão do formato do save do time
+-- Skin dada de presente a quem conclui o jogo (o Deserto): "Jogo concluído libera cosméticos"
+-- (seção 8.4 do prompt). Precisa existir em Config.Cosmetics; se não existir, nada é dado.
+local GAME_COMPLETED_SKIN = "Rainbow"
+
+-- Maior espera de missão possível (Config.Stats.Clamps.QuestCooldown): trava de segurança
+-- ao restaurar a espera de um save.
+local questCooldownClamp = type(StatsConfig.Clamps) == "table" and StatsConfig.Clamps.QuestCooldown or nil
+local MAX_QUEST_COOLDOWN = type(questCooldownClamp) == "table" and tonumber(questCooldownClamp[2]) or 600
+
+-- Modelos de missão por id (para validar a missão que vem de um save).
+local questTemplatesById = {}
+for _, template in ipairs(Quests.Templates) do
+	questTemplatesById[template.Id] = template
+end
 
 -- Fontes de moedas que NÃO ganham bônus (gamepass) nem contam como "TotalCoins".
 local NO_BONUS_SOURCES = { Refund = true, Debug = true }
@@ -260,6 +282,33 @@ local function sanitizeTurrets(turrets)
 		end
 	end
 	return result
+end
+
+-- Missão ativa vinda de um save: {Id, Type, Text, Target, Progress, Reward}.
+-- Só vale se o modelo (Id) existe em Config.Quests e os números são de verdade.
+-- O Type vem do modelo (não do save) e o progresso fica entre 0 e o alvo.
+local function sanitizeQuest(quest)
+	if type(quest) ~= "table" then
+		return nil
+	end
+	local template = type(quest.Id) == "string" and questTemplatesById[quest.Id] or nil
+	if
+		not template
+		or type(quest.Text) ~= "string"
+		or not isFiniteNumber(quest.Target)
+		or not isFiniteNumber(quest.Reward)
+	then
+		return nil
+	end
+	local target = math.max(1, math.ceil(quest.Target))
+	return {
+		Id = template.Id,
+		Type = template.Type,
+		Text = quest.Text,
+		Target = target,
+		Progress = isFiniteNumber(quest.Progress) and math.clamp(quest.Progress, 0, target) or 0,
+		Reward = math.max(1, math.floor(quest.Reward)),
+	}
 end
 
 -- Cria (ou reaproveita) uma pasta direto no workspace.
@@ -487,12 +536,23 @@ end
 
 -- Retrato do run de um jogador (formato de profile.RunData[mapId], seção 4.2).
 -- MatchServerId (extra) diz qual partida gravou o retrato: ver isSavedByThisMatch.
+-- Quest e QuestCooldownLeft (extras): a missão ativa e a espera até a próxima, porque o
+-- prompt (5.5) pede que as missões também sejam salvas. Ver runFromSnapshot.
 local function runSnapshot(run)
+	-- A espera vai como "segundos que faltam", e não como a hora em que ela acaba: o relógio
+	-- (GetServerTimeNow) do servidor que carregar o save pode ser um pouco diferente deste.
+	local cooldownLeft = 0
+	if isFiniteNumber(run.QuestCooldownEnd) then
+		cooldownLeft = math.max(0, run.QuestCooldownEnd - workspace:GetServerTimeNow())
+	end
 	return {
 		HostUserId = MatchService.GetHostUserId(),
 		Coins = run.Coins,
 		Upgrades = table.clone(run.Upgrades),
 		Ingredients = table.clone(run.Ingredients),
+		-- Cópia: o QuestService muda o Progress da missão original a cada abate.
+		Quest = type(run.Quest) == "table" and table.clone(run.Quest) or nil,
+		QuestCooldownLeft = cooldownLeft,
 		SavedAt = os.time(),
 		MatchServerId = getMatchServerId(),
 	}
@@ -637,6 +697,7 @@ local function newRun(player)
 		Quest = nil,
 		QuestCooldownEnd = 0,
 		IncomeEMA = 0,
+		IncomeSlow = 0, -- média lenta da renda (janela INCOME_SLOW_WINDOW), usada nas missões
 		Heat = 0,
 		Overheated = false,
 	}
@@ -648,6 +709,12 @@ local function runFromSnapshot(player, snapshot)
 	run.Coins = sanitizeCoins(snapshot.Coins)
 	run.Upgrades = sanitizeLevels(snapshot.Upgrades, "Player")
 	run.Ingredients = sanitizeIngredients(snapshot.Ingredients)
+	-- Missão ativa e espera (saves antigos não têm esses campos: ficam sem missão e sem espera).
+	run.Quest = sanitizeQuest(snapshot.Quest)
+	local cooldownLeft = snapshot.QuestCooldownLeft
+	if isFiniteNumber(cooldownLeft) and cooldownLeft > 0 then
+		run.QuestCooldownEnd = workspace:GetServerTimeNow() + math.min(cooldownLeft, MAX_QUEST_COOLDOWN)
+	end
 	return run
 end
 
@@ -1026,6 +1093,8 @@ end
 local function teamListTick(dt)
 	-- Fator da média móvel exponencial para uma janela de ~10 s.
 	local alpha = 1 - math.exp(-dt / INCOME_WINDOW)
+	-- Mesmo cálculo para a média lenta (~120 s) das missões.
+	local alphaSlow = 1 - math.exp(-dt / INCOME_SLOW_WINDOW)
 	local list = {}
 	local keyParts = {}
 
@@ -1045,6 +1114,16 @@ local function teamListTick(dt)
 			if math.abs(ema - previous) > math.max(0.01, previous * 0.001) or (ema == 0 and previous ~= 0) then
 				StateService.Set(player, "Income", ema)
 			end
+
+			-- Média lenta: as mesmas moedas, mas numa janela de ~120 s. Um monte de moedas
+			-- pego de uma vez mexe pouco nela, então ela não serve de "atalho" para inflar a
+			-- recompensa das missões (QuestService usa run.IncomeSlow).
+			local previousSlow = isFiniteNumber(run.IncomeSlow) and run.IncomeSlow or 0
+			local slow = previousSlow + alphaSlow * (earned / dt - previousSlow)
+			if slow < 0.01 then
+				slow = 0
+			end
+			run.IncomeSlow = slow
 
 			local coins = MatchService.GetCoins(player)
 			table.insert(list, { UserId = userId, Name = run.Name, Coins = coins })
@@ -1236,6 +1315,27 @@ function MatchService.SaveAll()
 	return ok
 end
 
+-- Dá a skin de "Jogo concluído" (GAME_COMPLETED_SKIN) ao jogador, se ele ainda não tem.
+-- Só mexe no perfil: quem chama faz o DataService.SyncProfile depois.
+local function grantGameCompletedSkin(player, profile)
+	local skin = Cosmetics.ById[GAME_COMPLETED_SKIN]
+	local cosmetics = profile.Cosmetics
+	-- (o DataService sempre monta profile.Cosmetics.Owned; a checagem é só por segurança)
+	if type(skin) ~= "table" or type(cosmetics) ~= "table" or type(cosmetics.Owned) ~= "table" then
+		return
+	end
+	if cosmetics.Owned[skin.Id] then
+		return -- já tinha (comprou na loja ou já concluiu o jogo antes)
+	end
+	cosmetics.Owned[skin.Id] = true
+	StateService.Notify(
+		player,
+		("Jogo concluído! Você ganhou a skin %s: equipe na loja do lobby."):format(tostring(skin.Name)),
+		"rare",
+		8
+	)
+end
+
 -- Conclui o ato: recompensas no perfil de cada jogador presente e viagem para o
 -- próximo mapa (ou para o lobby, no último ato). Devolve ok, mensagemDeErro.
 function MatchService.CompleteAct()
@@ -1273,6 +1373,8 @@ function MatchService.CompleteAct()
 					profile.UnlockedMaps[nextMapId] = true
 				else
 					profile.GameCompleted = true
+					-- "Jogo concluído" libera cosméticos (seção 8.4 do prompt): ganha a skin especial.
+					grantGameCompletedSkin(player, profile)
 				end
 				profile.Tokens = (tonumber(profile.Tokens) or 0) + (mapDef.TokensReward or 0)
 

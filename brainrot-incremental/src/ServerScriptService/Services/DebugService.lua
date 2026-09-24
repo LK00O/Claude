@@ -374,6 +374,7 @@ Commands.reset = {
 		run.Quest = nil
 		run.QuestCooldownEnd = 0
 		run.IncomeEMA = 0
+		run.IncomeSlow = 0 -- média lenta usada pelas missões também volta a zero
 		run.Heat = 0
 		run.Overheated = false
 

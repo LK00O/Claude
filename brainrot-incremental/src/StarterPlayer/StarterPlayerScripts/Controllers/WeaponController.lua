@@ -601,14 +601,16 @@ local function findBrainrotModel(instance)
 	return nil
 end
 
--- O que as balas ignoram (igual ao servidor): personagens, moedas, torretas, efeitos e a arma.
+-- O que o raio FINO (obstáculos do mundo) ignora, igual ao servidor: personagens, moedas,
+-- torretas e brainrots; e, só aqui no cliente, os efeitos e a arma na câmera.
+-- (Os brainrots são testados à parte, pela esfera grossa: ver traceShot.)
 local function buildExcludeList()
 	local list = {}
 	local camera = workspace.CurrentCamera
 	if camera then
 		table.insert(list, camera)
 	end
-	for _, name in ipairs({ "ClientEffects", "Coins", "Turrets" }) do
+	for _, name in ipairs({ "ClientEffects", "Coins", "Turrets", "Brainrots" }) do
 		local child = workspace:FindFirstChild(name)
 		if child then
 			table.insert(list, child)
@@ -622,35 +624,80 @@ local function buildExcludeList()
 	return list
 end
 
--- Descobre onde a bala para (só para desenhar o tracer). Imita o servidor: spherecast,
--- atravessa até 1 + Pierce brainrots e para no primeiro obstáculo que não é brainrot.
-local function traceShot(origin, direction, stats, excludeList)
+-- Modelos dos brainrots (filhos de workspace.Brainrots): os únicos que a esfera enxerga.
+local function getBrainrotModels()
+	local folder = workspace:FindFirstChild("Brainrots")
+	return if folder then folder:GetChildren() else {}
+end
+
+-- Tira da lista "candidates" o modelo que contém a peça atingida (a esfera "atravessa"
+-- esse brainrot no próximo teste). Devolve o modelo, ou nil se não achou (trava de segurança).
+local function removeCandidate(candidates, part)
+	local current = part
+	while current and current ~= workspace do
+		local position = table.find(candidates, current)
+		if position then
+			table.remove(candidates, position)
+			return current
+		end
+		current = current.Parent
+	end
+	return nil
+end
+
+-- Descobre onde a bala para (só para desenhar o tracer). Imita o servidor:
+--   1. raio FINO contra o mundo: até onde a bala vai (chão, pedra, parede, piso da plataforma);
+--   2. spherecast que só enxerga brainrots (FilterType Include) até esse ponto, atravessando
+--      até 1 + Pierce brainrots.
+-- A esfera grossa não testa o mundo: senão, no Inverno, ela raspava no piso da plataforma
+-- bem antes da borda e o tracer (e o tiro no servidor) parava no chão da plataforma.
+local function traceShot(origin, direction, stats, excludeList, brainrotModels)
 	local range = math.max(tonumber(stats.Range) or 350, 1)
 	local radius = math.clamp(GameConfig.BulletHitRadius * (tonumber(stats.Caliber) or 1), 0.05, 50)
 	local maxTargets = 1 + math.max(0, math.floor(tonumber(stats.Pierce) or 0))
 
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	local filter = table.clone(excludeList)
-	params.FilterDescendantsInstances = filter
-
-	local hits = 0
-	while true do
-		local result = workspace:Spherecast(origin, radius, direction * range, params)
-		if not result then
-			return origin + direction * range, false
-		end
-		local brainrot = findBrainrotModel(result.Instance)
-		if not brainrot then
-			return result.Position, true
-		end
-		hits += 1
-		if hits >= maxTargets then
-			return result.Position, true
-		end
-		table.insert(filter, brainrot)
-		params.FilterDescendantsInstances = filter
+	-- 1. Raio fino (mundo).
+	local worldParams = RaycastParams.new()
+	worldParams.FilterType = Enum.RaycastFilterType.Exclude
+	worldParams.FilterDescendantsInstances = excludeList
+	worldParams.IgnoreWater = true
+	local travel = range
+	local endpoint = origin + direction * range
+	local hitWall = false
+	local wall = workspace:Raycast(origin, direction * range, worldParams)
+	if wall then
+		travel = wall.Distance
+		endpoint = wall.Position
+		hitWall = true
 	end
+	if travel <= 1e-3 then
+		return endpoint, hitWall
+	end
+
+	-- 2. Esfera só contra os brainrots, até o ponto do raio fino.
+	local brainrotParams = RaycastParams.new()
+	brainrotParams.FilterType = Enum.RaycastFilterType.Include
+	brainrotParams.IgnoreWater = true
+	local candidates = table.clone(brainrotModels)
+	local hits = 0
+	while #candidates > 0 do
+		brainrotParams.FilterDescendantsInstances = candidates
+		local result = workspace:Spherecast(origin, radius, direction * travel, brainrotParams)
+		if not result then
+			break
+		end
+		local model = removeCandidate(candidates, result.Instance)
+		if not model then
+			break
+		end
+		if findBrainrotModel(result.Instance) then
+			hits += 1
+			if hits >= maxTargets then
+				return result.Position, true -- a perfuração acabou: a bala para neste brainrot
+			end
+		end
+	end
+	return endpoint, hitWall
 end
 
 -- Calcula as direções do leque a partir da mira.
@@ -695,12 +742,13 @@ local function fireOnce(stats)
 	-- 2) Visual imediato: tracers do cano até onde cada bala bateu.
 	local _, _, tracerColor = getColors()
 	local excludeList = buildExcludeList()
+	local brainrotModels = getBrainrotModels()
 	local from = if muzzleWorld then muzzleWorld.Position else origin + aimCFrame.LookVector * 1.5
 	local caliberScale = math.clamp((tonumber(stats.Caliber) or 1) / ((weaponDef and weaponDef.Stats.Caliber) or 1), 1, 2.5)
 	local width = feel.TracerWidth * caliberScale
 	local speed = (weaponDef and weaponDef.BulletVisualSpeed) or 700
 	for _, direction in ipairs(directions) do
-		local endpoint, hitSomething = traceShot(origin, direction, stats, excludeList)
+		local endpoint, hitSomething = traceShot(origin, direction, stats, excludeList, brainrotModels)
 		callController("EffectsController", "Tracer", from, endpoint, tracerColor, width, speed, hitSomething)
 	end
 
@@ -750,6 +798,9 @@ local function getBlockReason()
 end
 
 local function updateFiring(stats)
+	-- "firing" ainda guarda o valor do frame anterior: true = o jogador já estava atirando
+	-- (gatilho apertado e nada bloqueando) no frame passado.
+	local wasFiring = firing
 	firing = false
 	if not stats or not weaponId then
 		return
@@ -772,9 +823,19 @@ local function updateFiring(stats)
 	firing = true
 	local t = workspace:GetServerTimeNow()
 	local interval = 1 / math.max(tonumber(stats.FireRate) or 1, 0.05)
-	-- Não acumula tiros "atrasados" de quando o jogador não estava atirando.
-	if nextShotTime < t - interval then
-		nextShotTime = t
+	if not wasFiring then
+		-- Começou a atirar agora: não acumula tiros "atrasados" de quando o jogador não
+		-- estava atirando (mas respeita a cadência se ele soltou e apertou rapidinho).
+		nextShotTime = math.max(nextShotTime, t)
+	else
+		-- Segurando direto: guarda os tiros atrasados (FPS baixo ou engasgo), senão com o
+		-- frame mais longo que o intervalo a arma dava só 1 tiro por frame e atirava abaixo
+		-- da FireRate. O atraso fica limitado a MAX_SHOTS_PER_FRAME tiros (os 3 cabem no
+		-- token bucket do servidor).
+		local maxDebt = interval * (MAX_SHOTS_PER_FRAME - 1)
+		if nextShotTime < t - maxDebt then
+			nextShotTime = t - maxDebt
+		end
 	end
 	local shots = 0
 	while t >= nextShotTime and shots < MAX_SHOTS_PER_FRAME do

@@ -8,7 +8,7 @@
 --     para o dono, os botões "Passar liderança" e "Expulsar" (com confirmação);
 --   * controles do dono: trocar mapa, máximo de jogadores, privacidade e partida salva;
 --   * convites: jogadores do servidor (PartyInvite) e convite do Roblox
---     (SocialService:PromptGameInvite).
+--     (SocialService:PromptGameInvite, com o Id do grupo em LaunchData quando é o dono).
 -- As linhas de membros e de convite são reaproveitadas (não recriadas) a cada atualização,
 -- para a seleção do controle não "pular".
 --
@@ -254,8 +254,24 @@ local function promptRobloxInvite()
 		)
 		return
 	end
+	-- Se eu sou o dono, o convite leva o Id do grupo (LaunchData). Quando o amigo chega,
+	-- o servidor lê isso em player:GetJoinData() e já deixa ele convidado para o grupo
+	-- (senão, num grupo "Só convidados", ele nem veria o grupo). Convite de quem não é
+	-- dono vai sem o Id: nesse caso o dono convida o amigo pela lista quando ele chegar.
+	local options = nil
+	local party = Lobby.GetMyParty()
+	if party and Lobby.IsHost(party) and type(party.Id) == "string" then
+		local okOptions, created = pcall(function()
+			local inviteOptions = Instance.new("ExperienceInviteOptions")
+			inviteOptions.LaunchData = party.Id
+			return inviteOptions
+		end)
+		if okOptions then
+			options = created
+		end
+	end
 	local okPrompt, err = pcall(function()
-		SocialService:PromptGameInvite(LocalPlayer)
+		SocialService:PromptGameInvite(LocalPlayer, options)
 	end)
 	if not okPrompt then
 		warn("[LobbyParty] PromptGameInvite falhou: " .. tostring(err))
@@ -500,7 +516,7 @@ local function refreshInvites(party)
 	ui.RobloxInviteButton.Visible = not teleporting
 	if isHost then
 		ui.InviteHint.Text =
-			"Convide quem está neste servidor, ou chame amigos pelo Roblox. Quando o amigo chegar, convide ele pela lista."
+			"Convide quem está neste servidor, ou chame amigos pelo Roblox: quem chegar pelo seu convite já entra convidado no grupo."
 	else
 		ui.InviteHint.Text = "Chame amigos pelo Roblox para este servidor! O dono do grupo convida quem chegar."
 	end

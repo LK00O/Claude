@@ -9,8 +9,9 @@
 --   * Barra de calor da arma (Deserto) e barra do Brainrot Supremo (Deserto).
 --   * Lista do time (nome e moedas de cada um).
 --   * Aviso do portal com votos e botão "Votar" quando o portal está aberto.
---   * Botões: Configurações, Voltar ao lobby (com confirmação), Receitas (Deserto)
---     e Colocar torreta (mapas com torretas).
+--   * Botões: Configurações, Voltar ao lobby (com confirmação), Receitas (Deserto),
+--     Colocar torreta (mapas com torretas) e Vantagens (game passes; só aparece
+--     quando Config.Game.Gamepasses.Enabled = true e algum id de pass é > 0).
 --
 -- Como usar os botões em cada aparelho:
 --   * Celular: é só tocar.
@@ -103,6 +104,19 @@ local CURSOR_KEYS = { [Enum.KeyCode.LeftAlt] = true, [Enum.KeyCode.RightAlt] = t
 local TURRET_KEY = Enum.KeyCode.T
 local TURRET_GAMEPAD_KEY = Enum.KeyCode.ButtonY
 
+-- Game passes vendidos na janela "Vantagens". Key é a mesma chave do estado "Gamepasses"
+-- e de Config.Game.Gamepasses (onde ficam os ids). Só textos aqui: quem vende e ativa
+-- o pass é o servidor (MonetizationService, Request "BuyGamepass").
+local PASS_LIST = {
+	{ Key = "DoubleCoins", Name = "Moedas em Dobro", Text = "Toda moeda que você ganha vale o dobro." },
+	{
+		Key = "AutoCollect",
+		Name = "Coleta Automática",
+		Text = "Ímã de moedas desde o começo: as moedas perto de você vêm sozinhas.",
+	},
+	{ Key = "ExtraTurret", Name = "Torreta Extra", Text = "+1 torreta no seu limite (nos mapas com torretas)." },
+}
+
 -------------------------------------------------------------------------------
 -- Estado interno
 -------------------------------------------------------------------------------
@@ -131,6 +145,7 @@ local voteBusy = false
 
 local buffRows = {} -- [id] = {Frame, Label, Dot}
 local confirm = nil -- janela de confirmação "Voltar ao lobby"
+local passWindow = nil -- janela "Vantagens" (game passes), criada só quando abrir pela 1ª vez
 
 -------------------------------------------------------------------------------
 -- Ajudantes gerais
@@ -507,6 +522,155 @@ local function openReturnConfirm()
 end
 
 -------------------------------------------------------------------------------
+-- Janela "Vantagens" (game passes)
+-------------------------------------------------------------------------------
+
+-- true se o pass "key" está à venda: passes ligados no Config e id preenchido (> 0).
+-- É a mesma regra que o MonetizationService usa no servidor.
+local function isPassForSale(key)
+	local config = GameConfig.Gamepasses
+	if type(config) ~= "table" or config.Enabled ~= true then
+		return false
+	end
+	local id = config[key]
+	return type(id) == "number" and id > 0
+end
+
+-- true se pelo menos um pass está à venda. Se nenhum está, o botão "Vantagens" nem aparece.
+local function anyPassForSale()
+	for _, pass in ipairs(PASS_LIST) do
+		if isPassForSale(pass.Key) then
+			return true
+		end
+	end
+	return false
+end
+
+-- Atualiza o botão de cada pass: "Comprar", "Abrindo..." ou "Já é seu!".
+local function refreshPassWindow()
+	if not passWindow then
+		return
+	end
+	local passes = StateController.Get("Gamepasses")
+	for _, row in ipairs(passWindow.Rows) do
+		local owned = type(passes) == "table" and passes[row.Key] == true
+		if owned then
+			row.Button.Text = "Já é seu!"
+			row.Button.BackgroundColor3 = Theme.Info
+			row.Button:SetAttribute("Disabled", true)
+		else
+			row.Button.Text = if passWindow.Busy then "Abrindo..." else "Comprar"
+			row.Button.BackgroundColor3 = Theme.Success
+			row.Button:SetAttribute("Disabled", passWindow.Busy)
+		end
+	end
+end
+
+-- Pede ao servidor para abrir a janela de compra do Roblox (Request "BuyGamepass").
+-- Quem ativa a vantagem é o servidor, quando a compra termina: aí o estado "Gamepasses"
+-- muda e refreshPassWindow troca o botão para "Já é seu!".
+local function buyPass(key)
+	if not passWindow or passWindow.Busy then
+		return
+	end
+	passWindow.Busy = true
+	refreshPassWindow()
+	local ok, result = Net.Request("BuyGamepass", key)
+	passWindow.Busy = false
+	refreshPassWindow()
+	if not ok then
+		NotifyController.Show(tostring(result or "Não deu para abrir a compra agora."), "error")
+	end
+end
+
+-- Monta a janela na primeira vez (uma linha por pass à venda) e devolve a mesma depois.
+local function ensurePassWindow()
+	if passWindow then
+		return passWindow
+	end
+	local window = UIKit.Window("Gamepasses", "Vantagens", UDim2.fromOffset(560, 430))
+	local content = window.Content
+	local layout = UIKit.List(content, 10)
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	UIKit.Padding(content, { Top = 8, Bottom = 8, Left = 6, Right = 6 })
+
+	passWindow = { Window = window, Rows = {}, Busy = false }
+
+	UIKit.Label({
+		Name = "Info",
+		Text = "Vantagens compradas com Robux são suas para sempre, em todas as partidas.",
+		Size = UDim2.new(1, 0, 0, 44),
+		TextSize = 16,
+		Color = Theme.TextDim,
+		LayoutOrder = 0,
+		Parent = content,
+	})
+
+	for index, pass in ipairs(PASS_LIST) do
+		-- Pass sem id (0) ainda não está à venda: nem aparece na lista.
+		if isPassForSale(pass.Key) then
+			local card = UIKit.New("Frame", {
+				Name = pass.Key,
+				Size = UDim2.new(1, 0, 0, 86),
+				BackgroundColor3 = Theme.PanelDark,
+				BackgroundTransparency = 0.2,
+				LayoutOrder = index,
+				Parent = content,
+			})
+			UIKit.Corner(card, 14)
+			UIKit.Stroke(card, 2, Theme.Stroke)
+			makeLine({
+				Name = "Title",
+				Text = pass.Name,
+				Font = Theme.TitleFont,
+				Position = UDim2.fromOffset(14, 8),
+				Size = UDim2.new(1, -190, 0, 26),
+				TextSize = 21,
+				Color = Theme.Rare,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				Parent = card,
+			})
+			UIKit.Label({
+				Name = "Description",
+				Text = pass.Text,
+				Position = UDim2.fromOffset(14, 36),
+				Size = UDim2.new(1, -190, 0, 42),
+				TextSize = 15,
+				Color = Theme.TextDim,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				TextYAlignment = Enum.TextYAlignment.Top,
+				Parent = card,
+			})
+			local button = UIKit.Button({
+				Name = "Buy",
+				Text = "Comprar",
+				Color = Theme.Success,
+				AnchorPoint = Vector2.new(1, 0.5),
+				Position = UDim2.new(1, -14, 0.5, 0),
+				Size = UDim2.fromOffset(156, 52),
+				TextSize = 20,
+				Parent = card,
+			}, function()
+				buyPass(pass.Key)
+			end)
+			table.insert(passWindow.Rows, { Key = pass.Key, Button = button })
+		end
+	end
+
+	window.OnOpen:Connect(refreshPassWindow)
+	refreshPassWindow()
+	return passWindow
+end
+
+local function openPasses()
+	if not anyPassForSale() then
+		return
+	end
+	setCursorMode(false)
+	ensurePassWindow().Window.Open()
+end
+
+-------------------------------------------------------------------------------
 -- Construção do HUD
 -------------------------------------------------------------------------------
 
@@ -727,6 +891,17 @@ local function buildRightColumn(root)
 		Visible = false,
 		Parent = grid,
 	}, enterPlacement)
+	-- Loja de game passes: escondida de vez se os passes estão desligados no Config
+	-- ou nenhum id foi preenchido (o servidor recusaria a compra de qualquer jeito).
+	ui.PassesButton = UIKit.Button({
+		Name = "Gamepasses",
+		Text = "Vantagens",
+		Color = Theme.Accent,
+		TextSize = 18,
+		LayoutOrder = 5,
+		Visible = anyPassForSale(),
+		Parent = grid,
+	}, openPasses)
 
 	ui.Hint = makeLine({
 		Name = "Hint",
@@ -1609,6 +1784,8 @@ function HUDController.Start()
 	end))
 	trove:Add(StateController.OnChanged("Profile", refreshButtonHints))
 	trove:Add(StateController.OnChanged("Turrets", refreshButtonHints))
+	-- Comprou um pass (ou a posse foi conferida na entrada): atualiza a janela "Vantagens".
+	trove:Add(StateController.OnChanged("Gamepasses", refreshPassWindow))
 	trove:Add(StateController.StatsChanged:Connect(refreshHeat))
 	trove:Add(UIKit.ModalChanged:Connect(refreshCrosshair))
 	trove:Connect(UserInputService.LastInputTypeChanged, refreshButtonHints)

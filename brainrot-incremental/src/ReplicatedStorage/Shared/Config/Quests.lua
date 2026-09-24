@@ -46,7 +46,9 @@ local Quests = {
 		},
 	},
 
-	RewardSeconds = 90, -- a recompensa vale ~90 segundos da sua renda média
+	-- A recompensa vale ~45 segundos da sua renda média (×2 com a Recompensa de Missão no máximo).
+	-- Com mais que isso, as missões rendiam mais moedas do que atirar nos brainrots.
+	RewardSeconds = 45,
 	RewardFloor = 50, -- recompensa mínima (em unidades do Ato 1)
 	ScalePerUpgradeLevel = 1 / 40, -- cada nível de upgrade aumenta o alvo em 2,5%
 }

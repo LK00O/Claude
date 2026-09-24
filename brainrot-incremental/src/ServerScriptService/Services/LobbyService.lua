@@ -11,6 +11,12 @@
 --          ctx.Leaderboard: nome + moedas (Abbrev(10^(score/1e6) - 1)), com cache de nomes
 --   Request "Reconnect" -> TravelService.Reconnect(player)
 --
+-- O prompt original (seção 4.1) pede TRÊS rankings: maior dinheiro total, mais brainrots
+-- destruídos e atos concluídos. Então há três placares (tabela BOARDS), cada um com o seu
+-- OrderedDataStore e o seu painel no lobby (ctx.Leaderboards[Id], com o mesmo formato
+-- "Board" > "List"). O de moedas é o da especificação; os outros dois guardam o número
+-- inteiro direto (Stats.KillsTotal e Stats.ActsCompleted cabem no OrderedDataStore).
+--
 -- No Studio sem acesso às APIs, o OrderedDataStore falha: nesse caso o placar mostra
 -- só os jogadores que passaram por este servidor (guardados em memória).
 
@@ -46,7 +52,9 @@ local SCORE_SCALE = 1e6
 local NAME_FETCH_TIMEOUT = 8 -- tempo máximo esperando os nomes (s)
 local NAME_RETRY_AFTER = 120 -- nome que falhou: tenta buscar de novo depois disso (s)
 local SOON_REFRESH_DELAY = 5 -- depois que alguém entra, atualiza o quadro em ~5 s
-local MIN_READ_SPACING = 15 -- intervalo mínimo entre duas leituras do placar (s)
+-- Intervalo mínimo entre duas leituras do placar (s). Cada leitura lê os 3 placares
+-- (3 GetSortedAsync), e o limite da Roblox é 5 + 2 por jogador por minuto.
+local MIN_READ_SPACING = 30
 local ROW_GAP = 4 -- espaço entre as linhas do quadro (pixels)
 local ROW_ATTRIBUTE = "LeaderboardRow" -- marca as linhas criadas por este serviço
 local MODULE_WAIT_TIMEOUT = 10 -- espera máxima pelo módulo MapBuilder (s)
@@ -57,6 +65,8 @@ local RECONNECT_RATE = { Rate = 0.5, Burst = 2 }
 -- Cores do quadro.
 local COLOR_TEXT = Color3.fromRGB(255, 255, 255)
 local COLOR_COINS = Color3.fromRGB(255, 220, 90)
+local COLOR_KILLS = Color3.fromRGB(255, 140, 140)
+local COLOR_ACTS = Color3.fromRGB(140, 220, 255)
 local COLOR_ROW_A = Color3.fromRGB(40, 24, 60)
 local COLOR_ROW_B = Color3.fromRGB(58, 34, 84)
 local RANK_COLORS = {
@@ -76,14 +86,10 @@ local MSG_UNKNOWN_PLAYER = "Jogador %d"
 
 local trove = Trove.new() -- conexões do serviço
 local ctx = nil -- contexto do mapa do lobby (MapBuilder.Build("Lobby"))
-local orderedStore = nil -- OrderedDataStore do placar (nil = indisponível)
 local storeWarned = false -- já avisamos no Output que o placar falhou?
 
-local lastWritten = {} -- [userId] = última pontuação gravada por este servidor
-local memoryScores = {} -- [userId] = pontuação (reserva em memória quando o DataStore falha)
 local nameCache = {} -- [userId] = nome do jogador
 local nameFailedAt = {} -- [userId] = os.clock() da última falha ao buscar o nome
-local hasRendered = false -- já desenhamos o quadro pelo menos uma vez com dados reais?
 local lastReadAt = -math.huge -- os.clock() da última leitura do placar
 local refreshRunning = false -- evita duas atualizações do quadro ao mesmo tempo
 local soonScheduled = false -- já tem uma atualização "em breve" marcada?
@@ -122,13 +128,62 @@ local function coinsFromScore(score)
 	return math.max(0, 10 ^ (score / SCORE_SCALE) - 1)
 end
 
--- Pontuação atual de um jogador, lida do perfil (nil se o perfil não carregou).
-local function getPlayerScore(player)
+-- Pontuação de uma contagem simples (brainrots destruídos, atos concluídos): o inteiro.
+local function scoreFromCount(count)
+	if not isFiniteNumber(count) or count <= 0 then
+		return 0
+	end
+	return math.floor(count)
+end
+
+-- Os três placares. Cada um guarda também o seu estado (preenchido por newBoard):
+--   Store       = OrderedDataStore (nil = ainda não pegou ou indisponível)
+--   LastWritten = [userId] = última pontuação gravada por este servidor
+--   Memory      = [userId] = pontuação (reserva em memória quando o DataStore falha)
+--   HasRendered = já desenhamos o painel pelo menos uma vez com dados reais?
+-- Id é a chave do painel em ctx.Leaderboards (o builder do lobby usa os mesmos ids).
+local function newBoard(id, storeName, getScore, formatScore, scoreColor)
+	return {
+		Id = id,
+		StoreName = storeName,
+		GetScore = getScore, -- (profile.Stats) -> pontuação inteira >= 0
+		FormatScore = formatScore, -- (pontuação) -> texto da coluna da direita
+		ScoreColor = scoreColor,
+		Store = nil,
+		LastWritten = {},
+		Memory = {},
+		HasRendered = false,
+	}
+end
+
+local BOARDS = {
+	-- Maior dinheiro total (o placar da especificação, com a pontuação em log10).
+	newBoard("Coins", LobbyConfig.LeaderboardStoreName, function(stats)
+		return scoreFromCoins(stats.TotalCoins)
+	end, function(score)
+		return NumberFormat.Abbrev(coinsFromScore(score))
+	end, COLOR_COINS),
+	-- Mais brainrots destruídos.
+	newBoard("Kills", LobbyConfig.LeaderboardStoreName .. "_Kills", function(stats)
+		return scoreFromCount(stats.KillsTotal)
+	end, function(score)
+		return NumberFormat.Abbrev(score)
+	end, COLOR_KILLS),
+	-- Mais atos concluídos.
+	newBoard("Acts", LobbyConfig.LeaderboardStoreName .. "_Acts", function(stats)
+		return scoreFromCount(stats.ActsCompleted)
+	end, function(score)
+		return NumberFormat.Commas(score)
+	end, COLOR_ACTS),
+}
+
+-- Estatísticas atuais de um jogador, lidas do perfil (nil se o perfil não carregou).
+local function getPlayerStats(player)
 	local profile = DataService.GetProfile(player)
 	if type(profile) ~= "table" or type(profile.Stats) ~= "table" then
 		return nil
 	end
-	return scoreFromCoins(profile.Stats.TotalCoins)
+	return profile.Stats
 end
 
 -------------------------------------------------------------------------------
@@ -178,12 +233,29 @@ end
 -- Quadro (SurfaceGui) do placar
 -------------------------------------------------------------------------------
 
--- Acha o Frame "List" dentro do SurfaceGui "Board" do ctx.Leaderboard.
-local function getListFrame()
-	if not ctx or typeof(ctx.Leaderboard) ~= "Instance" then
+-- Acha a Part do painel de um placar: ctx.Leaderboards[Id]; o de moedas também
+-- pode vir de ctx.Leaderboard (o campo da especificação).
+local function getBoardPart(board)
+	if not ctx then
 		return nil
 	end
-	local board = ctx.Leaderboard:FindFirstChild("Board") or ctx.Leaderboard:FindFirstChild("Board", true)
+	local part = type(ctx.Leaderboards) == "table" and ctx.Leaderboards[board.Id] or nil
+	if part == nil and board.Id == "Coins" then
+		part = ctx.Leaderboard
+	end
+	if typeof(part) ~= "Instance" then
+		return nil
+	end
+	return part
+end
+
+-- Acha o Frame "List" dentro do SurfaceGui "Board" do painel de um placar.
+local function getListFrame(boardDef)
+	local part = getBoardPart(boardDef)
+	if not part then
+		return nil
+	end
+	local board = part:FindFirstChild("Board") or part:FindFirstChild("Board", true)
 	if not board then
 		return nil
 	end
@@ -233,9 +305,9 @@ local function rowSize()
 	return UDim2.new(1, 0, 1 / count, -ROW_GAP)
 end
 
--- Mostra uma mensagem única no quadro (vazio ou indisponível).
-local function renderMessage(text)
-	local list = getListFrame()
+-- Mostra uma mensagem única no painel (vazio ou indisponível).
+local function renderMessage(board, text)
+	local list = getListFrame(board)
 	if not list then
 		return
 	end
@@ -252,14 +324,14 @@ local function renderMessage(text)
 	makeCell(row, "Message", text, COLOR_TEXT, 0, 1, Enum.TextXAlignment.Center)
 end
 
--- Desenha as linhas: {{UserId, Score}} já em ordem (maior primeiro).
-local function renderEntries(entries)
-	local list = getListFrame()
+-- Desenha as linhas de um placar: {{UserId, Score}} já em ordem (maior primeiro).
+local function renderEntries(board, entries)
+	local list = getListFrame(board)
 	if not list then
 		return
 	end
 	if #entries == 0 then
-		renderMessage(MSG_EMPTY_BOARD)
+		renderMessage(board, MSG_EMPTY_BOARD)
 		return
 	end
 
@@ -280,12 +352,12 @@ local function renderEntries(entries)
 
 		local rankColor = RANK_COLORS[index] or COLOR_TEXT
 		local name = nameCache[entry.UserId] or MSG_UNKNOWN_PLAYER:format(entry.UserId)
-		local coinsText = NumberFormat.Abbrev(coinsFromScore(entry.Score))
+		local scoreText = board.FormatScore(entry.Score)
 
-		-- Colunas: posição (15%), nome (55%), moedas (30%).
+		-- Colunas: posição (15%), nome (55%), valor (30%: moedas, brainrots ou atos).
 		makeCell(row, "Rank", "#" .. index, rankColor, 0, 0.15, Enum.TextXAlignment.Center)
 		makeCell(row, "PlayerName", name, rankColor, 0.15, 0.55, Enum.TextXAlignment.Left)
-		makeCell(row, "Coins", coinsText, COLOR_COINS, 0.7, 0.3, Enum.TextXAlignment.Right)
+		makeCell(row, "Score", scoreText, board.ScoreColor, 0.7, 0.3, Enum.TextXAlignment.Right)
 
 		row.Parent = list
 	end
@@ -349,41 +421,43 @@ end
 -- OrderedDataStore (gravar e ler)
 -------------------------------------------------------------------------------
 
--- Pega o OrderedDataStore (uma vez). Devolve nil se o serviço não está disponível.
-local function getStore()
-	if orderedStore then
-		return orderedStore
+-- Pega o OrderedDataStore de um placar (uma vez). Devolve nil se não está disponível.
+local function getStore(board)
+	if board.Store then
+		return board.Store
 	end
 	local ok, result = pcall(function()
-		return DataStoreService:GetOrderedDataStore(LobbyConfig.LeaderboardStoreName)
+		return DataStoreService:GetOrderedDataStore(board.StoreName)
 	end)
 	if ok and result then
-		orderedStore = result
-		return orderedStore
+		board.Store = result
+		return result
 	end
 	warnStoreOnce(result)
 	return nil
 end
 
--- Grava a pontuação de um jogador (se mudou desde a última gravação, ou se "force").
-local function writeScore(userId, score, force)
+-- Grava a pontuação de um jogador num placar (se mudou desde a última gravação, ou se "force").
+local function writeScore(board, userId, score, force)
 	if type(userId) ~= "number" or not isFiniteNumber(score) then
 		return
 	end
 	score = math.max(0, math.floor(score))
-	memoryScores[userId] = score
+	board.Memory[userId] = score
 
-	if not force and lastWritten[userId] == score then
+	if not force and board.LastWritten[userId] == score then
 		return -- nada mudou: economiza o limite de requisições do DataStore
 	end
 
 	-- Jogadores de teste do Studio têm UserId negativo: ficam só na memória.
-	if userId <= 0 then
-		lastWritten[userId] = score
+	-- Pontuação zero também não vai para o DataStore: ela nunca aparece no placar
+	-- (e as estatísticas só crescem, então não há um valor antigo maior para apagar).
+	if userId <= 0 or score <= 0 then
+		board.LastWritten[userId] = score
 		return
 	end
 
-	local store = getStore()
+	local store = getStore(board)
 	if not store then
 		return
 	end
@@ -391,24 +465,31 @@ local function writeScore(userId, score, force)
 		store:SetAsync(tostring(userId), score)
 	end)
 	if ok then
-		lastWritten[userId] = score
+		board.LastWritten[userId] = score
 	else
 		warnStoreOnce(err)
 	end
 end
 
--- Grava a pontuação atual de um jogador presente (lida do perfil).
-local function writePlayerScore(player, force)
-	local score = getPlayerScore(player)
-	if score then
-		writeScore(player.UserId, score, force)
+-- Grava as pontuações de um jogador nos três placares (a partir das estatísticas).
+local function writeStatsScores(userId, stats, force)
+	for _, board in ipairs(BOARDS) do
+		writeScore(board, userId, board.GetScore(stats), force)
 	end
 end
 
--- Top da reserva em memória (jogadores que passaram por este servidor).
-local function readMemoryTop()
+-- Grava as pontuações atuais de um jogador presente (lidas do perfil).
+local function writePlayerScore(player, force)
+	local stats = getPlayerStats(player)
+	if stats then
+		writeStatsScores(player.UserId, stats, force)
+	end
+end
+
+-- Top da reserva em memória de um placar (jogadores que passaram por este servidor).
+local function readMemoryTop(board)
 	local entries = {}
-	for userId, score in pairs(memoryScores) do
+	for userId, score in pairs(board.Memory) do
 		if score > 0 then
 			table.insert(entries, { UserId = userId, Score = score })
 		end
@@ -426,9 +507,9 @@ local function readMemoryTop()
 	return entries
 end
 
--- Lê o top do OrderedDataStore. Devolve a lista {{UserId, Score}} ou nil se falhou.
-local function readStoreTop()
-	local store = getStore()
+-- Lê o top do OrderedDataStore de um placar. Devolve a lista {{UserId, Score}} ou nil se falhou.
+local function readStoreTop(board)
+	local store = getStore(board)
 	if not store then
 		return nil
 	end
@@ -446,14 +527,41 @@ local function readStoreTop()
 	for _, item in ipairs(result) do
 		local userId = tonumber(item.key)
 		local score = tonumber(item.value)
-		if userId and score and isFiniteNumber(score) then
+		-- Pontuação zero não entra (ex.: "0 atos" não é um recorde para mostrar).
+		if userId and score and isFiniteNumber(score) and score > 0 then
 			table.insert(entries, { UserId = userId, Score = score })
 		end
 	end
 	return entries
 end
 
--- Lê o placar e redesenha o quadro.
+-- Lê um placar e redesenha o painel dele.
+local function refreshOneBoard(board)
+	local entries = readStoreTop(board)
+	if entries then
+		resolveNames(entries)
+		renderEntries(board, entries)
+		board.HasRendered = true
+		return
+	end
+
+	-- Falhou a leitura. Se já temos um painel com dados reais, deixamos como está
+	-- (melhor mostrar o placar de um minuto atrás do que um incompleto).
+	if board.HasRendered then
+		return
+	end
+
+	-- Sem DataStore (ex.: Studio sem acesso às APIs): mostra os jogadores deste servidor.
+	local memoryEntries = readMemoryTop(board)
+	if #memoryEntries > 0 then
+		resolveNames(memoryEntries)
+		renderEntries(board, memoryEntries)
+	else
+		renderMessage(board, MSG_UNAVAILABLE)
+	end
+end
+
+-- Lê os três placares e redesenha os painéis (um erro num placar não para os outros).
 local function refreshBoard()
 	if refreshRunning then
 		return
@@ -461,32 +569,11 @@ local function refreshBoard()
 	refreshRunning = true
 	lastReadAt = os.clock()
 
-	local ok, err = pcall(function()
-		local entries = readStoreTop()
-		if entries then
-			resolveNames(entries)
-			renderEntries(entries)
-			hasRendered = true
-			return
+	for _, board in ipairs(BOARDS) do
+		local ok, err = pcall(refreshOneBoard, board)
+		if not ok then
+			warn("[LobbyService] Erro ao atualizar o placar " .. board.Id .. ": " .. tostring(err))
 		end
-
-		-- Falhou a leitura. Se já temos um quadro com dados reais, deixamos como está
-		-- (melhor mostrar o placar de um minuto atrás do que um incompleto).
-		if hasRendered then
-			return
-		end
-
-		-- Sem DataStore (ex.: Studio sem acesso às APIs): mostra os jogadores deste servidor.
-		local memoryEntries = readMemoryTop()
-		if #memoryEntries > 0 then
-			resolveNames(memoryEntries)
-			renderEntries(memoryEntries)
-		else
-			renderMessage(MSG_UNAVAILABLE)
-		end
-	end)
-	if not ok then
-		warn("[LobbyService] Erro ao atualizar o placar: " .. tostring(err))
 	end
 
 	refreshRunning = false
@@ -534,12 +621,18 @@ local function onProfileLoaded(player, _profile)
 	scheduleSoonRefresh()
 end
 
--- Saída: grava a pontuação final (lida agora, antes do perfil ser liberado).
+-- Saída: grava as pontuações finais (lidas agora, antes do perfil ser liberado).
 local function onPlayerRemoving(player)
 	cachePlayerName(player)
-	local score = getPlayerScore(player)
-	if score then
-		task.spawn(writeScore, player.UserId, score, false)
+	local stats = getPlayerStats(player)
+	if stats then
+		-- Copia só os números agora: depois o perfil pode ser liberado ou mudar.
+		local snapshot = {
+			TotalCoins = stats.TotalCoins,
+			KillsTotal = stats.KillsTotal,
+			ActsCompleted = stats.ActsCompleted,
+		}
+		task.spawn(writeStatsScores, player.UserId, snapshot, false)
 	end
 end
 

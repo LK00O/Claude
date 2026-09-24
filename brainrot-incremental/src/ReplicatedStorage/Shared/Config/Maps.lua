@@ -26,8 +26,9 @@ local Maps = {
 		HealthScale = 1,
 
 		-- Prateleiras das barracas: começa na 1; custo para liberar a 2 e a 3 (unidades do Ato 1).
+		-- (Valores pensados para a renda de quem acabou de maxar a prateleira anterior.)
 		MaxShelf = 3,
-		ShelfCosts = { [2] = 2e5, [3] = 5e6 },
+		ShelfCosts = { [2] = 4e4, [3] = 1e6 },
 
 		TokensReward = 10, -- Brainrot Tokens ganhos ao concluir o ato
 		FrozenChance = 0, -- chance de um brainrot nascer congelado
@@ -78,7 +79,7 @@ local Maps = {
 		HealthScale = 30,
 
 		MaxShelf = 3,
-		ShelfCosts = { [2] = 2e5, [3] = 5e6 },
+		ShelfCosts = { [2] = 4e4, [3] = 1e6 },
 
 		TokensReward = 20,
 		FrozenChance = 0.2, -- 20% dos brainrots nascem dentro de um bloco de gelo
@@ -133,7 +134,7 @@ local Maps = {
 		HealthScale = 900,
 
 		MaxShelf = 3,
-		ShelfCosts = { [2] = 2e5, [3] = 5e6 },
+		ShelfCosts = { [2] = 4e4, [3] = 1e6 },
 
 		TokensReward = 50,
 		FrozenChance = 0,
@@ -150,7 +151,10 @@ local Maps = {
 		-- Brainrot Supremo que nasce na Grande Cova.
 		Supreme = {
 			BrainrotId = "TralaleroSupremo", -- id em Config/Brainrots.Supreme
-			BaseFullCost = 2e7, -- moedas (unidades do Ato 1) para encher tudo alimentando do zero
+			-- Moedas (unidades do Ato 1) para encher tudo alimentando do zero.
+			-- 1e6 × CostScale 625 = 6,25e8 moedas: alto, mas ao alcance da renda do deserto,
+			-- então "Alimentar" faz diferença de verdade (antes, com 2e7, quase não fazia).
+			BaseFullCost = 1e6,
 			MinHeight = 8, -- altura inicial (studs)
 			MaxHeight = 500, -- altura ao tampar o sol (studs)
 		},

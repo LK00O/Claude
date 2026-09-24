@@ -197,13 +197,21 @@ local function pickTemplate(teamStats, lastId)
 	return eligible[rng:NextInteger(1, #eligible)]
 end
 
+-- Renda por segundo usada nas missões: a média LENTA (~120 s, run.IncomeSlow, feita pelo
+-- MatchService), e não a de 10 s (run.IncomeEMA, a da HUD). A de 10 s dá um salto enorme
+-- quando o jogador pega de uma vez as moedas acumuladas no caixote: pegar a missão logo
+-- depois disso dava uma recompensa 6 a 12 vezes maior do que os ~90 s de renda prometidos.
+local function questIncome(run)
+	return isFiniteNumber(run.IncomeSlow) and math.max(0, run.IncomeSlow) or 0
+end
+
 -- Calcula o alvo da missão (seção 5.10):
 --   Collect: max(RewardFloor × CostScale, Renda × BaseSeconds)
 --   outras:  ceil(Base × (1 + somaDeNíveis × ScalePerUpgradeLevel))
 local function computeTarget(template, run, team, mapDef)
 	if template.Type == "Collect" then
 		local costScale = mapDef and tonumber(mapDef.CostScale) or 1
-		local income = isFiniteNumber(run.IncomeEMA) and math.max(0, run.IncomeEMA) or 0
+		local income = questIncome(run)
 		local seconds = tonumber(template.BaseSeconds) or 60
 		return math.max(1, math.ceil(math.max(Quests.RewardFloor * costScale, income * seconds)))
 	end
@@ -359,7 +367,7 @@ local function handleTakeQuest(player)
 	local team = MatchService.GetTeam()
 	local target = computeTarget(template, run, team, mapDef)
 	local stats = Svc("StatService").Get(player)
-	local income = isFiniteNumber(run.IncomeEMA) and math.max(0, run.IncomeEMA) or 0
+	local income = questIncome(run) -- média lenta: ver questIncome
 	local reward = Formulas.QuestReward(MatchService.GetMapId(), income, statNumber(stats, "QuestReward", 1))
 	reward = isFiniteNumber(reward) and math.max(1, math.floor(reward)) or 1
 

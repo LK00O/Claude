@@ -11,7 +11,8 @@
 --   - Resume (continuar partida salva) só se o dono tem RunSaves[MapId];
 --   - MaxPlayers entre MinMaxPlayers e MaxPlayersLimit e nunca menor que o nº de membros;
 --   - quem vê/entra: Public = todos; Friends = amigos do dono; Invite = convidados
---     (um convite do dono também vale num grupo "Só amigos");
+--     (um convite do dono também vale num grupo "Só amigos"). Convite = botão "Convidar"
+--     (PartyInvite) ou convite do Roblox (lido no player:GetJoinData() quando o amigo chega);
 --   - se o dono sai, o membro mais antigo vira dono; grupo vazio some;
 --   - iniciar: só o dono, com todos prontos (o dono conta como pronto) ou forçando;
 --     contagem de CountdownSeconds, cancelada se alguém sai, desmarca pronto ou o dono cancela;
@@ -133,6 +134,7 @@ local NOTE_CANCEL_LEFT = "Contagem cancelada: %s saiu do grupo."
 local NOTE_CANCEL_UNREADY = "Contagem cancelada: %s não está mais pronto."
 local NOTE_CANCEL_HOST = "O dono cancelou a contagem."
 local NOTE_INVITED = "%s convidou você para o grupo (%s)! Veja em Partidas Abertas."
+local NOTE_ROBLOX_INVITE_ARRIVED = "%s chegou pelo seu convite do Roblox e já pode entrar no grupo."
 local NOTE_STUCK = "Nem todos foram teleportados. O grupo voltou a esperar."
 
 -------------------------------------------------------------------------------
@@ -1287,10 +1289,69 @@ end
 -- Entrada e saída de jogadores
 -------------------------------------------------------------------------------
 
+-- Grupo para o qual o jogador que acabou de chegar foi chamado pelo convite do Roblox
+-- (SocialService:PromptGameInvite), ou nil. Lemos isso no player:GetJoinData():
+--   1. LaunchData: o cliente do dono manda o Id do grupo junto com o convite
+--      (ExperienceInviteOptions.LaunchData). O Id é um GUID que só quem vê o grupo conhece.
+--   2. ReferredByPlayerId: o próprio Roblox diz quem mandou o convite. Se essa pessoa é
+--      dona de um grupo neste servidor, vale o grupo dela (convite sem LaunchData).
+local function getRobloxInviteParty(player)
+	-- GetJoinData pode dar erro: pcall para não quebrar a entrada do jogador.
+	local ok, joinData = pcall(function()
+		return player:GetJoinData()
+	end)
+	if not ok or type(joinData) ~= "table" then
+		return nil
+	end
+
+	local launchData = joinData.LaunchData
+	if type(launchData) == "string" and #launchData <= MAX_ID_LENGTH then
+		local party = parties[launchData]
+		if party then
+			return party
+		end
+	end
+
+	-- tonumber aceita número ou texto; qualquer outra coisa vira nil.
+	local referrerId = tonumber(joinData.ReferredByPlayerId)
+	if isValidUserId(referrerId) then
+		local party = getPartyOf(referrerId)
+		if party and party.HostUserId == referrerId then
+			return party
+		end
+	end
+	return nil
+end
+
+-- Quem chegou pelo convite do Roblox do dono vira convidado do grupo (igual ao botão
+-- "Convidar"), então consegue ver e entrar num grupo "Só convidados" sem o dono ter que
+-- convidar de novo pela lista.
+local function acceptRobloxInvite(player)
+	local party = getRobloxInviteParty(player)
+	if not party or party.State == "Teleporting" then
+		return
+	end
+	local userId = player.UserId
+	if table.find(party.Members, userId) or party.Invited[userId] then
+		return
+	end
+
+	party.Invited[userId] = true
+	local hostName = displayNameOf(party.HostUserId)
+	StateService.Notify(player, NOTE_INVITED:format(hostName, mapDisplayName(party.MapId)), "info", 8)
+	local host = getPlayer(party.HostUserId)
+	if host then
+		StateService.Notify(host, NOTE_ROBLOX_INVITE_ARRIVED:format(player.DisplayName), "info", 6)
+	end
+	scheduleBroadcast()
+end
+
 -- Entrou no lobby: manda o estado atual (e de novo daqui a pouco, caso a interface
 -- dele ainda não estivesse pronta para receber).
 local function onPlayerAdded(player)
 	rememberNames(player)
+	-- Antes do sendTo, para o primeiro PartyState já mostrar o grupo e o convite.
+	acceptRobloxInvite(player)
 	sendTo(player)
 	for _, delaySeconds in ipairs(JOIN_RESEND_DELAYS) do
 		task.delay(delaySeconds, sendTo, player)

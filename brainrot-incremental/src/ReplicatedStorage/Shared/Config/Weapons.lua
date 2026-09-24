@@ -39,7 +39,9 @@ local Weapons = {
 		DisplayName = "Canhão de Gelato",
 		Map = "Winter",
 		Stats = {
-			Damage = 60,
+			-- 300 × 1,5 tiros/s = 450 de dano por segundo, 30× a pistola do Ato 1 (15/s),
+			-- igual ao HealthScale 30 do Inverno: no começo, matar leva o mesmo tempo que no Prado.
+			Damage = 300,
 			FireRate = 1.5,
 			Projectiles = 1,
 			Pierce = 0,
@@ -77,9 +79,12 @@ local Weapons = {
 			Range = 300,
 			SplashRadius = 0,
 			SlowPower = 0,
+			-- Calor: 10 tiros/s × 1 = +10 de calor por segundo, mas só esfria 6/s,
+			-- então atirando sem parar a barra enche em ~10 s e superaquece.
+			-- (Se o resfriamento fosse 10/s, igual ao calor gerado, ela nunca encheria.)
 			HeatPerShot = 1,
 			HeatCapacity = 40,
-			HeatCooling = 10,
+			HeatCooling = 6,
 		},
 		GunColor = Color3.fromRGB(70, 130, 200), -- azul de tubarão
 		TracerColor = Color3.fromRGB(255, 215, 110), -- amarelo quente

@@ -30,6 +30,11 @@ local Game = {
 	-- true = todas as moedas vão para um cofre único do time.
 	SharedWallet = false,
 
+	-- Moedas dos abates feitos por torretas:
+	-- "Owner" = vão para quem posicionou a torreta; "Team" = divididas igualmente
+	-- entre os jogadores da partida que estão no servidor.
+	TurretCoinSplit = "Owner",
+
 	-- Regra dos upgrades de arma (escopo "Player") para concluir o ato:
 	-- "AnyPlayer" = basta um jogador ter maxado; "AllPlayers" = todos os presentes.
 	WeaponMaxRule = "AnyPlayer",

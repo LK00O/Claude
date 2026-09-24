@@ -184,10 +184,13 @@ local function asNumber(value, default)
 	return number
 end
 
--- "Size" dos efeitos do servidor = escala do modelo (1 ≈ brainrot de 5 studs).
--- Devolve um raio aproximado em studs, com limites para nada ficar absurdo.
+-- "Size" dos efeitos "Death", "Spawn" e "IceBreak" = ALTURA em studs (o servidor manda a
+-- altura do modelo ou o maior lado do bloco de gelo; NÃO é a escala do modelo).
+-- Antes tratávamos o valor como escala (× 2,5) e tudo ficava ~5× grande demais.
+-- O raio é metade da altura (brainrot normal de 5 studs -> raio 2,5), com limites
+-- para nada ficar absurdo nem sumir.
 local function sizeToRadius(size)
-	return math.clamp(asNumber(size, 1) * 2.5, 1.2, 40)
+	return math.clamp(asNumber(size, 5) * 0.5, 0.6, 30)
 end
 
 -- Direção aleatória, puxada para cima (bom para coisas "explodindo" do chão).

@@ -77,6 +77,12 @@ local PIT_EXCLUSION_RADIUS = 40 -- Deserto: 40 studs em volta da Grande Cova
 
 local FIELD_EDGE_MARGIN = 2 -- não nascer colado na borda do campo
 local FOOTPRINT_RADIUS = 1.6 -- "raio" aproximado de um brainrot em escala 1 (studs)
+-- Raio máximo (studs) usado SÓ para escolher onde nascer (espaço entre brainrots e
+-- distância dos jogadores). Com muito Adubo um brainrot passa de 20 studs de raio e um
+-- gigante de 60: sem este limite o campo "enchia" com uns 10 deles e quase toda leva
+-- falhava ("Não achei espaço livre"). Acima disso eles podem se sobrepor um pouco,
+-- o que não tem problema (brainrots não colidem com nada).
+local SPAWN_FOOTPRINT_CAP = 8
 
 -- Raycast para achar o chão.
 local GROUND_RAY_ABOVE = 30 -- começa 30 studs acima do topo do campo
@@ -353,10 +359,13 @@ local function isNearPlayer(position, roots, radius)
 end
 
 -- true se tem algum brainrot vivo perto demais de "position".
+-- O raio de cada um entra limitado a SPAWN_FOOTPRINT_CAP (ver a constante lá em cima).
 local function isNearBrainrot(position, radius)
 	local spacing = GameConfig.MinBrainrotSpacing
+	radius = math.min(radius, SPAWN_FOOTPRINT_CAP)
 	for _, other in ipairs(aliveList) do
-		local required = math.max(spacing, radius + (other.FootprintRadius or 0))
+		local otherRadius = math.min(other.FootprintRadius or 0, SPAWN_FOOTPRINT_CAP)
+		local required = math.max(spacing, radius + otherRadius)
 		if flatDistance(position, other.Position) < required then
 			return true
 		end
@@ -826,8 +835,10 @@ function BrainrotService.SpawnWave(triggeredBy)
 		-- Tamanho alvo = GrowthMult × (gigante 3 ou 1) × SizeMult do encantamento.
 		local targetSize = growthMult * (if giant then GIANT_SIZE_MULT else 1) * (if enchant then enchant.SizeMult or 1 else 1)
 
-		-- Procura um lugar livre (até SpawnAttempts tentativas).
-		local radius = footprintRadius(def, targetSize)
+		-- Procura um lugar livre (até SpawnAttempts tentativas). O raio usado aqui é o
+		-- real, mas no máximo SPAWN_FOOTPRINT_CAP: assim brainrots enormes (muito Adubo,
+		-- gigantes) ainda cabem no campo e os upgrades de quantidade/gigante continuam valendo.
+		local radius = math.min(footprintRadius(def, targetSize), SPAWN_FOOTPRINT_CAP)
 		local position = nil
 		for _ = 1, math.max(1, math.floor(GameConfig.SpawnAttempts)) do
 			local candidate = randomFieldPoint(field)
@@ -1018,13 +1029,31 @@ function BrainrotService.Kill(entity, killer, info)
 		* Formulas.EnchantCoinMult(enchant, mapId, stat(teamStats, "EnchantPower", 1))
 		* stat(teamStats, "CoinMult", 1)
 	if isFiniteNumber(value) and value > 0 then
+		local isTurretKill = info.Source == "Turret" and isFiniteNumber(info.TurretOwnerUserId)
 		local owner = nil
-		if info.Source == "Turret" and isFiniteNumber(info.TurretOwnerUserId) then
+		if isTurretKill then
 			owner = Players:GetPlayerByUserId(info.TurretOwnerUserId)
 		end
-		if owner then
+		-- Config.Game.TurretCoinSplit = "Team": as moedas da torreta são divididas entre
+		-- os jogadores presentes que fazem parte da partida (quem tem run).
+		local members = {}
+		if isTurretKill and GameConfig.TurretCoinSplit == "Team" then
+			for _, present in ipairs(Players:GetPlayers()) do
+				if MatchService.GetRun(present) then
+					table.insert(members, present)
+				end
+			end
+		end
+		local turretValue = value * stat(teamStats, "TurretCoinMult", 1)
+		if #members > 0 then
+			-- Divide em partes iguais (cada um recebe direto na carteira).
+			local share = turretValue / #members
+			for _, member in ipairs(members) do
+				safeCall("MatchService.AddCoins", MatchService.AddCoins, member, share, "Turret")
+			end
+		elseif owner then
 			-- Abate de torreta com o dono no servidor: moedas direto na carteira dele.
-			safeCall("MatchService.AddCoins", MatchService.AddCoins, owner, value * stat(teamStats, "TurretCoinMult", 1), "Turret")
+			safeCall("MatchService.AddCoins", MatchService.AddCoins, owner, turretValue, "Turret")
 		else
 			safeCall("CoinService.SpawnCoins", function()
 				Svc("CoinService").SpawnCoins(value, center)
