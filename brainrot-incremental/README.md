@@ -305,14 +305,13 @@ evento também entram nele. Ele acaba sozinho no fim do tempo (ou com `:endevent
 Os eventos são **grátis** (você liga para todo mundo; ninguém paga Robux por eles), então não
 entram nas regras de itens aleatórios pagos. Os números ficam em `Config/Admins > Events`.
 
-### Banimento: ligue uma vez no Studio
+### Banimento
 
-O `:ban` usa o sistema de banimento oficial do Roblox, que vem **desligado**. Para ligar: no
-Studio, clique em **Players** no Explorer e marque **BanningEnabled** na janela de Propriedades,
-depois publique nos dois places. O ban vale para a experiência inteira (lobby e partida) e também
-pega as contas alternativas da pessoa. No Studio o ban não vale de verdade (só no jogo publicado),
-e como no Studio todo mundo é admin, para testar `:kick` e `:ban` lá mude `StudioEveryoneAdmin`
-para `false` por um tempo.
+O `:ban` usa o sistema de banimento oficial do Roblox. Ele já vem **ligado** no arquivo do jogo
+(**Players > BanningEnabled** marcado). O ban vale para a experiência inteira (lobby e partida) e
+também pega as contas alternativas da pessoa. No Studio o ban não vale de verdade (só no jogo
+publicado), e como no Studio todo mundo é admin, para testar `:kick` e `:ban` lá mude
+`StudioEveryoneAdmin` para `false` por um tempo.
 
 Os avisos e os eventos usam o MessagingService e o MemoryStore do Roblox. Eles funcionam sozinhos
 no jogo publicado; no Studio, ligue o acesso às APIs (seção 2) para testar.

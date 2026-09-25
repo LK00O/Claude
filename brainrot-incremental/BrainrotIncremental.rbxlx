@@ -4,19 +4,25 @@
       <string name="Name">Lighting</string>
     </Properties>
   </Item>
-  <Item class="ReplicatedStorage" referent="1">
+  <Item class="Players" referent="1">
+    <Properties>
+      <string name="Name">Players</string>
+      <bool name="BanningEnabled">true</bool>
+    </Properties>
+  </Item>
+  <Item class="ReplicatedStorage" referent="2">
     <Properties>
       <string name="Name">ReplicatedStorage</string>
     </Properties>
-    <Item class="Folder" referent="2">
+    <Item class="Folder" referent="3">
       <Properties>
         <string name="Name">Shared</string>
       </Properties>
-      <Item class="Folder" referent="3">
+      <Item class="Folder" referent="4">
         <Properties>
           <string name="Name">Config</string>
         </Properties>
-        <Item class="ModuleScript" referent="4">
+        <Item class="ModuleScript" referent="5">
           <Properties>
             <string name="Name">Achievements</string>
             <string name="Source"><![CDATA[-- Config/Achievements: as conquistas salvas no perfil do jogador.
@@ -177,7 +183,7 @@ return Achievements
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="5">
+        <Item class="ModuleScript" referent="6">
           <Properties>
             <string name="Name">Admins</string>
             <string name="Source"><![CDATA[-- Config/Admins: quem é administrador do jogo, os comandos de admin e os eventos globais.
@@ -507,7 +513,7 @@ return Admins
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="6">
+        <Item class="ModuleScript" referent="7">
           <Properties>
             <string name="Name">Brainrots</string>
             <string name="Source"><![CDATA[-- Config/Brainrots: a lista de todos os brainrots que nascem no campo.
@@ -1035,7 +1041,7 @@ return Brainrots
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="7">
+        <Item class="ModuleScript" referent="8">
           <Properties>
             <string name="Name">Coins</string>
             <string name="Source"><![CDATA[-- Config/Coins: as moedas físicas que caem no chão.
@@ -1076,7 +1082,7 @@ return Coins
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="8">
+        <Item class="ModuleScript" referent="9">
           <Properties>
             <string name="Name">Cosmetics</string>
             <string name="Source"><![CDATA[-- Config/Cosmetics: skins de arma compradas na loja do lobby com Brainrot Tokens.
@@ -1157,7 +1163,7 @@ return Cosmetics
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="9">
+        <Item class="ModuleScript" referent="10">
           <Properties>
             <string name="Name">Enchants</string>
             <string name="Source"><![CDATA[-- Config/Enchants: os encantamentos que um brainrot pode ter ao nascer.
@@ -1262,7 +1268,7 @@ return Enchants
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="10">
+        <Item class="ModuleScript" referent="11">
           <Properties>
             <string name="Name">Game</string>
             <string name="Source"><![CDATA[-- Config/Game: configurações gerais do jogo (vale para o lobby e para a partida).
@@ -1404,7 +1410,7 @@ return Game
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="11">
+        <Item class="ModuleScript" referent="12">
           <Properties>
             <string name="Name">Keybinds</string>
             <string name="Source"><![CDATA[-- Config/Keybinds: as ações que o jogador pode remapear nas Configurações.
@@ -1436,7 +1442,7 @@ return Keybinds
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="12">
+        <Item class="ModuleScript" referent="13">
           <Properties>
             <string name="Name">Lobby</string>
             <string name="Source"><![CDATA[-- Config/Lobby: regras do lobby (grupos, teleporte, reconexão e placar de líderes).
@@ -1477,7 +1483,7 @@ return Lobby
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="13">
+        <Item class="ModuleScript" referent="14">
           <Properties>
             <string name="Name">Maps</string>
             <string name="Source"><![CDATA[-- Config/Maps: os três mapas (atos) da partida.
@@ -1664,7 +1670,7 @@ return Maps
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="14">
+        <Item class="ModuleScript" referent="15">
           <Properties>
             <string name="Name">Quests</string>
             <string name="Source"><![CDATA[-- Config/Quests: os modelos de missão da Barraca de Missões.
@@ -1726,7 +1732,7 @@ return Quests
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="15">
+        <Item class="ModuleScript" referent="16">
           <Properties>
             <string name="Name">Recipes</string>
             <string name="Source"><![CDATA[-- Config/Recipes: ingredientes e receitas do Caldeirão (só no Deserto).
@@ -1929,7 +1935,7 @@ return Recipes
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="16">
+        <Item class="ModuleScript" referent="17">
           <Properties>
             <string name="Name">Stats</string>
             <string name="Source"><![CDATA[-- Config/Stats: todos os "stats" (atributos numéricos) que a partida usa.
@@ -2064,7 +2070,7 @@ return Stats
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="17">
+        <Item class="ModuleScript" referent="18">
           <Properties>
             <string name="Name">Upgrades</string>
             <string name="Source"><![CDATA[-- Config/Upgrades: todos os upgrades das barracas dos três mapas.
@@ -2321,7 +2327,7 @@ return {
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="18">
+        <Item class="ModuleScript" referent="19">
           <Properties>
             <string name="Name">Weapons</string>
             <string name="Source"><![CDATA[-- Config/Weapons: a arma de cada mapa (cada ato troca a arma).
@@ -2424,11 +2430,11 @@ return Weapons
           </Properties>
         </Item>
       </Item>
-      <Item class="Folder" referent="19">
+      <Item class="Folder" referent="20">
         <Properties>
           <string name="Name">Util</string>
         </Properties>
-        <Item class="ModuleScript" referent="20">
+        <Item class="ModuleScript" referent="21">
           <Properties>
             <string name="Name">Formulas</string>
             <string name="Source"><![CDATA[-- Formulas: todas as contas de balanceamento num lugar só.
@@ -2791,7 +2797,7 @@ return Formulas
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="21">
+        <Item class="ModuleScript" referent="22">
           <Properties>
             <string name="Name">Gamepasses</string>
             <string name="Source"><![CDATA[-- Gamepasses: a lista dos game passes do jogo e a regra de "está à venda?".
@@ -3013,7 +3019,7 @@ return Gamepasses
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="22">
+        <Item class="ModuleScript" referent="23">
           <Properties>
             <string name="Name">Net</string>
             <string name="Source"><![CDATA[-- Net: toda a comunicação entre servidor e cliente passa por aqui.
@@ -3437,7 +3443,7 @@ return Net
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="23">
+        <Item class="ModuleScript" referent="24">
           <Properties>
             <string name="Name">NumberFormat</string>
             <string name="Source"><![CDATA[-- NumberFormat: transforma números em texto bonito para o jogador (padrão pt-BR).
@@ -3723,7 +3729,7 @@ return NumberFormat
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="24">
+        <Item class="ModuleScript" referent="25">
           <Properties>
             <string name="Name">PlaceRole</string>
             <string name="Source"><![CDATA[-- PlaceRole: decide se este servidor é o "Lobby" ou a "Match" (partida).
@@ -3798,7 +3804,7 @@ return PlaceRole
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="25">
+        <Item class="ModuleScript" referent="26">
           <Properties>
             <string name="Name">Signal</string>
             <string name="Source"><![CDATA[-- Signal: um "evento" simples feito em Lua puro.
@@ -3856,7 +3862,7 @@ return Signal
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="26">
+        <Item class="ModuleScript" referent="27">
           <Properties>
             <string name="Name">Tables</string>
             <string name="Source"><![CDATA[-- Tables: funções pequenas e úteis para trabalhar com tabelas.
@@ -4013,7 +4019,7 @@ return Tables
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="27">
+        <Item class="ModuleScript" referent="28">
           <Properties>
             <string name="Name">Trove</string>
             <string name="Source"><![CDATA[-- Trove: guarda conexões, instâncias e funções de limpeza num lugar só.
@@ -4079,11 +4085,11 @@ return Trove
       </Item>
     </Item>
   </Item>
-  <Item class="ServerScriptService" referent="28">
+  <Item class="ServerScriptService" referent="29">
     <Properties>
       <string name="Name">ServerScriptService</string>
     </Properties>
-    <Item class="Script" referent="29">
+    <Item class="Script" referent="30">
       <Properties>
         <string name="Name">Main</string>
         <token name="RunContext">0</token>
@@ -4308,11 +4314,11 @@ print(("[Main] Servidor pronto (%s)."):format(role))
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Folder" referent="30">
+    <Item class="Folder" referent="31">
       <Properties>
         <string name="Name">Services</string>
       </Properties>
-      <Item class="ModuleScript" referent="31">
+      <Item class="ModuleScript" referent="32">
         <Properties>
           <string name="Name">AchievementService</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -4639,7 +4645,7 @@ return AchievementService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="32">
+      <Item class="ModuleScript" referent="33">
         <Properties>
           <string name="Name">AdminService</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -6553,7 +6559,7 @@ return AdminService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="33">
+      <Item class="ModuleScript" referent="34">
         <Properties>
           <string name="Name">BrainrotService</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -8032,7 +8038,7 @@ return BrainrotService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="34">
+      <Item class="ModuleScript" referent="35">
         <Properties>
           <string name="Name">CoinService</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -8620,7 +8626,7 @@ return CoinService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="35">
+      <Item class="ModuleScript" referent="36">
         <Properties>
           <string name="Name">CombatService</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -9650,7 +9656,7 @@ return CombatService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="36">
+      <Item class="ModuleScript" referent="37">
         <Properties>
           <string name="Name">DataService</string>
           <string name="Source"><![CDATA[-- DataService: carrega, guarda e salva o perfil (progresso permanente) de cada jogador.
@@ -10893,7 +10899,7 @@ return DataService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="37">
+      <Item class="ModuleScript" referent="38">
         <Properties>
           <string name="Name">DebugService</string>
           <string name="Source"><![CDATA[-- DebugService: comandos de teste para desenvolver mais rápido
@@ -11508,7 +11514,7 @@ return DebugService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="38">
+      <Item class="ModuleScript" referent="39">
         <Properties>
           <string name="Name">LobbyService</string>
           <string name="Source"><![CDATA[-- LobbyService: monta o mapa do lobby, cuida do placar de líderes e do botão "Reconectar".
@@ -12203,7 +12209,7 @@ return LobbyService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="39">
+      <Item class="ModuleScript" referent="40">
         <Properties>
           <string name="Name">MatchService</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -13816,7 +13822,7 @@ return MatchService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="40">
+      <Item class="ModuleScript" referent="41">
         <Properties>
           <string name="Name">MonetizationService</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -14241,7 +14247,7 @@ return MonetizationService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="41">
+      <Item class="ModuleScript" referent="42">
         <Properties>
           <string name="Name">PartyService</string>
           <string name="Source"><![CDATA[-- PartyService: grupos do lobby (criar, entrar, sair, prontos, contagem e teleporte).
@@ -15677,7 +15683,7 @@ return PartyService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="42">
+      <Item class="ModuleScript" referent="43">
         <Properties>
           <string name="Name">ProgressionService</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -16003,7 +16009,7 @@ return ProgressionService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="43">
+      <Item class="ModuleScript" referent="44">
         <Properties>
           <string name="Name">QuestService</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -16491,7 +16497,7 @@ return QuestService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="44">
+      <Item class="ModuleScript" referent="45">
         <Properties>
           <string name="Name">RecipeService</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -16925,7 +16931,7 @@ return RecipeService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="45">
+      <Item class="ModuleScript" referent="46">
         <Properties>
           <string name="Name">SettingsService</string>
           <string name="Source"><![CDATA[-- SettingsService: recebe as configurações do jogador (sensibilidade, FOV, volumes,
@@ -17078,7 +17084,7 @@ return SettingsService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="46">
+      <Item class="ModuleScript" referent="47">
         <Properties>
           <string name="Name">ShopService</string>
           <string name="Source"><![CDATA[-- ShopService: loja de skins de arma do lobby, paga com Brainrot Tokens.
@@ -17251,7 +17257,7 @@ return ShopService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="47">
+      <Item class="ModuleScript" referent="48">
         <Properties>
           <string name="Name">StatService</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -17468,7 +17474,7 @@ return StatService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="48">
+      <Item class="ModuleScript" referent="49">
         <Properties>
           <string name="Name">StateService</string>
           <string name="Source"><![CDATA[-- StateService: guarda o "estado replicado" do jogo e manda para os clientes.
@@ -17708,7 +17714,7 @@ return StateService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="49">
+      <Item class="ModuleScript" referent="50">
         <Properties>
           <string name="Name">SupremeService</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -18431,7 +18437,7 @@ return SupremeService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="50">
+      <Item class="ModuleScript" referent="51">
         <Properties>
           <string name="Name">TravelService</string>
           <string name="Source"><![CDATA[-- TravelService: leva jogadores de um servidor para outro (teleporte).
@@ -18991,7 +18997,7 @@ return TravelService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="51">
+      <Item class="ModuleScript" referent="52">
         <Properties>
           <string name="Name">TurretService</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -20241,7 +20247,7 @@ return TurretService
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="52">
+      <Item class="ModuleScript" referent="53">
         <Properties>
           <string name="Name">UpgradeService</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -20646,11 +20652,11 @@ return UpgradeService
         </Properties>
       </Item>
     </Item>
-    <Item class="Folder" referent="53">
+    <Item class="Folder" referent="54">
       <Properties>
         <string name="Name">World</string>
       </Properties>
-      <Item class="ModuleScript" referent="54">
+      <Item class="ModuleScript" referent="55">
         <Properties>
           <string name="Name">BrainrotFactory</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -22014,11 +22020,11 @@ return BrainrotFactory
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="55">
+      <Item class="Folder" referent="56">
         <Properties>
           <string name="Name">Builders</string>
         </Properties>
-        <Item class="ModuleScript" referent="56">
+        <Item class="ModuleScript" referent="57">
           <Properties>
             <string name="Name">Common</string>
             <string name="Source"><![CDATA[--!nonstrict
@@ -23255,7 +23261,7 @@ return Common
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="57">
+        <Item class="ModuleScript" referent="58">
           <Properties>
             <string name="Name">Desert</string>
             <string name="Source"><![CDATA[--!nonstrict
@@ -23845,7 +23851,7 @@ return Desert
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="58">
+        <Item class="ModuleScript" referent="59">
           <Properties>
             <string name="Name">Lobby</string>
             <string name="Source"><![CDATA[--!nonstrict
@@ -24471,7 +24477,7 @@ return Lobby
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="59">
+        <Item class="ModuleScript" referent="60">
           <Properties>
             <string name="Name">Meadow</string>
             <string name="Source"><![CDATA[--!nonstrict
@@ -24842,7 +24848,7 @@ return Meadow
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="60">
+        <Item class="ModuleScript" referent="61">
           <Properties>
             <string name="Name">Winter</string>
             <string name="Source"><![CDATA[--!nonstrict
@@ -25282,7 +25288,7 @@ return Winter
           </Properties>
         </Item>
       </Item>
-      <Item class="ModuleScript" referent="61">
+      <Item class="ModuleScript" referent="62">
         <Properties>
           <string name="Name">MapBuilder</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -25727,7 +25733,7 @@ return MapBuilder
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="62">
+      <Item class="ModuleScript" referent="63">
         <Properties>
           <string name="Name">TurretFactory</string>
           <string name="Source"><![CDATA[--!nonstrict
@@ -26237,34 +26243,34 @@ return TurretFactory
       </Item>
     </Item>
   </Item>
-  <Item class="ServerStorage" referent="63">
+  <Item class="ServerStorage" referent="64">
     <Properties>
       <string name="Name">ServerStorage</string>
     </Properties>
-    <Item class="Folder" referent="64">
+    <Item class="Folder" referent="65">
       <Properties>
         <string name="Name">BrainrotModels</string>
       </Properties>
     </Item>
   </Item>
-  <Item class="SoundService" referent="65">
+  <Item class="SoundService" referent="66">
     <Properties>
       <string name="Name">SoundService</string>
     </Properties>
   </Item>
-  <Item class="StarterPlayer" referent="66">
+  <Item class="StarterPlayer" referent="67">
     <Properties>
       <string name="Name">StarterPlayer</string>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="67">
+    <Item class="StarterPlayerScripts" referent="68">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="68">
+      <Item class="Folder" referent="69">
         <Properties>
           <string name="Name">Controllers</string>
         </Properties>
-        <Item class="ModuleScript" referent="69">
+        <Item class="ModuleScript" referent="70">
           <Properties>
             <string name="Name">AnnouncementController</string>
             <string name="Source"><![CDATA[-- AnnouncementController (lobby e partida): faixas grandes no topo da tela, para todos os jogadores.
@@ -27019,7 +27025,7 @@ return AnnouncementController
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="70">
+        <Item class="ModuleScript" referent="71">
           <Properties>
             <string name="Name">CameraController</string>
             <string name="Source"><![CDATA[-- CameraController (só na partida): câmera de primeira pessoa feita por nós.
@@ -27606,7 +27612,7 @@ return CameraController
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="71">
+        <Item class="ModuleScript" referent="72">
           <Properties>
             <string name="Name">ChatTagController</string>
             <string name="Source"><![CDATA[-- ChatTagController (lobby e partida): coloca etiquetas coloridas antes do nome no chat.
@@ -27712,7 +27718,7 @@ return ChatTagController
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="72">
+        <Item class="ModuleScript" referent="73">
           <Properties>
             <string name="Name">EffectsController</string>
             <string name="Source"><![CDATA[-- EffectsController (só na partida): todos os efeitos visuais locais.
@@ -28882,7 +28888,7 @@ return EffectsController
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="73">
+        <Item class="ModuleScript" referent="74">
           <Properties>
             <string name="Name">EndingController</string>
             <string name="Source"><![CDATA[-- EndingController (partida): a cena final do jogo (Ato 3).
@@ -29676,7 +29682,7 @@ return EndingController
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="74">
+        <Item class="ModuleScript" referent="75">
           <Properties>
             <string name="Name">FlyController</string>
             <string name="Source"><![CDATA[-- FlyController (lobby e partida): faz o personagem do admin voar.
@@ -30172,7 +30178,7 @@ return FlyController
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="75">
+        <Item class="ModuleScript" referent="76">
           <Properties>
             <string name="Name">HUDController</string>
             <string name="Source"><![CDATA[-- HUDController (só na partida): tudo que fica sempre na tela durante o jogo.
@@ -32105,7 +32111,7 @@ return HUDController
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="76">
+        <Item class="ModuleScript" referent="77">
           <Properties>
             <string name="Name">MobileController</string>
             <string name="Source"><![CDATA[-- MobileController: botões grandes na tela para quem joga no celular/tablet.
@@ -32695,7 +32701,7 @@ return MobileController
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="77">
+        <Item class="ModuleScript" referent="78">
           <Properties>
             <string name="Name">MovementController</string>
             <string name="Source"><![CDATA[-- MovementController (lobby e partida): corrida, teclas de movimento remapeadas e calor do deserto.
@@ -33309,7 +33315,7 @@ return MovementController
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="78">
+        <Item class="ModuleScript" referent="79">
           <Properties>
             <string name="Name">MusicController</string>
             <string name="Source"><![CDATA[-- MusicController: toca a música de fundo de cada lugar, em loop.
@@ -33534,7 +33540,7 @@ return MusicController
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="79">
+        <Item class="ModuleScript" referent="80">
           <Properties>
             <string name="Name">NotifyController</string>
             <string name="Source"><![CDATA[-- NotifyController: mostra avisos ("toasts") empilhados no topo da tela.
@@ -34002,7 +34008,7 @@ return NotifyController
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="80">
+        <Item class="ModuleScript" referent="81">
           <Properties>
             <string name="Name">PlacementController</string>
             <string name="Source"><![CDATA[-- PlacementController (partida, Inverno e Deserto): modo de colocar torreta.
@@ -34770,7 +34776,7 @@ return PlacementController
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="81">
+        <Item class="ModuleScript" referent="82">
           <Properties>
             <string name="Name">PromptController</string>
             <string name="Source"><![CDATA[-- PromptController: liga os ProximityPrompts do mundo às janelas do cliente.
@@ -35092,7 +35098,7 @@ return PromptController
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="82">
+        <Item class="ModuleScript" referent="83">
           <Properties>
             <string name="Name">StateController</string>
             <string name="Source"><![CDATA[-- StateController: guarda no cliente uma cópia do estado que o servidor manda.
@@ -35480,7 +35486,7 @@ return StateController
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="83">
+        <Item class="ModuleScript" referent="84">
           <Properties>
             <string name="Name">WeaponController</string>
             <string name="Source"><![CDATA[-- WeaponController (só na partida): a arma do jogador.
@@ -36644,7 +36650,7 @@ return WeaponController
           </Properties>
         </Item>
       </Item>
-      <Item class="LocalScript" referent="84">
+      <Item class="LocalScript" referent="85">
         <Properties>
           <string name="Name">Main</string>
           <string name="Source"><![CDATA[-- Main.client.lua: ponto de partida do cliente (LocalScript).
@@ -36847,11 +36853,11 @@ print(("[Main] Cliente pronto (%s): %d módulos iniciados."):format(role, #entri
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="85">
+      <Item class="Folder" referent="86">
         <Properties>
           <string name="Name">UI</string>
         </Properties>
-        <Item class="ModuleScript" referent="86">
+        <Item class="ModuleScript" referent="87">
           <Properties>
             <string name="Name">AdminPanel</string>
             <string name="Source"><![CDATA[-- AdminPanel (lobby e partida): o painel de administrador.
@@ -38777,7 +38783,7 @@ return AdminPanel
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="87">
+        <Item class="ModuleScript" referent="88">
           <Properties>
             <string name="Name">CauldronWindow</string>
             <string name="Source"><![CDATA[-- CauldronWindow (partida, Deserto): o Caldeirão e o Livro de Receitas.
@@ -40171,7 +40177,7 @@ return CauldronWindow
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="88">
+        <Item class="ModuleScript" referent="89">
           <Properties>
             <string name="Name">DebugPanel</string>
             <string name="Source"><![CDATA[-- DebugPanel (lobby e partida): painel de comandos de teste para desenvolver mais rápido.
@@ -40763,7 +40769,7 @@ return DebugPanel
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="89">
+        <Item class="ModuleScript" referent="90">
           <Properties>
             <string name="Name">LobbyAchievements</string>
             <string name="Source"><![CDATA[-- LobbyAchievements (lobby): a janela "Conquistas e Estatísticas".
@@ -41373,7 +41379,7 @@ return LobbyAchievements
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="90">
+        <Item class="ModuleScript" referent="91">
           <Properties>
             <string name="Name">LobbyCreate</string>
             <string name="Source"><![CDATA[-- LobbyCreate (lobby): a janela "Criar Partida".
@@ -41967,7 +41973,7 @@ return LobbyCreate
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="91">
+        <Item class="ModuleScript" referent="92">
           <Properties>
             <string name="Name">LobbyList</string>
             <string name="Source"><![CDATA[-- LobbyList (lobby): a janela "Partidas Abertas".
@@ -42474,7 +42480,7 @@ return LobbyList
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="92">
+        <Item class="ModuleScript" referent="93">
           <Properties>
             <string name="Name">LobbyParty</string>
             <string name="Source"><![CDATA[-- LobbyParty (lobby): a janela "Meu Grupo".
@@ -43763,7 +43769,7 @@ return LobbyParty
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="93">
+        <Item class="ModuleScript" referent="94">
           <Properties>
             <string name="Name">LobbyShop</string>
             <string name="Source"><![CDATA[-- LobbyShop (lobby): a Loja. Tem duas abas:
@@ -44576,7 +44582,7 @@ return LobbyShop
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="94">
+        <Item class="ModuleScript" referent="95">
           <Properties>
             <string name="Name">LobbyUI</string>
             <string name="Source"><![CDATA[-- LobbyUI (lobby): toda a interface do lobby.
@@ -46450,7 +46456,7 @@ return LobbyUI
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="95">
+        <Item class="ModuleScript" referent="96">
           <Properties>
             <string name="Name">SettingsWindow</string>
             <string name="Source"><![CDATA[-- SettingsWindow (lobby e partida): a janela de Configurações.
@@ -47523,7 +47529,7 @@ return SettingsWindow
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="96">
+        <Item class="ModuleScript" referent="97">
           <Properties>
             <string name="Name">StallWindow</string>
             <string name="Source"><![CDATA[-- StallWindow (partida): a janela das barracas de upgrade.
@@ -49070,7 +49076,7 @@ return StallWindow
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="97">
+        <Item class="ModuleScript" referent="98">
           <Properties>
             <string name="Name">SupremeWindow</string>
             <string name="Source"><![CDATA[-- SupremeWindow (partida, Deserto): a janela do Brainrot Supremo.
@@ -49936,7 +49942,7 @@ return SupremeWindow
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="98">
+        <Item class="ModuleScript" referent="99">
           <Properties>
             <string name="Name">UIKit</string>
             <string name="Source"><![CDATA[-- UIKit: o "kit de peças" de toda a interface do jogo.
@@ -51590,7 +51596,7 @@ return UIKit
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="99">
+  <Item class="Workspace" referent="100">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>

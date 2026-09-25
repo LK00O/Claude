@@ -8,6 +8,12 @@
         "StreamingEnabled": false
       }
     },
+    "Players": {
+      "$className": "Players",
+      "$properties": {
+        "BanningEnabled": true
+      }
+    },
     "Lighting": {
       "$className": "Lighting"
     },
