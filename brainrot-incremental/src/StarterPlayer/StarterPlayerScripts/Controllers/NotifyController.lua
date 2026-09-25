@@ -9,6 +9,8 @@
 -- tem borda arco-íris girando, brilho pulsando e som.
 -- Avisos iguais repetidos não empilham: o aviso que já está na tela ganha um "x2", "x3"...
 -- Tocar/clicar num aviso fecha ele na hora.
+-- NotifyController.SetTopOffset(px) desce a pilha quando as faixas do topo (aviso de
+-- admin, evento global) estão na tela; nil volta ao lugar normal.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TextService = game:GetService("TextService")
@@ -92,6 +94,9 @@ local RAINBOW = ColorSequence.new({
 -------------------------------------------------------------------------------
 
 local container = nil -- Frame que empilha os avisos
+-- Distância atual do topo. Cresce quando as faixas de aviso/evento do topo aparecem
+-- (AnnouncementController chama NotifyController.SetTopOffset), para não ficar por cima delas.
+local topOffset = TOP_OFFSET
 local active = {} -- avisos na tela (mais antigo primeiro)
 local orderCounter = 0 -- para o mais novo ficar em cima
 local initialized = false
@@ -120,8 +125,8 @@ local function ensureContainer()
 	container = UIKit.New("Frame", {
 		Name = "Toasts",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, TOP_OFFSET),
-		Size = UDim2.new(0, MAX_WIDTH, 1, -TOP_OFFSET),
+		Position = UDim2.new(0.5, 0, 0, topOffset),
+		Size = UDim2.new(0, MAX_WIDTH, 1, -topOffset),
 		BackgroundTransparency = 1,
 		Parent = screen,
 	})
@@ -185,7 +190,7 @@ end
 local function createToast(text, kind, style)
 	local parent = ensureContainer()
 	local width = computeWidth()
-	parent.Size = UDim2.new(0, width, 1, -TOP_OFFSET)
+	parent.Size = UDim2.new(0, width, 1, -topOffset)
 
 	local isRare = kind == "rare"
 	local font = isRare and Theme.TitleFont or Theme.Font
@@ -395,6 +400,27 @@ function NotifyController.Show(text, kind, duration)
 
 	if style.Sound then
 		UIKit.PlaySound(style.Sound)
+	end
+end
+
+-- NotifyController.SetTopOffset(offset?)
+-- Muda a distância do topo onde a pilha de avisos começa (pixels da interface).
+-- nil (ou um valor menor que o padrão) volta ao lugar de sempre.
+function NotifyController.SetTopOffset(offset)
+	local value = tonumber(offset)
+	if not value or value ~= value or value < TOP_OFFSET then
+		value = TOP_OFFSET
+	end
+	value = math.floor(value + 0.5)
+	if value == topOffset then
+		return
+	end
+	topOffset = value
+	if container and container.Parent then
+		UIKit.Tween(container, {
+			Position = UDim2.new(0.5, 0, 0, topOffset),
+			Size = UDim2.new(0, container.Size.X.Offset, 1, -topOffset),
+		}, 0.2)
 	end
 end
 

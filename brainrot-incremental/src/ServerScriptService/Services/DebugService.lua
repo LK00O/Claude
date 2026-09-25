@@ -10,6 +10,10 @@
 --   * Request "Debug"(command, arg) — usado pelo painel DEBUG do cliente;
 --   * chat: digite "/coins 1000", "/maxall", "/wave" etc.
 --
+-- O AdminService (comandos de administrador, que valem também fora do Studio) reaproveita
+-- estes comandos com DebugService.RunCommand(player, nome, arg, adminCaller). Só com um
+-- adminCaller que o AdminService confirma ser admin a trava do modo de teste é pulada.
+--
 -- Comandos que só fazem sentido na partida (coins, maxall, wave, nextact, supreme,
 -- ingredients, reset) respondem com um aviso quando usados no lobby.
 
@@ -427,8 +431,9 @@ Commands.help = {
 -------------------------------------------------------------------------------
 
 -- Roda um comando e devolve ok, mensagem (sempre um texto em português).
-local function execute(player, commandName, arg)
-	if not isEnabled() then
+-- bypassGate = true pula a trava do modo de teste (só quando um admin pediu; veja RunCommand).
+local function execute(player, commandName, arg, bypassGate)
+	if not bypassGate and not isEnabled() then
 		return false, MSG_DISABLED
 	end
 	if type(commandName) ~= "string" or commandName == "" or #commandName > MAX_COMMAND_LENGTH then
@@ -533,6 +538,38 @@ local function connectChatted(player)
 		handleChat(player, message)
 	end)
 end
+
+-------------------------------------------------------------------------------
+-- API usada pelo AdminService
+-------------------------------------------------------------------------------
+
+-- DebugService.RunCommand(player, commandName, arg, adminCaller?) -> ok, mensagem
+--   Roda um comando de teste em "player" (quem recebe as moedas, os tokens...).
+--   adminCaller = o jogador ADMIN que pediu o comando. Quando ele é mesmo admin (o
+--   AdminService confere, sem confiar em nada que venha do cliente), a trava do modo de
+--   teste é pulada e o comando funciona também nos servidores de verdade.
+--   Sem adminCaller, vale a regra normal (só com o modo de teste ligado).
+--   As regras "só na partida" continuam valendo nos dois casos.
+function DebugService.RunCommand(player, commandName, arg, adminCaller)
+	if typeof(player) ~= "Instance" or not player:IsA("Player") then
+		return false, "Jogador inválido."
+	end
+	local bypassGate = false
+	if adminCaller ~= nil then
+		local ok, isAdmin = pcall(function()
+			return Svc("AdminService").IsAdmin(adminCaller)
+		end)
+		if not ok or isAdmin ~= true then
+			return false, "Você não tem permissão para usar comandos de administrador."
+		end
+		bypassGate = true
+	end
+	return execute(player, commandName, arg, bypassGate)
+end
+
+-- DebugService.ParseNumber(arg) -> number | nil
+--   Mesmo leitor de números dos comandos ("1000", "2,5", "1e6", "10k", "3m", "2b", "1t").
+DebugService.ParseNumber = parseNumber
 
 -------------------------------------------------------------------------------
 -- Ciclo de vida

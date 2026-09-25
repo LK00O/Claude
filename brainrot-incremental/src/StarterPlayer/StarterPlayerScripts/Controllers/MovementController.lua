@@ -10,6 +10,10 @@
 --   * Calor do deserto: longe da sombra do oásis por mais de DesertHeat.SafeTime segundos (e sem
 --     o upgrade "Chapéu de Palha", stat HeatImmunity) o jogador fica mais lento e a tela fica
 --     alaranjada. O centro e o raio do oásis vêm dos atributos OasisCenter/OasisRadius de workspace.Map.
+--   * Velocidade de admin: o comando ":speed" (AdminService, no servidor) grava o atributo
+--     "AdminWalkSpeed" no jogador enquanto a velocidade está mudada. Como este módulo escreve
+--     o WalkSpeed todo quadro, ele usa esse valor como velocidade base (correr continua mais
+--     rápido na mesma proporção). Sem o atributo, vale Config.Game.WalkSpeed.
 --
 -- API pública (usada pelo botão "Correr" do celular, pela câmera e pelo final):
 --   MovementController.SetSprint(on)         liga (true) / desliga (false) a corrida (botão "Correr" do celular)
@@ -19,6 +23,7 @@
 --   MovementController.SprintChanged: Signal(isSprinting)
 --   MovementController.SetLocked(bool)       trava o movimento (usado na cena final)
 --   MovementController.IsHeatActive() -> boolean
+--   MovementController.GetBaseWalkSpeed() -> number  velocidade de andar atual (a do admin, se houver)
 
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
@@ -87,6 +92,9 @@ local locked = false
 
 local humanoid = nil
 local rootPart = nil
+
+-- Atributo que o servidor grava no jogador enquanto o ":speed" do admin está valendo.
+local ADMIN_SPEED_ATTRIBUTE = "AdminWalkSpeed"
 
 -- Calor do deserto.
 local heatTimer = 0 -- segundos seguidos no sol
@@ -384,6 +392,16 @@ end
 -------------------------------------------------------------------------------
 -- Velocidade (andar / correr / calor)
 -------------------------------------------------------------------------------
+
+-- Velocidade de andar "base": a do admin (atributo do servidor) ou a do Config.
+local function getBaseWalkSpeed()
+	local adminSpeed = player:GetAttribute(ADMIN_SPEED_ATTRIBUTE)
+	if type(adminSpeed) == "number" and adminSpeed > 0 and adminSpeed == adminSpeed then
+		return adminSpeed
+	end
+	return GameConfig.WalkSpeed
+end
+
 local function onHeartbeat(dt)
 	updateSprinting()
 
@@ -396,7 +414,12 @@ local function onHeartbeat(dt)
 	if not humanoid or humanoid.Health <= 0 then
 		return
 	end
-	local speed = if sprinting then GameConfig.SprintSpeed else GameConfig.WalkSpeed
+	-- Correr multiplica a velocidade base na mesma proporção do Config (26/16 = 1,625).
+	local base = getBaseWalkSpeed()
+	local speed = base
+	if sprinting and GameConfig.WalkSpeed > 0 then
+		speed = base * GameConfig.SprintSpeed / GameConfig.WalkSpeed
+	end
 	if heatActive then
 		speed *= GameConfig.DesertHeat.SlowMultiplier
 	end
@@ -446,7 +469,7 @@ local function onCharacterAdded(character)
 	end
 	humanoid = newHumanoid
 	rootPart = newRoot
-	humanoid.WalkSpeed = GameConfig.WalkSpeed
+	humanoid.WalkSpeed = getBaseWalkSpeed()
 
 	characterTrove:Connect(humanoid.Died, function()
 		sprintToggled = false
@@ -500,6 +523,12 @@ end
 
 function MovementController.IsHeatActive()
 	return heatActive
+end
+
+-- Velocidade de andar atual sem correr (a do admin, se o servidor mudou; senão a do Config).
+-- O FlyController usa isto para o voo ficar mais rápido junto com o ":speed".
+function MovementController.GetBaseWalkSpeed()
+	return getBaseWalkSpeed()
 end
 
 -------------------------------------------------------------------------------

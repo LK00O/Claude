@@ -2,9 +2,10 @@
 -- StatService: calcula os "stats" (dano, cadência, chance de gigante...) de cada jogador
 -- e do time, com cache. Os outros serviços pedem aqui em vez de recalcular toda hora.
 --
---   StatService.Get(player)        -> stats do jogador (upgrades dele + do time + receitas + game passes)
---   StatService.GetTeam()          -> stats do time (sem upgrades de jogador e sem game passes;
---                                     usado para regras do campo)
+--   StatService.Get(player)        -> stats do jogador (upgrades dele + do time + receitas + game passes
+--                                     + evento global)
+--   StatService.GetTeam()          -> stats do time (sem upgrades de jogador e sem game passes, com o
+--                                     evento global; usado para regras do campo)
 --   StatService.Invalidate(player?) -> joga o cache fora (nil = todos os jogadores + time)
 --   StatService.Changed: Signal(player?)  -> dispara depois de cada Invalidate
 --
@@ -45,8 +46,21 @@ local function isFiniteNumber(value)
 	return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
 end
 
--- "extras" dos game passes do jogador para o Formulas.ComputeStats:
---   DoubleCoins / VIP -> moedas;  DoubleDamage -> dano da arma dele.
+-- Efeitos do evento global ligado por um admin (":event"), ou nil sem evento.
+-- Se o AdminService der erro, calcula sem evento (melhor do que quebrar os stats).
+local function getEventEffects()
+	local ok, effects = pcall(function()
+		return Svc("AdminService").GetEventEffects()
+	end)
+	if ok and type(effects) == "table" then
+		return effects
+	end
+	return nil
+end
+
+-- "extras" do jogador para o Formulas.ComputeStats:
+--   DoubleCoins / VIP -> moedas;  DoubleDamage -> dano da arma dele (game passes);
+--   Event -> efeitos do evento global (moedas, sorte, gigantes), iguais para todos.
 -- Se o MonetizationService der erro, calcula sem passes (melhor do que quebrar os stats).
 local function getPassExtras(player)
 	local ok, extras = pcall(function()
@@ -57,10 +71,11 @@ local function getPassExtras(player)
 			DoubleDamage = MonetizationService.HasPass(player, "DoubleDamage") == true,
 		}
 	end)
-	if ok and type(extras) == "table" then
-		return extras
+	if not ok or type(extras) ~= "table" then
+		extras = {}
 	end
-	return {}
+	extras.Event = getEventEffects()
+	return extras
 end
 
 -- Calcula os stats de um jogador. Devolve (stats, temRun).
@@ -134,15 +149,23 @@ function StatService.Get(player)
 	return stats
 end
 
--- Stats do time: upgrades do time + receitas, sem upgrades de jogador e sem game passes
--- (todo pass vale só para o dono: Moedas em Dobro, VIP, Dano em Dobro...).
+-- Stats do time: upgrades do time + receitas + evento global, sem upgrades de jogador e
+-- sem game passes (todo pass vale só para o dono: Moedas em Dobro, VIP, Dano em Dobro...).
+-- "Team = true": o bônus de moedas do evento fica de fora do CoinMult do time, porque o
+-- MatchService.AddCoins já aplica ele em cada jogador (senão contaria duas vezes).
 function StatService.GetTeam()
 	if teamCache then
 		return teamCache
 	end
 	local MatchService = Svc("MatchService")
 	local team = MatchService.GetTeam()
-	teamCache = Formulas.ComputeStats(MatchService.GetMapId(), {}, team.Upgrades, team.Recipes, {})
+	teamCache = Formulas.ComputeStats(
+		MatchService.GetMapId(),
+		{},
+		team.Upgrades,
+		team.Recipes,
+		{ Team = true, Event = getEventEffects() }
+	)
 	return teamCache
 end
 

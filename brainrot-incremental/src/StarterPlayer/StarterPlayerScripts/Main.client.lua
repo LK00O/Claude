@@ -34,8 +34,12 @@ local ALWAYS = {
 	{ ControllersFolder, "MusicController" },
 	{ ControllersFolder, "MovementController" },
 	{ ControllersFolder, "ChatTagController" },
+	-- Admin (lobby e partida): voo do admin, faixas de aviso/evento para todos e o painel.
+	{ ControllersFolder, "FlyController" },
+	{ ControllersFolder, "AnnouncementController" },
 	{ UIFolder, "SettingsWindow" },
 	{ UIFolder, "DebugPanel" },
+	{ UIFolder, "AdminPanel" },
 }
 
 -- Só na partida.

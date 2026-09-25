@@ -137,14 +137,70 @@ function Formulas.ShelfCost(mapId, nextShelf)
 end
 
 -------------------------------------------------------------------------------
+-- Evento global (comando de admin ":event", Config.Admins.Events)
+-------------------------------------------------------------------------------
+-- extras.Event = tabela Effects do evento ativo (ou nil sem evento). Campos opcionais:
+--   CoinMult          -> moedas × isto (entra no PassCoinMult, junto com os game passes)
+--   TierLuckAdd       -> TierLuck + isto
+--   EnchantChanceMult -> EnchantChance × isto
+--   GiantChanceAdd    -> GiantChance + isto
+--   BoardCooldownMult -> recarga do quadro × isto (o BrainrotService lê com EventBoardCooldownMult)
+-- Os eventos são GRÁTIS (um admin liga para todo mundo; ninguém paga Robux), então não
+-- são "sorte paga" e não precisam mostrar chances.
+
+-- Limites de segurança dos efeitos (constantes técnicas, não são balanceamento): um número
+-- errado no Config nunca vira moedas ×1000 nem uma recarga zero.
+local EVENT_MAX_COIN_MULT = 10
+local EVENT_MAX_LUCK_ADD = 10
+local EVENT_MAX_ENCHANT_MULT = 10
+local EVENT_MIN_COOLDOWN_MULT = 0.1
+
+-- Lê um número dos efeitos do evento, com valor padrão e limites.
+local function eventNumber(effects, field, default, minValue, maxValue)
+	if type(effects) ~= "table" then
+		return default
+	end
+	local value = effects[field]
+	if type(value) ~= "number" or value ~= value or value == math.huge or value == -math.huge then
+		return default
+	end
+	return math.clamp(value, minValue, maxValue)
+end
+
+-- Formulas.EventCoinMult(effects) -> multiplicador de moedas do evento (1 sem evento).
+function Formulas.EventCoinMult(effects)
+	return eventNumber(effects, "CoinMult", 1, 1, EVENT_MAX_COIN_MULT)
+end
+
+-- Formulas.EventBoardCooldownMult(effects) -> multiplicador da recarga do quadro (1 sem evento).
+function Formulas.EventBoardCooldownMult(effects)
+	return eventNumber(effects, "BoardCooldownMult", 1, EVENT_MIN_COOLDOWN_MULT, 1)
+end
+
+-- Formulas.ApplyEventEffects(stats, effects) — aplica a sorte e os gigantes do evento
+-- nos stats (muda a própria tabela). O ComputeStats chama isto depois dos upgrades e
+-- ANTES dos limites (Clamps), então a chance de gigante e a de encantamento continuam
+-- com o teto do Config.Stats.
+function Formulas.ApplyEventEffects(stats, effects)
+	if type(stats) ~= "table" or type(effects) ~= "table" then
+		return
+	end
+	stats.TierLuck = (stats.TierLuck or 0) + eventNumber(effects, "TierLuckAdd", 0, 0, EVENT_MAX_LUCK_ADD)
+	stats.EnchantChance = (stats.EnchantChance or 0) * eventNumber(effects, "EnchantChanceMult", 1, 1, EVENT_MAX_ENCHANT_MULT)
+	stats.GiantChance = (stats.GiantChance or 0) + eventNumber(effects, "GiantChanceAdd", 0, 0, 1)
+end
+
+-------------------------------------------------------------------------------
 -- Cálculo de todos os stats
 -------------------------------------------------------------------------------
 
--- Formulas.PassCoinMult(extras) -> multiplicador de moedas dos game passes do jogador.
---   extras.DoubleCoins -> ×2;  extras.VIP -> × Config.Game.GamepassVipCoinMult (1,25).
---   Os dois juntos multiplicam: 2 × 1,25 = 2,5.
+-- Formulas.PassCoinMult(extras) -> multiplicador de moedas que o MatchService.AddCoins aplica.
+--   extras.DoubleCoins -> ×2;  extras.VIP -> × Config.Game.GamepassVipCoinMult (1,25);
+--   extras.Event (evento global, ex.: "moedas2x") -> × Effects.CoinMult.
+--   Tudo junto multiplica: 2 × 1,25 × 2 = 5.
 -- O MatchService.AddCoins usa esta função nas moedas de verdade e o ComputeStats usa
 -- para mostrar o "Multiplicador de Moedas" na tela: as duas contas são sempre iguais.
+-- (A missão divide a renda por este mesmo número para o bônus não contar duas vezes.)
 function Formulas.PassCoinMult(extras)
 	local mult = 1
 	if type(extras) ~= "table" then
@@ -156,6 +212,7 @@ function Formulas.PassCoinMult(extras)
 	if extras.VIP == true then
 		mult *= Gamepasses.VipCoinMult()
 	end
+	mult *= Formulas.EventCoinMult(extras.Event)
 	return mult
 end
 
@@ -163,8 +220,11 @@ end
 --   playerLevels   = {[upgradeId] = nível} do jogador (upgrades de escopo "Player")
 --   teamLevels     = {[upgradeId] = nível} do time (upgrades de escopo "Team")
 --   recipesApplied = {[recipeId] = true} receitas permanentes feitas nesta partida
---   extras         = {DoubleCoins = boolean, VIP = boolean, DoubleDamage = boolean}
---                    (game passes do PRÓPRIO jogador; nos stats do time vai vazio)
+--   extras         = {DoubleCoins = boolean, VIP = boolean, DoubleDamage = boolean,
+--                     Event = Effects do evento global?, Team = boolean?}
+--                    (game passes do PRÓPRIO jogador; nos stats do time vai {Team = true, Event = ...}:
+--                     com Team = true o bônus de moedas NÃO entra no CoinMult, porque o
+--                     MatchService.AddCoins já aplica ele em cada jogador)
 -- Devolve uma tabela NOVA {[statKey] = número}.
 function Formulas.ComputeStats(mapId, playerLevels, teamLevels, recipesApplied, extras)
 	playerLevels = playerLevels or {}
@@ -220,13 +280,19 @@ function Formulas.ComputeStats(mapId, playerLevels, teamLevels, recipesApplied, 
 		end
 	end
 
-	-- 6. Game passes (depois dos upgrades e receitas, antes dos limites).
-	--    Moedas em Dobro e VIP multiplicam o CoinMult (a mesma conta do MatchService.AddCoins).
-	stats.CoinMult *= Formulas.PassCoinMult(extras)
+	-- 6. Game passes e evento global (depois dos upgrades e receitas, antes dos limites).
+	--    Moedas em Dobro, VIP e o evento "moedas" multiplicam o CoinMult (a mesma conta do
+	--    MatchService.AddCoins). Nos stats do time (extras.Team) não: o valor dos brainrots
+	--    usa o CoinMult do time e o AddCoins aplica o bônus depois, em cada jogador.
+	if extras.Team ~= true then
+		stats.CoinMult *= Formulas.PassCoinMult(extras)
+	end
 	--    Dano em Dobro: só o dano da arma do jogador (TurretDamage, das torretas, não muda).
 	if extras.DoubleDamage == true then
 		stats.Damage = (stats.Damage or 0) * Gamepasses.DAMAGE_MULT
 	end
+	--    Evento global: sorte de tier, chance de encantamento e de gigante (para todos).
+	Formulas.ApplyEventEffects(stats, extras.Event)
 
 	-- 7. Limites mínimo/máximo de cada stat.
 	for statKey, range in pairs(StatsConfig.Clamps) do

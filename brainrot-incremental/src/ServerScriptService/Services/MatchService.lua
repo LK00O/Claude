@@ -1208,16 +1208,19 @@ function MatchService.AddCoins(player, amount, source)
 		source = "Pickup"
 	end
 
-	-- Game passes de moedas: Moedas em Dobro (×2) e VIP (×1,25), que se multiplicam.
-	-- Não valem para reembolso nem para o comando de teste. A conta é a mesma do
-	-- Formulas.ComputeStats (Formulas.PassCoinMult), que mostra o multiplicador na tela.
+	-- Bônus de moedas: game passes Moedas em Dobro (×2) e VIP (×1,25) e o evento global
+	-- de moedas ligado por um admin (":event moedas2x", ×2 para todos), que se multiplicam.
+	-- Não valem para reembolso nem para o comando de teste/admin ("Debug"). A conta é a
+	-- mesma do Formulas.ComputeStats (Formulas.PassCoinMult), que mostra o multiplicador na tela.
 	local noBonus = NO_BONUS_SOURCES[source] == true
 	if not noBonus then
 		local okDouble, hasDouble = callService("MonetizationService", "HasPass", player, "DoubleCoins")
 		local okVip, hasVip = callService("MonetizationService", "HasPass", player, "VIP")
+		local okEvent, eventEffects = callService("AdminService", "GetEventEffects")
 		amount *= Formulas.PassCoinMult({
 			DoubleCoins = okDouble and hasDouble == true,
 			VIP = okVip and hasVip == true,
+			Event = if okEvent and type(eventEffects) == "table" then eventEffects else nil,
 		})
 	end
 

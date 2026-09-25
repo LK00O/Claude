@@ -208,7 +208,116 @@ números sozinhos.
 
 ---
 
-## 5. Como o código é organizado
+## 5. Administradores
+
+O jogo tem **comandos de administrador** que funcionam no jogo publicado (não só no Studio):
+voar, dar moedas, fazer chover moedas, ligar eventos e mandar avisos para **todos os servidores**,
+expulsar e banir. Quem confere se a pessoa é admin é sempre o servidor, em todo comando, e cada
+comando usado aparece no Output com o nome de quem usou (linhas começando com `[Admin]`).
+
+### Quem é admin
+
+Tudo fica em `ReplicatedStorage > Shared > Config > Admins`:
+
+- **Dono (cargo "Owner"): automático.** O jogo descobre sozinho quem é o dono da experiência:
+  se a experiência é da sua conta, é você; se um dia ela for passada para um grupo (comunidade),
+  é o dono do grupo. Além disso, o seu UserId (`335101108`) está em `OwnerUserIds`, então você
+  continua "Owner" mesmo se o jogo mudar para um grupo.
+- **Admin (cargo "Admin"):** quem está na lista `UserIds`. Ela já vem com o seu amigo (`1179661787`).
+- **Grupo (opcional):** se o jogo for de um grupo, `GroupMinRank = 200` (por exemplo) deixa admin
+  todo membro com cargo 200 ou mais. Com `0` (o padrão) isso fica desligado.
+- **No Studio:** todo jogador de teste é admin (`StudioEveryoneAdmin = true`), para você testar.
+
+### Como adicionar (ou tirar) um admin
+
+1. Abra o perfil da pessoa no site do Roblox. O endereço tem este formato:
+   `https://www.roblox.com/users/NUMERO/profile`. Esse **número é o UserId** da pessoa.
+   Exemplo: `roblox.com/users/1179661787/profile` → UserId `1179661787`.
+2. No Studio, abra `ReplicatedStorage > Shared > Config > Admins` e coloque o número na lista
+   `UserIds`, separado por vírgula:
+   ```lua
+   UserIds = { 1179661787, 123456789 },
+   ```
+3. Publique **nos dois places** (Lobby e Partida) e use **Restart Servers** no Creator Hub.
+
+Para **tirar** um admin, apague o número da lista e publique de novo. Use sempre o UserId (o
+número), nunca o nome: o nome de usuário pode ser trocado, o UserId nunca muda.
+
+> **Atenção: nunca dê admin para quem você não conhece de verdade.** Um admin pode expulsar e
+> banir jogadores, dar moedas, mandar avisos para todos os servidores e ligar eventos. Ninguém
+> consegue virar admin "pelo jogo": só quem está no `Config/Admins` (ou é o dono).
+
+### Como usar
+
+- **Chat:** digite `:` e o comando, por exemplo `:fly` ou `:coins all 1000`. A resposta aparece
+  como aviso na sua tela (e o comando normalmente nem aparece no chat dos outros).
+- **Painel:** admins veem um botão **ADMIN** no topo da tela (no PC, a tecla **F3** também abre).
+  O painel tem abas com botões para cada comando.
+- **Jogador** pode ser: o começo do nome (`hen`), o começo do nome de exibição, o UserId,
+  `me` (você), `all` (todos) ou `others` (todos menos você). No `:kick` e no `:ban` vale só o
+  nome **completo** (ou o UserId), para um erro de digitação não expulsar a pessoa errada.
+
+| Comando | Exemplo | O que faz | Onde |
+|---|---|---|---|
+| `:fly` | `:fly` | Liga ou desliga o seu voo | Lobby e partida |
+| `:speed <velocidade>` | `:speed 50` | Muda a sua velocidade (1 a 200; normal = 16) | Lobby e partida |
+| `:jump <força>` | `:jump 120` | Muda a força do seu pulo (0 a 300; normal = 50) | Lobby e partida |
+| `:tp <jogador>` | `:tp ana` | Leva você até um jogador | Lobby e partida |
+| `:bring <jogador>` | `:bring all` | Traz um jogador (ou todos) até você | Lobby e partida |
+| `:respawn [jogador]` | `:respawn ana` | Faz o personagem renascer (sem jogador = você) | Lobby e partida |
+| `:coins <jogador> <quantia>` | `:coins all 10k` | Dá moedas (aceita `10k`, `3m`, `1b`...) | Só na partida |
+| `:wave` | `:wave` | Planta uma leva de brainrots | Só na partida |
+| `:giant` | `:giant` | Planta na hora uma leva só de gigantes | Só na partida |
+| `:coinrain [quantia]` | `:coinrain 5000` | Chuva de moedas em volta de cada jogador (até `1b` por jogador; conta no placar) | Só na partida |
+| `:maxall` | `:maxall` | Maxa todos os upgrades e prateleiras | Só na partida |
+| `:nextact` | `:nextact` | Conclui o ato atual | Só na partida |
+| `:supreme <0 a 1>` | `:supreme 0.9` | Define o progresso do Brainrot Supremo | Só na partida |
+| `:ingredients [jogador]` | `:ingredients` | Dá 5 de cada ingrediente | Só na partida |
+| `:tokens <jogador> <quantia>` | `:tokens ana 50` | Dá Brainrot Tokens (número negativo tira) | Lobby e partida |
+| `:unlockall <jogador>` | `:unlockall me` | Libera todos os mapas no perfil | Lobby e partida |
+| `:announce <texto>` | `:announce Evento às 18h!` | Aviso em **todos os servidores** (até 200 letras) | Lobby e partida |
+| `:event <evento> <minutos>` | `:event moedas2x 30` | Liga um evento em **todos os servidores** (até 120 min) | Lobby e partida |
+| `:endevent` | `:endevent` | Encerra o evento em todos os servidores | Lobby e partida |
+| `:kick <jogador> [motivo]` | `:kick fulano spam` | Expulsa do servidor | Lobby e partida |
+| `:ban <jogador> <duração> [motivo]` | `:ban fulano 7d xingando` | Bane do jogo todo: `30m`, `2h`, `1d`, `7d` ou `perm` (para sempre) | Lobby e partida |
+| `:unban <userId>` | `:unban 123456789` | Tira o banimento | Lobby e partida |
+| `:cmds` | `:cmds` | Mostra a lista de comandos | Lobby e partida |
+
+Regras de segurança: ninguém consegue expulsar nem banir um admin ou o dono, e `all`/`others` não
+valem para `:kick` e `:ban` (nem para tirar tokens com número negativo). Quem não é admin e digita um comando é ignorado.
+
+Os comandos de teste com `/` (seção 2) continuam existindo, só no Studio. Os comandos com `:`
+são os de admin e valem também nos servidores de verdade.
+
+### Eventos globais
+
+`:event <evento> <minutos>` liga um evento em **todos os servidores** (lobby e partidas) ao mesmo
+tempo, com uma faixa e o tempo restante na tela de todo mundo. Servidores que abrirem durante o
+evento também entram nele. Ele acaba sozinho no fim do tempo (ou com `:endevent`).
+
+| Evento | Nome no jogo | Efeito |
+|---|---|---|
+| `moedas2x` | Moedas x2 | Todo mundo ganha o dobro de moedas (soma com os game passes) |
+| `sorte` | Sorte Brainrot | +1 de Sorte de Tier e o dobro da chance de encantamento |
+| `gigantes` | Invasão de Gigantes | +30% de chance de brainrot gigante |
+| `abuse` | Admin Abuse | Tudo junto, e o quadro "Plantar brainrots" recarrega na metade do tempo |
+
+Os eventos são **grátis** (você liga para todo mundo; ninguém paga Robux por eles), então não
+entram nas regras de itens aleatórios pagos. Os números ficam em `Config/Admins > Events`.
+
+### Banimento: ligue uma vez no Studio
+
+O `:ban` usa o sistema de banimento oficial do Roblox, que vem **desligado**. Para ligar: no
+Studio, clique em **Players** no Explorer e marque **BanningEnabled** na janela de Propriedades,
+depois publique nos dois places. O ban vale para a experiência inteira (lobby e partida) e também
+pega as contas alternativas da pessoa. No Studio o ban não vale de verdade (só no jogo publicado),
+e como no Studio todo mundo é admin, para testar `:kick` e `:ban` lá mude `StudioEveryoneAdmin`
+para `false` por um tempo.
+
+Os avisos e os eventos usam o MessagingService e o MemoryStore do Roblox. Eles funcionam sozinhos
+no jogo publicado; no Studio, ligue o acesso às APIs (seção 2) para testar.
+
+## 6. Como o código é organizado
 
 - `docs/ESPECIFICACAO.md`: o contrato entre todos os scripts (nomes de funções, remotes, dados salvos).
   É o melhor lugar para entender como as peças conversam.
@@ -221,7 +330,7 @@ números sozinhos.
   separadamente para o grupo poder continuar depois ou reconectar.
 - Os comentários do código estão em português e explicam cada parte, para quem está aprendendo Lua.
 
-## 6. Limites conhecidos
+## 7. Limites conhecidos
 
 - O código foi verificado com checagem de sintaxe Luau, lint (selene) e várias rodadas de revisão,
   mas **não foi rodado dentro do Roblox** antes de chegar até você. Se aparecer um erro no Output do

@@ -4,7 +4,7 @@
 --   1. Cria os remotes (Net.Init) e os grupos de colisão.
 --   2. Descobre o papel do servidor ("Lobby" ou "Match") e grava no atributo "Role"
 --      do Workspace (o cliente lê daí). Se o modo de teste estiver ligado, grava "DebugEnabled".
---   3. Serviços comuns (lobby e partida): Init.
+--   3. Serviços comuns (lobby e partida, inclusive o AdminService): Init.
 --   4. Lobby: LobbyService, PartyService, ShopService, MonetizationService (Init, depois Start de todos).
 --   5. Partida: MatchService.Init() (resolve a partida e constrói o mapa — pode demorar),
 --      depois o Init de todos os serviços da partida, o Start de todos e, por último,
@@ -29,6 +29,8 @@ local ServicesFolder = ServerScriptService:WaitForChild("Services")
 -------------------------------------------------------------------------------
 
 -- Comuns aos dois papéis, na ordem da especificação.
+-- O AdminService (comandos de administrador, avisos e eventos globais) roda nos dois
+-- papéis; os comandos que precisam da partida respondem com um aviso no lobby.
 -- O TravelService vem no fim: ele precisa do Init para escutar TeleportInitFailed
 -- e é usado tanto no lobby (grupos, reconexão) quanto na partida (portal, voltar ao lobby).
 local COMMON_SERVICES = {
@@ -37,6 +39,7 @@ local COMMON_SERVICES = {
 	"SettingsService",
 	"AchievementService",
 	"DebugService",
+	"AdminService",
 	"TravelService",
 }
 

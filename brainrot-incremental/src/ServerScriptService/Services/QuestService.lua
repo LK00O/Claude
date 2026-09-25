@@ -205,16 +205,20 @@ local function questIncome(run)
 	return isFiniteNumber(run.IncomeSlow) and math.max(0, run.IncomeSlow) or 0
 end
 
--- Multiplicador dos game passes de moedas do jogador (Moedas em Dobro, VIP). A renda
--- (run.IncomeSlow) já vem com ele, e o MatchService.AddCoins aplica de novo quando paga a
--- missão: a recompensa usa a renda SEM os passes, senão o bônus contaria duas vezes
--- (×2 virava ×4 e o VIP ×1,25 virava ×1,56).
+-- Multiplicador de moedas do jogador (game passes Moedas em Dobro e VIP e o evento global
+-- de moedas ligado por um admin). A renda (run.IncomeSlow) já vem com ele, e o
+-- MatchService.AddCoins aplica de novo quando paga a missão: a recompensa usa a renda SEM
+-- o bônus, senão ele contaria duas vezes (×2 virava ×4 e o VIP ×1,25 virava ×1,56).
 local function passCoinMult(player)
 	local ok, mult = pcall(function()
 		local MonetizationService = Svc("MonetizationService")
+		local okEvent, eventEffects = pcall(function()
+			return Svc("AdminService").GetEventEffects()
+		end)
 		return Formulas.PassCoinMult({
 			DoubleCoins = MonetizationService.HasPass(player, "DoubleCoins") == true,
 			VIP = MonetizationService.HasPass(player, "VIP") == true,
+			Event = if okEvent and type(eventEffects) == "table" then eventEffects else nil,
 		})
 	end)
 	if ok and isFiniteNumber(mult) and mult > 0 then

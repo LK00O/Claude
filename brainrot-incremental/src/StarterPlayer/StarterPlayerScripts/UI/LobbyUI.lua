@@ -1374,11 +1374,14 @@ end
 -- Contagem regressiva grande na tela
 -------------------------------------------------------------------------------
 
+-- Altura normal da contagem: 14% da tela, a partir do topo.
+local COUNTDOWN_TOP_FRACTION = 0.14
+
 local function buildCountdown(screen)
 	local frame = UIKit.New("Frame", {
 		Name = "Countdown",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0.14, 0),
+		Position = UDim2.new(0.5, 0, COUNTDOWN_TOP_FRACTION, 0),
 		Size = UDim2.fromOffset(380, 232),
 		BackgroundTransparency = 1,
 		Visible = false,
@@ -1442,6 +1445,19 @@ local function updateCountdownDisplay()
 	local overlay = hud.Countdown
 	-- A janela "Meu Grupo" já tem a contagem dela; aqui só aparece com ela fechada.
 	overlay.Frame.Visible = loading.Gui == nil and not LobbyUI.IsOpen("Party")
+
+	-- Faixas do topo (aviso de admin, evento global) na tela: a contagem desce para ficar
+	-- logo abaixo delas em vez de ficar escondida atrás (telas baixas, como 1366×768 e celular).
+	local banners = getController("AnnouncementController")
+	local bannerBottom = banners and type(banners.GetBottomOffset) == "function" and banners.GetBottomOffset() or nil
+	local camera = workspace.CurrentCamera
+	local scale = UIKit.GetScale()
+	local normalTop = if camera and scale > 0 then camera.ViewportSize.Y / scale * COUNTDOWN_TOP_FRACTION else 0
+	if type(bannerBottom) == "number" and bannerBottom > normalTop then
+		overlay.Frame.Position = UDim2.new(0.5, 0, 0, bannerBottom)
+	else
+		overlay.Frame.Position = UDim2.new(0.5, 0, COUNTDOWN_TOP_FRACTION, 0)
+	end
 
 	local seconds = math.ceil(remaining)
 	if seconds ~= lastCountdownSecond then

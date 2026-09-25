@@ -1,10 +1,12 @@
 --!nonstrict
 -- CoinService: as moedas físicas que caem no chão quando um brainrot morre.
 --
---   CoinService.SpawnCoins(totalValue, position)
+--   CoinService.SpawnCoins(totalValue, position, opts?)
 --       Divide o valor em peças (tiers do Config/Coins), cria as moedas em workspace.Coins
 --       e joga elas para cima. Com DropMode = "Crate" elas caem perto do caixote
 --       (ctx.CoinDropPoint); com "OnDeath", onde o brainrot morreu.
+--       opts = {AtPosition = true, Scatter = studs?}: cai em "position" mesmo no modo
+--       "Crate" (usado pela chuva de moedas do admin, ":coinrain").
 --
 -- Um laço de 10 Hz cuida de:
 --   * ancorar as moedas depois que param de quicar (SettleTime);
@@ -294,12 +296,24 @@ end
 -- API pública
 -------------------------------------------------------------------------------
 
--- CoinService.SpawnCoins(totalValue, position)
-function CoinService.SpawnCoins(totalValue, position)
+-- CoinService.SpawnCoins(totalValue, position, opts?)
+--   opts.AtPosition = true -> solta em "position" (ignora o caixote do modo "Crate")
+--   opts.Scatter = número  -> raio do espalhamento em studs (padrão: o do modo "OnDeath")
+function CoinService.SpawnCoins(totalValue, position, opts)
 	if not isFiniteNumber(totalValue) or totalValue <= 0 then
 		return
 	end
-	local center, scatter = getDropArea(position)
+	local center, scatter
+	local validPosition = typeof(position) == "Vector3"
+		and isFiniteNumber(position.X)
+		and isFiniteNumber(position.Y)
+		and isFiniteNumber(position.Z)
+	if type(opts) == "table" and opts.AtPosition == true and validPosition then
+		center = position
+		scatter = if isFiniteNumber(opts.Scatter) then math.max(0, opts.Scatter) else ON_DEATH_SCATTER
+	else
+		center, scatter = getDropArea(position)
+	end
 	if not center then
 		warn("[CoinService] Sem lugar para soltar as moedas (sem CoinDropPoint e sem posição).")
 		return

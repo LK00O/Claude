@@ -1,7 +1,8 @@
 --!nonstrict
 -- BrainrotService: os brainrots do campo (nascer, crescer, levar dano, morrer).
 --
---   BrainrotService.SpawnWave(triggeredBy?) -> ok, msg     planta uma leva (quadro, debug, respawn automático)
+--   BrainrotService.SpawnWave(triggeredBy?, opts?) -> ok, msg  planta uma leva (quadro, debug, admin, respawn automático)
+--       opts = {AllGiant = true?, IgnoreCooldown = true?} (usado pelo comando de admin ":giant")
 --   BrainrotService.GetEntity(id)                          entidade viva pelo id (ou nil)
 --   BrainrotService.GetEntityFromPart(part)                entidade dona de uma parte (sobe até o Model com "BrainrotId")
 --   BrainrotService.GetAlive() -> {entity}                 cópia da lista dos vivos
@@ -771,10 +772,22 @@ end
 -- Leva de brainrots
 -------------------------------------------------------------------------------
 
--- BrainrotService.SpawnWave(triggeredBy?) -> ok, msg
-function BrainrotService.SpawnWave(triggeredBy)
+-- Recarga do quadro em segundos: Config.Game.BoardCooldown × o efeito do evento global
+-- ("abuse" corta pela metade). Se o AdminService der erro, usa a recarga normal.
+local function boardCooldown()
+	local ok, effects = pcall(function()
+		return Svc("AdminService").GetEventEffects()
+	end)
+	return GameConfig.BoardCooldown * Formulas.EventBoardCooldownMult(if ok then effects else nil)
+end
+
+-- BrainrotService.SpawnWave(triggeredBy?, opts?) -> ok, msg
+--   opts.AllGiant = true       -> todos desta leva nascem gigantes (comando de admin ":giant")
+--   opts.IgnoreCooldown = true -> planta mesmo com o quadro recarregando
+function BrainrotService.SpawnWave(triggeredBy, opts)
+	opts = if type(opts) == "table" then opts else {}
 	local t = now()
-	if t < boardCooldownEnd then
+	if t < boardCooldownEnd and opts.IgnoreCooldown ~= true then
 		return false, ("O quadro está recarregando! Espere %s s."):format(formatSeconds(boardCooldownEnd - t))
 	end
 
@@ -808,7 +821,8 @@ function BrainrotService.SpawnWave(triggeredBy)
 	-- Buffs das receitas: próxima leva gigante / tudo encantado por um tempo.
 	local team = MatchService.GetTeam()
 	local buffs = team and team.Buffs
-	local allGiant = buffs ~= nil and buffs.NextWaveGiant == true
+	local buffGiant = buffs ~= nil and buffs.NextWaveGiant == true
+	local allGiant = buffGiant or opts.AllGiant == true
 	local allEnchanted = buffs ~= nil and isFiniteNumber(buffs.TimedEnchantUntil) and t < buffs.TimedEnchantUntil
 
 	local env = {
@@ -874,11 +888,12 @@ function BrainrotService.SpawnWave(triggeredBy)
 	end
 
 	-- Recarga do quadro.
-	boardCooldownEnd = t + GameConfig.BoardCooldown
+	boardCooldownEnd = t + boardCooldown()
 	StateService.SetAll("Board", { CooldownEnd = boardCooldownEnd })
 
-	-- O buff "próxima leva gigante" vale para uma leva só.
-	if allGiant then
+	-- O buff "próxima leva gigante" (receita) vale para uma leva só. A leva de gigantes do
+	-- admin (":giant", opts.AllGiant) não gasta o buff: o time continua com ele para a próxima.
+	if buffGiant and opts.AllGiant ~= true then
 		buffs.NextWaveGiant = false
 		StateService.SetAll("Buffs", table.clone(buffs))
 	end

@@ -5,7 +5,8 @@
 --   * Brainrots vivos e a recarga do quadro "Plantar brainrots".
 --   * Mira no centro, com hitmarker quando o servidor confirma um acerto.
 --   * Missão ativa com barra de progresso (ou o tempo até a próxima missão).
---   * Painel de "Bônus ativos" (receitas, encantamento garantido, leva gigante, passes).
+--   * Painel de "Bônus ativos" (evento global de admin, receitas, encantamento garantido,
+--     leva gigante, passes).
 --   * Barra de calor da arma (Deserto) e barra do Brainrot Supremo (Deserto).
 --   * Lista do time (nome e moedas de cada um).
 --   * Aviso do portal com votos e botão "Votar" quando o portal está aberto.
@@ -1364,6 +1365,22 @@ end
 -- Monta a lista de bônus ativos agora.
 local function collectBuffs(now)
 	local list = {}
+
+	-- Evento global ligado por um admin (vale em todos os servidores): nome, tempo e efeitos.
+	-- O texto dos efeitos vem do AnnouncementController (o mesmo da faixa do topo).
+	local globalEvent = StateController.Get("GlobalEvent")
+	if type(globalEvent) == "table" and num(globalEvent.EndsAt, 0) > now then
+		local text = "Evento " .. tostring(globalEvent.Name or "global")
+			.. " (" .. NumberFormat.Time(num(globalEvent.EndsAt, 0) - now) .. ")"
+		local announcements = getController("AnnouncementController")
+		if announcements and type(announcements.DescribeEffects) == "function" then
+			local ok, effects = pcall(announcements.DescribeEffects, globalEvent.Effects)
+			if ok and type(effects) == "table" and #effects > 0 then
+				text ..= ": " .. table.concat(effects, ", ")
+			end
+		end
+		table.insert(list, { Id = "GlobalEvent", Text = text, Color = Theme.Rare })
+	end
 
 	local buffs = StateController.Get("Buffs")
 	if type(buffs) == "table" then

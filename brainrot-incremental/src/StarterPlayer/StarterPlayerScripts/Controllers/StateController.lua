@@ -14,7 +14,7 @@
 -- Extras (ajudantes usados pelos módulos do cliente):
 --   StateController.GetSettings()             -> configurações do jogador com valores padrão
 --   StateController.GetKeybind(actionId)      -> Enum.KeyCode da ação (Config.Keybinds)
---   StateController.GetStatExtras()           -> "extras" dos game passes para Formulas.ComputeStats
+--   StateController.GetStatExtras()           -> "extras" (game passes + evento global) para Formulas.ComputeStats
 --
 -- IMPORTANTE: as tabelas devolvidas por Get/GetStats são as mesmas guardadas aqui.
 -- Leia à vontade, mas não altere (a próxima mensagem do servidor sobrescreve tudo).
@@ -53,6 +53,7 @@ local STATS_KEYS = {
 	TeamUpgrades = true,
 	Recipes = true,
 	Gamepasses = true,
+	GlobalEvent = true, -- evento global de admin (moedas, sorte, gigantes)
 }
 
 -- Configurações padrão (as mesmas do template do perfil, seção 4.2).
@@ -220,7 +221,7 @@ function StateController.OnChanged(key, fn)
 end
 
 -- Stats da partida (Formulas.ComputeStats), com cache.
--- O cache é refeito quando Match, PlayerUpgrades, TeamUpgrades, Recipes ou Gamepasses mudam.
+-- O cache é refeito quando Match, PlayerUpgrades, TeamUpgrades, Recipes, Gamepasses ou GlobalEvent mudam.
 -- No lobby (sem Match) devolve nil.
 function StateController.GetStats()
 	if statsDirty then
@@ -230,17 +231,22 @@ function StateController.GetStats()
 	return cachedStats
 end
 
--- "extras" dos game passes para o Formulas.ComputeStats, lidos da chave "Gamepasses"
--- (passes deste jogador, igual ao StatService do servidor):
+-- "extras" para o Formulas.ComputeStats, iguais aos do StatService do servidor:
 --   DoubleCoins / VIP -> multiplicam as moedas;  DoubleDamage -> dano da arma × 2
+--   (game passes deste jogador, da chave "Gamepasses");
+--   Event -> efeitos do evento global ligado por um admin (chave "GlobalEvent"), para a
+--   tela mostrar as moedas, a sorte e a recompensa da missão que o servidor usa de verdade.
 -- Devolve uma tabela NOVA a cada chamada. A StallWindow usa isto para mostrar o "depois".
 function StateController.GetStatExtras()
 	local gamepasses = values.Gamepasses
 	local passes = type(gamepasses) == "table" and gamepasses or {}
+	local globalEvent = values.GlobalEvent
+	local effects = type(globalEvent) == "table" and globalEvent.Effects or nil
 	return {
 		DoubleCoins = passes.DoubleCoins == true,
 		VIP = passes.VIP == true,
 		DoubleDamage = passes.DoubleDamage == true,
+		Event = if type(effects) == "table" then effects else nil,
 	}
 end
 

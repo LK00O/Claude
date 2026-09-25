@@ -41,6 +41,7 @@ local EVENT_NAMES = {
 	"OpenUI", -- S→C (action, arg?)
 	"Ending", -- S→C (data)
 	"PartyState", -- S→C (state)
+	"Announcement", -- S→C ({Text (já filtrado), From (nome de exibição do admin), Duration (s)})
 }
 
 -- Mesmo conjunto em forma de dicionário, para checar nomes rapidinho.
