@@ -1,0 +1,63 @@
+{
+  "name": "BrainrotIncremental",
+  "tree": {
+    "$className": "DataModel",
+    "Workspace": {
+      "$className": "Workspace",
+      "$properties": {
+        "StreamingEnabled": false
+      }
+    },
+    "Players": {
+      "$className": "Players",
+      "$properties": {
+        "BanningEnabled": true
+      }
+    },
+    "Lighting": {
+      "$className": "Lighting"
+    },
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "Shared": {
+        "$path": "src/ReplicatedStorage/Shared"
+      }
+    },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "Main": {
+        "$path": "src/ServerScriptService/Main.server.lua"
+      },
+      "Services": {
+        "$path": "src/ServerScriptService/Services"
+      },
+      "World": {
+        "$path": "src/ServerScriptService/World"
+      }
+    },
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "BrainrotModels": {
+        "$className": "Folder"
+      }
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "Main": {
+          "$path": "src/StarterPlayer/StarterPlayerScripts/Main.client.lua"
+        },
+        "Controllers": {
+          "$path": "src/StarterPlayer/StarterPlayerScripts/Controllers"
+        },
+        "UI": {
+          "$path": "src/StarterPlayer/StarterPlayerScripts/UI"
+        }
+      }
+    },
+    "SoundService": {
+      "$className": "SoundService"
+    }
+  }
+}
