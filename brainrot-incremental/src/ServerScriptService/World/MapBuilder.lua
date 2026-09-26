@@ -3,9 +3,10 @@
 --
 --   MapBuilder.Build(mapId) -> ctx
 --       mapId ∈ "Lobby", "Meadow", "Winter", "Desert".
---       Apaga o workspace.Map antigo (e o Baseplate padrão do Studio), aplica a iluminação
---       do mapa (Config.Maps[mapId].Lighting; o Lobby tem iluminação própria no builder dele),
---       chama Builders[mapId].Build(pasta) e coloca a pasta pronta em workspace.Map.
+--       Apaga o workspace.Map antigo (e o Baseplate padrão do Studio), limpa o terreno
+--       (voxels, nuvens) e os efeitos do mapa anterior, aplica a iluminação do mapa
+--       (Config.Maps[mapId].Lighting; o Lobby usa Config.Lobby.Lighting), chama
+--       Builders[mapId].Build(pasta) e coloca a pasta pronta em workspace.Map.
 --       Devolve o contexto (ctx) com as peças importantes do mapa (seção 7.2).
 --
 --   MapBuilder.SetShelfLevel(ctx, level)
@@ -13,18 +14,23 @@
 --       invisíveis e sem colisão.
 --
 --   MapBuilder.OpenPortal(ctx, targetDisplayName) -> ProximityPrompt
---       Cria (uma vez só) um portal girando em ctx.PortalSpot, com um prompt
---       ServerAction = "Portal", e devolve esse prompt.
+--       Cria (uma vez só) um portal em ctx.PortalSpot, com um prompt ServerAction = "Portal",
+--       e devolve esse prompt. Tudo é ancorado (sem física): o anel tem a tag "AmbientSpin"
+--       e quem gira é o cliente (AmbientController), sem custo para o servidor.
 --
 -- A iluminação é aplicada ANTES do builder: assim o Deserto consegue calcular a direção
--- do sol (Lighting:GetSunDirection) para posicionar a Grande Cova.
+-- do sol (Lighting:GetSunDirection) para posicionar a Grande Cova. Depois do builder ela é
+-- aplicada DE NOVO: a config sempre vence (um builder não deve mexer na luz; se algum ainda
+-- mexer, o valor da config volta no fim da montagem).
 --
 -- Módulo de World: NÃO dá require em nenhum serviço (regra 1.2).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Maps = require(Shared:WaitForChild("Config"):WaitForChild("Maps"))
+local ConfigFolder = Shared:WaitForChild("Config")
+local Maps = require(ConfigFolder:WaitForChild("Maps"))
+local LobbyConfig = require(ConfigFolder:WaitForChild("Lobby"))
 
 local BuildersFolder = script.Parent:WaitForChild("Builders")
 local Common = require(BuildersFolder:WaitForChild("Common"))
@@ -39,12 +45,20 @@ local VALID_MAPS = { Lobby = true, Meadow = true, Winter = true, Desert = true }
 
 local PORTAL_RADIUS = 6 -- raio do anel do portal (studs)
 local PORTAL_SEGMENTS = 20 -- quantas peças formam o anel
-local PORTAL_SPIN_SPEED = 1.2 -- velocidade de giro (radianos por segundo)
+local PORTAL_SPIN_SPEED = 1.2 -- velocidade de giro do anel (radianos por segundo; o cliente gira)
+local PORTAL_SWIRL_SPEED = -0.8 -- o segundo redemoinho do miolo gira ao contrário
 local PORTAL_HEIGHT = PORTAL_RADIUS + 1.5 -- altura do centro do anel acima do chão
 local PORTAL_COLOR_A = Color3.fromRGB(190, 90, 255)
 local PORTAL_COLOR_B = Color3.fromRGB(255, 110, 200)
 local PORTAL_CORE_COLOR = Color3.fromRGB(150, 70, 235)
 local ORB_ON_COLOR = Color3.fromRGB(220, 140, 255)
+-- Textura do miolo (arquivo que já vem com o Roblox; não precisa de upload).
+local PORTAL_BEAM_TEXTURE = "rbxasset://textures/particles/smoke_main.dds"
+local PORTAL_BEAM_TEXTURE_SPEED = 0.5
+
+-- Atributo que marca coisas criadas pelo mapa (nuvens no Terrain, efeitos no Lighting).
+local MAP_EFFECT_ATTRIBUTE = "MapEffect"
+local SPIN_TAG = "AmbientSpin"
 
 -- Portais já abertos (chave = ctx). Tabela "fraca": some junto com o ctx.
 local openPortals = setmetatable({}, { __mode = "k" })
@@ -53,13 +67,31 @@ local openPortals = setmetatable({}, { __mode = "k" })
 -- Ajudantes
 -------------------------------------------------------------------------------
 
--- Apaga o mapa anterior, o Baseplate padrão e SpawnLocations soltas no Workspace
--- (senão o jogador poderia nascer no spawn padrão do template em vez do nosso).
+-- Apaga o mapa anterior, o terreno dele, o Baseplate padrão e SpawnLocations soltas no
+-- Workspace (senão o jogador poderia nascer no spawn padrão do template em vez do nosso).
 local function clearOldWorld()
 	local oldMap = workspace:FindFirstChild("Map")
 	while oldMap do
 		oldMap:Destroy()
 		oldMap = workspace:FindFirstChild("Map")
+	end
+
+	-- Terreno: os mapas geram o terreno na hora (nada feito à mão no Studio fica). Na troca
+	-- lobby -> partida do Studio, sem isso a grama, os morros e o lago do lobby sobrariam.
+	local terrain = workspace:FindFirstChildOfClass("Terrain")
+	if terrain then
+		local ok, err = pcall(function()
+			terrain:Clear()
+		end)
+		if not ok then
+			warn("[MapBuilder] Não deu para limpar o terreno: " .. tostring(err))
+		end
+		-- Nuvens e outras coisas do mapa presas no Terrain.
+		for _, child in ipairs(terrain:GetChildren()) do
+			if child:GetAttribute(MAP_EFFECT_ATTRIBUTE) == true then
+				child:Destroy()
+			end
+		end
 	end
 
 	local baseplate = workspace:FindFirstChild("Baseplate")
@@ -148,6 +180,19 @@ local function validateLobbyContext(ctx)
 	end
 end
 
+-- Tabela de iluminação do mapa: Config.Lobby.Lighting para o lobby (ele não está em
+-- Config.Maps) ou Config.Maps[mapId].Lighting para as partidas. nil se não tiver.
+local function getLightingConfig(mapId)
+	if mapId == "Lobby" then
+		return if type(LobbyConfig.Lighting) == "table" then LobbyConfig.Lighting else nil
+	end
+	local mapDef = Maps[mapId]
+	if type(mapDef) == "table" and type(mapDef.Lighting) == "table" then
+		return mapDef.Lighting
+	end
+	return nil
+end
+
 -------------------------------------------------------------------------------
 -- API pública
 -------------------------------------------------------------------------------
@@ -163,15 +208,15 @@ function MapBuilder.Build(mapId)
 	end
 	local builder = require(builderModule)
 
-	-- 1. Limpa o mundo antigo e os efeitos de iluminação do mapa anterior.
+	-- 1. Limpa o mundo antigo (mapa, terreno) e os efeitos do mapa anterior
+	--    (pós-processamento, céu, nuvens, vento e cores do terreno).
 	clearOldWorld()
 	Common.ClearLightingEffects()
 
 	-- 2. Iluminação do mapa (antes do builder, por causa do sol do Deserto).
-	local mapDef = Maps[mapId]
-	if type(mapDef) == "table" and type(mapDef.Lighting) == "table" then
-		Common.ApplyLighting(mapDef.Lighting)
-	end
+	--    Sem config de luz, aplica só a BASE (nada do mapa anterior sobra).
+	local lightingConfig = getLightingConfig(mapId) or {}
+	Common.ApplyLighting(lightingConfig)
 
 	-- 3. Monta tudo dentro de uma pasta ainda fora do Workspace (bem mais rápido:
 	--    o Roblox replica a pasta inteira de uma vez quando ela entra no mundo).
@@ -192,6 +237,10 @@ function MapBuilder.Build(mapId)
 	local ctx = result
 	ctx.MapId = mapId
 	ctx.Folder = folder
+
+	-- 3b. A luz da config de novo: se o builder mexeu na luz (builders antigos chamavam
+	--     SetSun/LightingEffect), a config volta a valer. Tudo no mesmo frame: não pisca.
+	Common.ApplyLighting(lightingConfig)
 
 	-- 4. Coloca o mapa no mundo.
 	folder.Parent = workspace
@@ -265,7 +314,69 @@ local function resolvePortalSpot(ctx)
 	return CFrame.new(0, 0, 0)
 end
 
--- Cria (ou devolve, se já existe) o portal girando em ctx.PortalSpot.
+-- Peça invisível e ancorada que segura coisas do portal (anexos dos feixes, prompt, luz...).
+local function portalHelperPart(name, cframe, parent)
+	return Common.Part({
+		Name = name,
+		Size = Vector3.new(1, 1, 1),
+		CFrame = cframe,
+		Transparency = 1,
+		CanCollide = false,
+		CanQuery = false,
+		CanTouch = false,
+		CastShadow = false,
+		Parent = parent,
+	})
+end
+
+-- Um feixe (Beam) de fumaça brilhante atravessando o anel de cima a baixo, com a largura do
+-- anel: a textura redonda e macia vira um "disco" de energia. roll gira o feixe no plano do
+-- portal (dois feixes cruzados ficam mais cheios).
+-- Os Attachments ficam com o eixo X na direção do feixe e o eixo Y atravessando o portal,
+-- assim o feixe fica deitado no plano do anel (FaceCamera = false).
+local function addCoreBeam(hub, name, roll, colorA, colorB, textureSpeed)
+	local radius = PORTAL_RADIUS - 0.6
+	local rollFrame = CFrame.Angles(0, 0, roll)
+	local down, through = Vector3.new(0, -1, 0), Vector3.new(0, 0, 1)
+
+	local top = Instance.new("Attachment")
+	top.Name = name .. "Top"
+	top.CFrame = rollFrame * CFrame.fromMatrix(Vector3.new(0, radius, 0), down, through)
+	top.Parent = hub
+
+	local bottom = Instance.new("Attachment")
+	bottom.Name = name .. "Bottom"
+	bottom.CFrame = rollFrame * CFrame.fromMatrix(Vector3.new(0, -radius, 0), down, through)
+	bottom.Parent = hub
+
+	local beam = Instance.new("Beam")
+	beam.Name = name
+	beam.Attachment0 = top
+	beam.Attachment1 = bottom
+	beam.FaceCamera = false
+	beam.Width0 = radius * 2
+	beam.Width1 = radius * 2
+	beam.Segments = 1
+	beam.Texture = PORTAL_BEAM_TEXTURE
+	beam.TextureMode = Enum.TextureMode.Stretch
+	beam.TextureLength = 1
+	beam.TextureSpeed = textureSpeed
+	beam.LightEmission = 1
+	beam.LightInfluence = 0
+	beam.Color = ColorSequence.new(colorA, colorB)
+	-- Mais transparente nas pontas (0,8) e mais forte no meio (0,3).
+	beam.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.8),
+		NumberSequenceKeypoint.new(0.5, 0.3),
+		NumberSequenceKeypoint.new(1, 0.8),
+	})
+	beam.Parent = hub
+	return beam
+end
+
+-- Cria (ou devolve, se já existe) o portal em ctx.PortalSpot.
+-- Tudo ancorado: o servidor não roda física nenhuma. O anel e o redemoinho do miolo têm a
+-- tag "AmbientSpin" (eixo = Z do portal) e cada cliente gira os dois localmente.
 function MapBuilder.OpenPortal(ctx, targetDisplayName)
 	if type(ctx) ~= "table" then
 		error("[MapBuilder] OpenPortal precisa do contexto do mapa.", 2)
@@ -291,50 +402,20 @@ function MapBuilder.OpenPortal(ctx, targetDisplayName)
 
 	local model = Common.Model("Portal", parent)
 
-	-- Âncora fixa (ancorada): segura o anel, o prompt, a luz e as partículas.
-	local anchor = Common.Part({
-		Name = "PortalAnchor",
-		Size = Vector3.new(1, 1, 1),
-		CFrame = center,
-		Transparency = 1,
-		CanCollide = false,
-		CanQuery = false,
-		CastShadow = false,
-		Parent = model,
-	})
+	-- Âncora fixa: segura o prompt, a luz, as partículas e o texto (não gira).
+	local anchor = portalHelperPart("PortalAnchor", center, model)
 
-	-- Cubo do anel (solto): todas as peças do anel são soldadas nele e ele gira
-	-- preso à âncora por uma dobradiça com motor. A física do Roblox replica o giro
-	-- suavemente para todos os jogadores (bem melhor que mudar o CFrame a cada frame).
-	local hub = Common.Part({
-		Name = "PortalHub",
-		Size = Vector3.new(1, 1, 1),
-		CFrame = center,
-		Transparency = 1,
-		Anchored = false,
-		CanCollide = false,
-		CanQuery = false,
-		CastShadow = false,
-		Parent = model,
-	})
-
-	-- Função que prende uma peça no cubo (solda) para girar junto.
-	local function attachToHub(part)
-		part.Anchored = false
-		part.Massless = true
-		local weld = Instance.new("WeldConstraint")
-		weld.Part0 = hub
-		weld.Part1 = part
-		weld.Parent = part
-	end
-
-	-- Anel: segmentos em volta do centro, no plano de frente para quem chega.
+	-- Anel: segmentos Neon em volta do centro, no plano de frente para quem chega.
+	-- Fica num modelo próprio com a peça "PortalHub" no centro (PrimaryPart = pivô do giro).
+	local ring = Common.Model("PortalRing", model)
+	local hub = portalHelperPart("PortalHub", center, ring)
+	ring.PrimaryPart = hub
 	local segmentLength = 2 * math.pi * PORTAL_RADIUS / PORTAL_SEGMENTS * 1.12
 	for index = 1, PORTAL_SEGMENTS do
 		local angle = (index / PORTAL_SEGMENTS) * math.pi * 2
 		local offset = CFrame.new(math.cos(angle) * PORTAL_RADIUS, math.sin(angle) * PORTAL_RADIUS, 0)
 			* CFrame.Angles(0, 0, angle + math.pi / 2)
-		local segment = Common.Part({
+		Common.Part({
 			Name = "PortalRing",
 			Size = Vector3.new(segmentLength, 1.1, 1.1),
 			CFrame = center * offset,
@@ -343,49 +424,19 @@ function MapBuilder.OpenPortal(ctx, targetDisplayName)
 			CanCollide = false,
 			CanQuery = false,
 			CastShadow = false,
-			Parent = model,
+			Parent = ring,
 		})
-		attachToHub(segment)
 	end
+	-- Primeiro feixe do miolo: gira junto com o anel.
+	addCoreBeam(hub, "PortalCoreA", 0, PORTAL_CORE_COLOR, PORTAL_COLOR_B, PORTAL_BEAM_TEXTURE_SPEED)
+	Common.Tag(ring, SPIN_TAG, { Axis = Vector3.zAxis, Speed = PORTAL_SPIN_SPEED })
 
-	-- Miolo do portal: disco brilhante meio transparente (gira junto com o anel).
-	local core = Common.Part({
-		Name = "PortalCore",
-		Shape = Enum.PartType.Cylinder,
-		Size = Vector3.new(0.3, PORTAL_RADIUS * 2 - 1.2, PORTAL_RADIUS * 2 - 1.2),
-		-- O eixo do cilindro é o X; girar 90° no Y deixa o disco de frente (normal = LookVector).
-		CFrame = center * CFrame.Angles(0, math.pi / 2, 0),
-		Color = PORTAL_CORE_COLOR,
-		Material = Enum.Material.ForceField,
-		Transparency = 0.1,
-		CanCollide = false,
-		CanQuery = false,
-		CastShadow = false,
-		Parent = model,
-	})
-	attachToHub(core)
-
-	-- Dobradiça com motor: gira em volta do eixo que atravessa o portal (Z local do centro).
-	-- O eixo de uma dobradiça é o X do Attachment, então montamos o Attachment com X = Z local.
-	local axisFrame = CFrame.fromMatrix(Vector3.zero, Vector3.zAxis, Vector3.yAxis)
-	local anchorAttachment = Instance.new("Attachment")
-	anchorAttachment.Name = "SpinAxis"
-	anchorAttachment.CFrame = axisFrame
-	anchorAttachment.Parent = anchor
-	local hubAttachment = Instance.new("Attachment")
-	hubAttachment.Name = "SpinAxis"
-	hubAttachment.CFrame = axisFrame
-	hubAttachment.Parent = hub
-
-	local hinge = Instance.new("HingeConstraint")
-	hinge.Name = "Spin"
-	hinge.Attachment0 = anchorAttachment
-	hinge.Attachment1 = hubAttachment
-	hinge.ActuatorType = Enum.ActuatorType.Motor
-	hinge.AngularVelocity = PORTAL_SPIN_SPEED
-	hinge.MotorMaxTorque = 1e8
-	hinge.MotorMaxAcceleration = 50
-	hinge.Parent = anchor
+	-- Segundo feixe: num modelo à parte que gira para o outro lado (efeito de redemoinho).
+	local swirl = Common.Model("PortalSwirl", model)
+	local swirlHub = portalHelperPart("PortalSwirlHub", center, swirl)
+	swirl.PrimaryPart = swirlHub
+	addCoreBeam(swirlHub, "PortalCoreB", math.pi / 2, PORTAL_COLOR_A, PORTAL_CORE_COLOR, -PORTAL_BEAM_TEXTURE_SPEED)
+	Common.Tag(swirl, SPIN_TAG, { Axis = Vector3.zAxis, Speed = PORTAL_SWIRL_SPEED })
 
 	-- Partículas brilhantes saindo do portal e uma luz roxa.
 	local particles = Instance.new("ParticleEmitter")
@@ -422,15 +473,11 @@ function MapBuilder.OpenPortal(ctx, targetDisplayName)
 	end
 
 	-- Prompt na âncora (parada, fácil de mirar). Quem trata é o ProgressionService.
+	-- (Common.Prompt já põe a tag "GamePrompt".)
 	local prompt = Common.Prompt(anchor, "Entrar no portal", objectText, { ServerAction = "Portal" })
 
 	-- Orbes da base acesos.
 	lightPortalOrbs(ctx.Folder)
-
-	-- A física do anel fica no servidor (nenhum jogador "puxa" o portal para si).
-	pcall(function()
-		hub:SetNetworkOwner(nil)
-	end)
 
 	openPortals[ctx] = { Model = model, Prompt = prompt, Label = label or { Text = "" } }
 	return prompt

@@ -24,6 +24,10 @@
 -- jogador só recebe o PartyState quando a visão DELE mudou (comparamos com o último
 -- envio, veja lastSent).
 --
+-- PartyService.Stop() desliga o serviço (só usado no Studio, quando o lobby de teste
+-- vira a partida no mesmo servidor): cancela contagens e vigias, apaga os grupos sem
+-- mandar PartyState e, daí em diante, todo pedido de grupo responde "O lobby foi fechado.".
+--
 -- Amizade: player:IsFriendsWithAsync(hostUserId) faz uma chamada web (demora). Por isso
 -- guardamos o resultado num cache e, na hora de montar o PartyState, só usamos o que
 -- já está no cache; o que falta é buscado em segundo plano e, quando chega, mandamos
@@ -124,6 +128,7 @@ local MSG_TARGET_NOT_HERE = "Esse jogador não está neste servidor."
 local MSG_INVITE_SELF = "Você não pode convidar a si mesmo."
 local MSG_TARGET_ALREADY_MEMBER = "Esse jogador já está no seu grupo."
 local MSG_TELEPORT_FAILED = "Não foi possível iniciar a partida. Tente de novo."
+local MSG_LOBBY_CLOSED = "O lobby foi fechado."
 
 -- Avisos (Notify) para os membros.
 local NOTE_JOINED = "%s entrou no grupo."
@@ -157,6 +162,7 @@ local friendCache = {} -- [userIdA] = {[userIdB] = {Value = boolean, Time = os.c
 local friendPending = {} -- ["a:b"] = true enquanto a checagem está em andamento
 
 local serviceTrove = Trove.new() -- conexões do serviço
+local stopped = false -- PartyService.Stop() já rodou? (o lobby foi fechado)
 local broadcastScheduled = false -- já tem um envio de PartyState marcado?
 local lastBroadcastAt = -math.huge -- os.clock() do último envio para todos
 
@@ -580,7 +586,7 @@ end
 -- acabou de entrar, e os reenvios existem justamente para o caso de a interface dele
 -- ainda não estar pronta), mas guarda o texto para o próximo broadcast comparar.
 local function sendTo(player)
-	if typeof(player) ~= "Instance" or player.Parent ~= Players then
+	if stopped or typeof(player) ~= "Instance" or player.Parent ~= Players then
 		return
 	end
 	local payload = buildPayload(player, buildAllBases())
@@ -611,12 +617,15 @@ end
 -- o servidor mandar dezenas de mensagens grandes por segundo. As mudanças que chegam
 -- nesse intervalo esperam um pouquinho e vão todas juntas no próximo envio.
 scheduleBroadcast = function()
-	if broadcastScheduled then
+	if broadcastScheduled or stopped then
 		return
 	end
 	broadcastScheduled = true
 	local function run()
 		broadcastScheduled = false
+		if stopped then
+			return -- o lobby fechou enquanto o envio esperava
+		end
 		lastBroadcastAt = os.clock()
 		local ok, err = pcall(broadcastNow)
 		if not ok then
@@ -1004,6 +1013,10 @@ local function onPartyJoin(player, partyId)
 
 		local hostId = party.HostUserId
 		local friend = checkFriendshipNow(player, hostId)
+		-- O lobby pode ter fechado (PartyService.Stop) enquanto esperávamos a web.
+		if stopped then
+			return false, MSG_LOBBY_CLOSED
+		end
 		if friend == nil then
 			return false, MSG_FRIEND_CHECK_FAILED
 		end
@@ -1493,30 +1506,78 @@ end
 -- Ciclo de vida do serviço
 -------------------------------------------------------------------------------
 
+-- Embrulha um handler de Request: depois do Stop (lobby fechado), responde com
+-- MSG_LOBBY_CLOSED sem mexer em nada. Antes do Stop, chama o handler normalmente.
+-- (O Net não tem como "desregistrar" uma action, por isso a trava fica aqui.)
+local function whileOpen(handler)
+	return function(player, ...)
+		if stopped then
+			return false, MSG_LOBBY_CLOSED
+		end
+		return handler(player, ...)
+	end
+end
+
 function PartyService.Init()
-	Net.Handle("PartyCreate", onPartyCreate, RATE_CREATE)
-	Net.Handle("PartyJoin", onPartyJoin, RATE_JOIN)
-	Net.Handle("PartyLeave", onPartyLeave, RATE_SETTINGS)
-	Net.Handle("PartyReady", onPartyReady, RATE_READY)
-	Net.Handle("PartyStart", onPartyStart, RATE_SETTINGS)
-	Net.Handle("PartyCancelCountdown", onPartyCancelCountdown, RATE_SETTINGS)
-	Net.Handle("PartyKick", onPartyKick, RATE_SETTINGS)
-	Net.Handle("PartyTransfer", onPartyTransfer, RATE_SETTINGS)
-	Net.Handle("PartySetMap", onPartySetMap, RATE_SETTINGS)
-	Net.Handle("PartySetMaxPlayers", onPartySetMaxPlayers, RATE_SETTINGS)
-	Net.Handle("PartySetPrivacy", onPartySetPrivacy, RATE_SETTINGS)
-	Net.Handle("PartySetResume", onPartySetResume, RATE_SETTINGS)
-	Net.Handle("PartyInvite", onPartyInvite, RATE_INVITE)
+	Net.Handle("PartyCreate", whileOpen(onPartyCreate), RATE_CREATE)
+	Net.Handle("PartyJoin", whileOpen(onPartyJoin), RATE_JOIN)
+	Net.Handle("PartyLeave", whileOpen(onPartyLeave), RATE_SETTINGS)
+	Net.Handle("PartyReady", whileOpen(onPartyReady), RATE_READY)
+	Net.Handle("PartyStart", whileOpen(onPartyStart), RATE_SETTINGS)
+	Net.Handle("PartyCancelCountdown", whileOpen(onPartyCancelCountdown), RATE_SETTINGS)
+	Net.Handle("PartyKick", whileOpen(onPartyKick), RATE_SETTINGS)
+	Net.Handle("PartyTransfer", whileOpen(onPartyTransfer), RATE_SETTINGS)
+	Net.Handle("PartySetMap", whileOpen(onPartySetMap), RATE_SETTINGS)
+	Net.Handle("PartySetMaxPlayers", whileOpen(onPartySetMaxPlayers), RATE_SETTINGS)
+	Net.Handle("PartySetPrivacy", whileOpen(onPartySetPrivacy), RATE_SETTINGS)
+	Net.Handle("PartySetResume", whileOpen(onPartySetResume), RATE_SETTINGS)
+	Net.Handle("PartyInvite", whileOpen(onPartyInvite), RATE_INVITE)
 
 	serviceTrove:Connect(Players.PlayerAdded, onPlayerAdded)
 	serviceTrove:Connect(Players.PlayerRemoving, onPlayerRemoving)
 end
 
 function PartyService.Start()
+	if stopped then
+		return
+	end
 	-- Jogadores que entraram antes do serviço ligar.
 	for _, player in ipairs(Players:GetPlayers()) do
 		task.spawn(onPlayerAdded, player)
 	end
+end
+
+-- PartyService.Stop()
+-- Fecha o lobby de grupos neste servidor. Usado só no Studio, quando o lobby de teste
+-- vira a partida no mesmo servidor (Main.server.lua). Pode ser chamado mais de uma vez
+-- (da segunda em diante não faz nada).
+--   * cancela a contagem regressiva e o vigia do teleporte de cada grupo (o Trove de
+--     cada grupo cancela as threads agendadas; o Token novo invalida as que já rodam);
+--   * apaga os grupos, convites e caches SEM mandar PartyState (a interface do lobby
+--     some junto com o lobby);
+--   * desliga as conexões do serviço (entrada e saída de jogadores);
+--   * todo Request de grupo passa a responder "O lobby foi fechado.".
+function PartyService.Stop()
+	if stopped then
+		return
+	end
+	stopped = true
+
+	for _, rt in pairs(runtime) do
+		rt.Token += 1
+		rt.Trove:Clean()
+	end
+	table.clear(runtime)
+	table.clear(parties)
+	table.clear(partyOrder)
+	table.clear(partyOfUser)
+	table.clear(friendCache)
+	table.clear(friendPending)
+	table.clear(inviteNotifiedAt)
+	table.clear(displayNames)
+	table.clear(lastSent)
+
+	serviceTrove:Clean()
 end
 
 return PartyService

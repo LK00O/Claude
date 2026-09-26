@@ -6,7 +6,10 @@
 --     sua última partida ainda existe, Profile.CanReconnect);
 --   * popup de convite recebido (Entrar / Recusar);
 --   * contagem regressiva grande na tela quando o seu grupo vai começar;
---   * tela de carregamento do teleporte (TeleportService:SetTeleportGui) com o nome e a cor do mapa.
+--   * tela de carregamento do teleporte (TeleportService:SetTeleportGui) com o nome e a cor do mapa;
+--   * no Studio, a mesma tela vira a "transição" enquanto o servidor troca o lobby pela partida
+--     (atributos StudioSwitching / StudioSwitchMap do workspace), e LobbyUI.Shutdown() desliga
+--     tudo do lobby quando a partida começa no mesmo servidor.
 -- As janelas grandes ficam em módulos separados, todos com o prefixo "Lobby":
 --   LobbyCreate (Criar Partida), LobbyParty (Meu Grupo), LobbyList (Partidas Abertas),
 --   LobbyShop (Loja: skins e, se houver game passes à venda, a aba "Vantagens")
@@ -34,6 +37,19 @@
 --   LobbyUI.GetStateText/GetStateColor(state), LobbyUI.FormatDate(unix), LobbyUI.MemberName(member)
 --   Visuais: PrepareContent, Section, Row, Tag, SetTag, Avatar, LoadThumbnail, LockIcon,
 --            SetSelected, ConfirmButton, SetButtonText, FixSelection, IsUsingGamepad
+-- Ciclo de vida extra (troca lobby -> partida no Studio, Main.client):
+--   LobbyUI.ShowTransition(mapId)   tela "Preparando <mapa> (teste no Studio)..." (sem teleporte)
+--   LobbyUI.HideLoading()           some com a tela de carregamento/transição na hora
+--   LobbyUI.Shutdown()              fecha e destrói toda a interface do lobby (pode chamar 2x)
+--
+-- Prompts do mundo do lobby (atributo ClientAction, tratados aqui pelo PromptController):
+--   CreateParty[:<MapId>]           abre "Criar Partida" (com o mapa já escolhido)
+--   QuickPlay:<MapId>               cria um grupo solo nesse mapa e já começa
+--   Reconnect                       o mesmo que o botão "Reconectar"
+--   PartyList                       "Partidas Abertas"
+--   Shop[:Passes]                   Loja (na aba Vantagens)
+--   Achievements[:Stats|Goals]      Conquistas (na aba pedida)
+--   (Settings é da SettingsWindow.) Mapa trancado: aviso "Conclua <mapa anterior> para liberar".
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -42,6 +58,7 @@ local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 local TeleportService = game:GetService("TeleportService")
 local ContextActionService = game:GetService("ContextActionService")
+local CollectionService = game:GetService("CollectionService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
@@ -90,6 +107,9 @@ local SETTINGS_COLOR = Color3.fromRGB(52, 190, 178) -- verde-água do botão Con
 local CONFIRM_SECONDS = 3 -- tempo para o segundo clique dos botões "Certeza?"
 local INVITE_POPUP_SECONDS = 25 -- quanto tempo o popup de convite fica na tela
 local LOADING_CHECK_SECONDS = 25 -- se o teleporte não acontecer nesse tempo, a tela de carregamento some
+local TELEPORT_GIVE_UP_SECONDS = 20 -- teleporte falhou e nada mais aconteceu nesse tempo: desiste
+local LOADING_FADE_SECONDS = 0.5 -- a tela de carregamento some aos poucos no fim da transição
+local STUDIO_SWITCH_GRACE = 3 -- a troca no Studio acabou sem virar partida: espera isso e some
 
 -- Popup de convite (entra deslizando pela direita).
 local INVITE_POPUP_SIZE = UDim2.fromOffset(430, 164)
@@ -103,6 +123,13 @@ local THUMB_SIZE = Enum.ThumbnailSize.Size150x150
 -- Controle: o direcional esquerdo leva a seleção para os botões laterais.
 local GAMEPAD_MENU_ACTION = "LobbyUIGamepadMenu"
 local GAMEPAD_MENU_KEY = Enum.KeyCode.DPadLeft
+
+-- Todo ProximityPrompt do jogo (Common.Prompt, torretas, portal) tem esta tag.
+local GAME_PROMPT_TAG = "GamePrompt"
+
+-- Textos da tela de carregamento.
+local STATUS_LOADING = "Carregando"
+local STATUS_TELEPORT_FAILED = "O teleporte falhou, tentando de novo"
 
 -- Janelas do lobby (módulos irmãos deste).
 local SUBMODULES = {
@@ -173,14 +200,28 @@ local inviteSeen = {} -- [partyId] = true (já mostrado ou recusado)
 local currentInvite = nil -- partyId do convite que está na tela
 local inviteSerial = 0 -- muda a cada popup (para cancelar temporizadores velhos)
 
-local loading = { Gui = nil, Serial = 0, Reason = nil } -- tela de carregamento do teleporte
+-- Tela de carregamento do teleporte (ou da transição no Studio).
+--   Gui: a ScreenGui na tela (nil = escondida); Serial: muda a cada mostrar/esconder;
+--   Reason: "Party", "Reconnect" ou "Studio"; StatusBase: texto de baixo (os pontinhos
+--   são animados); GaveUpParty: grupo cujo teleporte já demos como perdido (não
+--   mostramos a tela de novo para ele enquanto o servidor ainda diz "Teleportando").
+local loading = { Gui = nil, Serial = 0, Reason = nil, StatusBase = STATUS_LOADING, GaveUpParty = nil }
+local loadingTrove = Trove.new() -- conexões que só valem enquanto a tela de carregamento está aberta
 local countdownTrove = Trove.new() -- conexão do relógio da contagem
 local countdownActive = false
 local lastCountdownSecond = nil
 local reconnecting = false
+local reconnectExpiry = { At = nil, Thread = nil } -- relógio que esconde o "Reconectar" quando o prazo acaba
+local reconnectPromptsOn = nil -- último Enabled aplicado nos prompts "Reconnect" do mundo
+local quickPlaying = false -- pedido de "jogar sozinho" (QuickPlay) no ar
+
+-- Tudo que o LobbyUI liga e que precisa ser desligado no Shutdown (conexões, registros
+-- de prompt, a ação do controle...). O Shutdown limpa este Trove de uma vez.
+local lifeTrove = Trove.new()
 
 local initialized = false
 local started = false
+local shutDown = false -- true depois do LobbyUI.Shutdown() (a partida começou no Studio)
 
 -------------------------------------------------------------------------------
 -- Ajudantes gerais
@@ -449,6 +490,47 @@ function LobbyUI.GetRunSave(mapId)
 		end
 	end
 	return nil
+end
+
+-- Aviso de mapa trancado: "Conclua <mapa anterior> para liberar".
+local function lockedMapMessage(mapId)
+	for _, otherId in ipairs(Maps.Order) do
+		local def = LobbyUI.GetMapDef(otherId)
+		if def and def.Next == mapId then
+			return ("Conclua %s para liberar"):format(def.DisplayName)
+		end
+	end
+	-- Sem "mapa anterior" conhecido: usa o texto de requisito de sempre.
+	return LobbyUI.GetMapRequirement(mapId) .. " para liberar"
+end
+
+-- Mostra o aviso de mapa trancado (com o som de erro).
+local function showLockedMap(mapId)
+	NotifyController.Show(lockedMapMessage(mapId), "warning", 3.5)
+	UIKit.PlaySound("Error")
+end
+
+-- Texto de um ClientAction -> id de mapa de verdade (ou nil se não for um mapa).
+local function toMapId(arg)
+	if type(arg) == "string" and LobbyUI.GetMapDef(arg) then
+		return arg
+	end
+	return nil
+end
+
+-- Ainda dá para reconectar? Profile.CanReconnect e, se o servidor mandou o prazo
+-- (Profile.ReconnectUntil, em os.time() do servidor), o prazo ainda não passou.
+-- Usamos o relógio do servidor (GetServerTimeNow): o relógio do aparelho pode estar errado.
+local function canReconnectNow(profile)
+	profile = profile or LobbyUI.GetProfile()
+	if profile.CanReconnect ~= true then
+		return false
+	end
+	local deadline = profile.ReconnectUntil
+	if type(deadline) == "number" and serverNow() > deadline then
+		return false
+	end
+	return true
 end
 
 -- Privacidade.
@@ -883,6 +965,9 @@ end
 
 -- Abre uma janela: "Create", "Party", "List", "Shop" ou "Achievements".
 function LobbyUI.Open(key, arg)
+	if shutDown then
+		return -- a partida já começou (Studio): o lobby não abre mais nada
+	end
 	local module = modules[key]
 	if not module or type(module.Open) ~= "function" then
 		warn(("[LobbyUI] A janela '%s' não está disponível."):format(tostring(key)))
@@ -1028,14 +1113,45 @@ local function buildLoadingGui(mapId)
 	return gui, fill, status
 end
 
--- Esconde a tela de carregamento (o teleporte falhou ou foi cancelado).
+-- Esconde a tela de carregamento na hora (o teleporte falhou ou foi cancelado).
 local function hideLoading()
+	loadingTrove:Clean()
 	if loading.Gui then
 		loading.Gui:Destroy()
 		loading.Gui = nil
 	end
 	loading.Reason = nil
+	loading.StatusBase = STATUS_LOADING
+	loading.FailedAt = nil
 	loading.Serial += 1
+end
+
+-- Some com a tela de carregamento aos poucos (fim da transição do Studio).
+-- Tudo nela vai ficando transparente e, no fim, a tela é destruída.
+local function fadeOutLoading()
+	local gui = loading.Gui
+	loadingTrove:Clean()
+	loading.Gui = nil
+	loading.Reason = nil
+	loading.StatusBase = STATUS_LOADING
+	loading.FailedAt = nil
+	loading.Serial += 1 -- para a animação dos pontinhos e os relógios dela
+	if not gui then
+		return
+	end
+	local info = TweenInfo.new(LOADING_FADE_SECONDS, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	for _, item in ipairs(gui:GetDescendants()) do
+		if item:IsA("TextLabel") then
+			UIKit.Tween(item, { TextTransparency = 1 }, info)
+		elseif item:IsA("GuiObject") then
+			UIKit.Tween(item, { BackgroundTransparency = 1 }, info)
+		elseif item:IsA("UIStroke") then
+			UIKit.Tween(item, { Transparency = 1 }, info)
+		end
+	end
+	task.delay(LOADING_FADE_SECONDS + 0.05, function()
+		gui:Destroy()
+	end)
 end
 
 -- Confere, depois de um tempo, se o teleporte aconteceu. Se não, some a tela.
@@ -1052,15 +1168,70 @@ local function scheduleLoadingCheck(serial)
 			scheduleLoadingCheck(serial)
 			return
 		end
+		if
+			loading.Reason == "Studio"
+			and (workspace:GetAttribute("StudioSwitching") == true or workspace:GetAttribute("Role") == "Match")
+		then
+			-- Studio: o servidor ainda está montando o mapa (ou já virou partida e o
+			-- Main vai chamar o Shutdown, que some com a tela).
+			scheduleLoadingCheck(serial)
+			return
+		end
+		local wasStudio = loading.Reason == "Studio"
 		hideLoading()
 		refreshSideMenu()
-		NotifyController.Show("O teleporte não aconteceu. Tente de novo!", "warning", 4)
+		refreshCountdown()
+		if wasStudio then
+			NotifyController.Show("A partida de teste não abriu. Veja o Output do Studio.", "error", 6)
+		else
+			NotifyController.Show("O teleporte não aconteceu. Tente de novo!", "warning", 4)
+		end
 	end)
 end
 
+-- O teleporte falhou e nada mais aconteceu: some a tela e avisa.
+local function giveUpLoading()
+	local mine = partyState.MyParty
+	if loading.Reason == "Party" and mine then
+		-- Enquanto o servidor ainda disser "Teleportando" para este grupo, não mostramos
+		-- a tela de novo (senão ela voltaria no próximo PartyState).
+		loading.GaveUpParty = mine.Id
+	end
+	hideLoading()
+	refreshSideMenu()
+	refreshCountdown()
+	NotifyController.Show("Não conseguimos levar você para a partida. Tente de novo!", "error", 5)
+end
+
+-- Player.OnTeleport: o Roblox conta como o teleporte está indo.
+--   Failed -> "O teleporte falhou, tentando de novo..." e, se nada mais acontecer em
+--             TELEPORT_GIVE_UP_SECONDS, a tela some com um aviso;
+--   qualquer outro estado -> o teleporte andou (nova tentativa): volta o "Carregando".
+local function onTeleportState(serial, teleportState)
+	if loading.Serial ~= serial or not loading.Gui then
+		return
+	end
+	if teleportState == Enum.TeleportState.Failed then
+		loading.StatusBase = STATUS_TELEPORT_FAILED
+		if loading.FailedAt == nil then
+			local failedAt = os.clock()
+			loading.FailedAt = failedAt
+			loadingTrove:Add(task.delay(TELEPORT_GIVE_UP_SECONDS, function()
+				if loading.Serial == serial and loading.Gui and loading.FailedAt == failedAt then
+					giveUpLoading()
+				end
+			end))
+		end
+	else
+		loading.FailedAt = nil
+		loading.StatusBase = STATUS_LOADING
+	end
+end
+
 -- Mostra a tela de carregamento e entrega ela ao TeleportService.
--- reason = "Party" (o grupo vai para a partida) ou "Reconnect".
-local function showLoading(mapId, reason)
+-- reason = "Party" (o grupo vai para a partida), "Reconnect" ou "Studio" (a partida abre
+-- no mesmo servidor, sem teleporte). statusText (opcional) = texto de baixo, sem os "...".
+local function showLoading(mapId, reason, statusText)
 	hideLoading()
 	loading.Serial += 1
 	local serial = loading.Serial
@@ -1068,6 +1239,8 @@ local function showLoading(mapId, reason)
 	local gui, fill, status = buildLoadingGui(mapId)
 	loading.Gui = gui
 	loading.Reason = reason
+	loading.StatusBase = statusText or STATUS_LOADING
+	loading.FailedAt = nil
 
 	-- Fecha as janelas e o convite: a partida vai começar.
 	LobbyUI.CloseAll()
@@ -1077,12 +1250,20 @@ local function showLoading(mapId, reason)
 		inviteSerial += 1
 	end
 
-	-- A tela aparece durante o teleporte (e já aparece aqui, na hora).
-	local ok, err = pcall(function()
-		TeleportService:SetTeleportGui(gui)
-	end)
-	if not ok then
-		warn("[LobbyUI] SetTeleportGui falhou: " .. tostring(err))
+	-- No Studio não há teleporte (a partida abre no mesmo servidor): a tela fica só no
+	-- PlayerGui até o LobbyUI.Shutdown() fazer ela sumir.
+	if reason ~= "Studio" then
+		-- A tela aparece durante o teleporte (e já aparece aqui, na hora).
+		local ok, err = pcall(function()
+			TeleportService:SetTeleportGui(gui)
+		end)
+		if not ok then
+			warn("[LobbyUI] SetTeleportGui falhou: " .. tostring(err))
+		end
+		-- Acompanha o teleporte enquanto a tela está aberta (falhou? tenta de novo? desiste?).
+		loadingTrove:Connect(LocalPlayer.OnTeleport, function(teleportState)
+			onTeleportState(serial, teleportState)
+		end)
 	end
 	gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
@@ -1096,7 +1277,7 @@ local function showLoading(mapId, reason)
 		local dots = 0
 		while loading.Serial == serial and gui.Parent do
 			dots = dots % 3 + 1
-			status.Text = "Carregando" .. string.rep(".", dots)
+			status.Text = loading.StatusBase .. string.rep(".", dots)
 			task.wait(0.4)
 		end
 	end)
@@ -1136,14 +1317,16 @@ local function addBadge(button)
 	return badge
 end
 
--- Botão "Reconectar": volta para a última partida (LobbyService / TravelService).
+-- Botão "Reconectar" (e o prompt "Reconnect" do mundo): volta para a última partida
+-- (LobbyService / TravelService).
 local function reconnect()
-	if reconnecting or loading.Gui then
+	if shutDown or reconnecting or loading.Gui then
 		return
 	end
 	local profile = LobbyUI.GetProfile()
-	if profile.CanReconnect ~= true then
+	if not canReconnectNow(profile) then
 		NotifyController.Show("Não há nenhuma partida para voltar.", "warning", 3)
+		refreshSideMenu()
 		return
 	end
 	reconnecting = true
@@ -1261,11 +1444,12 @@ local function buildSideMenu(screen)
 		Parent = reconnectHolder,
 	})
 	UIKit.Corner(glow, 16)
-	UIKit.Tween(
+	-- Animação sem fim: guardada no lifeTrove para parar no Shutdown.
+	lifeTrove:Add(UIKit.Tween(
 		glow,
 		{ BackgroundTransparency = 0.9, Size = UDim2.new(1, 18, 1, 18) },
 		TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
-	)
+	))
 	local reconnectButton = UIKit.Button({
 		Name = "Reconnect",
 		Text = "Reconectar",
@@ -1301,12 +1485,68 @@ local function buildSideMenu(screen)
 	}
 end
 
+-- Liga/desliga um prompt "Reconnect" do mundo do lobby (só neste cliente: cada jogador
+-- vê o portão de reconectar ligado só quando ele mesmo pode voltar para uma partida).
+local function applyReconnectPrompt(prompt, enabled)
+	if typeof(prompt) ~= "Instance" or not prompt:IsA("ProximityPrompt") then
+		return
+	end
+	local action = prompt:GetAttribute("ClientAction")
+	if type(action) == "string" and string.match(action, "^([^:]+)") == "Reconnect" and prompt.Enabled ~= enabled then
+		prompt.Enabled = enabled
+	end
+end
+
+-- Aplica em todos os prompts "Reconnect" (só quando a situação muda).
+local function refreshReconnectPrompts(enabled)
+	if reconnectPromptsOn == enabled then
+		return
+	end
+	reconnectPromptsOn = enabled
+	for _, prompt in ipairs(CollectionService:GetTagged(GAME_PROMPT_TAG)) do
+		applyReconnectPrompt(prompt, enabled)
+	end
+end
+
+-- O "Reconectar" some sozinho quando o prazo (Profile.ReconnectUntil) acaba: agenda uma
+-- atualização do menu para esse momento (o perfil não muda só porque o tempo passou).
+local function scheduleReconnectExpiry(profile)
+	local deadline = profile.CanReconnect == true and profile.ReconnectUntil or nil
+	if type(deadline) ~= "number" then
+		deadline = nil
+	end
+	if deadline == reconnectExpiry.At then
+		return
+	end
+	if reconnectExpiry.Thread then
+		pcall(task.cancel, reconnectExpiry.Thread)
+	end
+	reconnectExpiry.At = deadline
+	reconnectExpiry.Thread = nil
+	if deadline then
+		local waitTime = deadline - serverNow() + 0.5
+		if waitTime > 0 then
+			reconnectExpiry.Thread = task.delay(waitTime, function()
+				reconnectExpiry.Thread = nil
+				reconnectExpiry.At = nil -- confere de novo (e reagenda se acordou cedo demais)
+				refreshSideMenu()
+			end)
+		end
+	end
+end
+
 -- Atualiza tokens, "Criar/Meu Grupo", contador de grupos e o "Reconectar".
 refreshSideMenu = function()
-	if not hud then
+	if shutDown then
 		return
 	end
 	local profile = LobbyUI.GetProfile()
+	local canReconnect = canReconnectNow(profile)
+	scheduleReconnectExpiry(profile)
+	refreshReconnectPrompts(canReconnect)
+	if not hud then
+		return
+	end
 	local tokens = LobbyUI.GetTokens()
 	hud.TokensLabel.Text = NumberFormat.Commas(tokens) .. (tokens == 1 and " Token" or " Tokens")
 
@@ -1329,7 +1569,7 @@ refreshSideMenu = function()
 	hud.ListBadge.Visible = joinable > 0
 	hud.ListBadge.Text = joinable > 9 and "9+" or tostring(joinable)
 
-	local canReconnect = profile.CanReconnect == true
+	-- Sem partida para voltar, ou o prazo de reconexão já passou: o botão some.
 	hud.ReconnectHolder.Visible = canReconnect
 	if canReconnect then
 		local mapDef = LobbyUI.GetMapDef(profile.LastMatchMap)
@@ -1354,6 +1594,8 @@ local function refreshGamepadHint()
 end
 
 -- Direcional esquerdo: leva a seleção do controle para os botões laterais (ou tira).
+-- Se a seleção está em outra interface (o popup de convite, o painel de admin...), o
+-- direcional passa adiante (Pass) e navega nela normalmente.
 local function onGamepadMenu(_, inputState)
 	if inputState ~= Enum.UserInputState.Begin then
 		return Enum.ContextActionResult.Pass
@@ -1362,11 +1604,17 @@ local function onGamepadMenu(_, inputState)
 		return Enum.ContextActionResult.Pass
 	end
 	local selected = GuiService.SelectedObject
+	if selected and selected.Parent == nil then
+		selected = nil -- botão que já foi destruído não conta
+	end
 	if selected and selected:IsDescendantOf(hud.Menu) then
 		GuiService.SelectedObject = nil
-	else
-		GuiService.SelectedObject = hud.CreateButton
+		return Enum.ContextActionResult.Sink
 	end
+	if selected then
+		return Enum.ContextActionResult.Pass
+	end
+	GuiService.SelectedObject = hud.CreateButton
 	return Enum.ContextActionResult.Sink
 end
 
@@ -1686,24 +1934,36 @@ end
 local function handleInvites()
 	local current = {}
 	local mine = partyState.MyParty
+	-- O meu próprio grupo nunca vira popup de convite (nem depois que eu sair dele).
+	if mine then
+		inviteSeen[mine.Id] = true
+	end
 	for _, partyId in ipairs(partyState.Invites) do
 		current[partyId] = true
 		if not inviteSeen[partyId] then
 			inviteSeen[partyId] = true
-			if not (mine and mine.Id == partyId) then
-				table.insert(inviteQueue, partyId)
-			end
+			table.insert(inviteQueue, partyId)
 		end
 	end
 
-	-- Convites que não existem mais saem da fila (e podem voltar se o dono convidar de novo).
+	-- Convites que não existem mais saem da fila.
 	for index = #inviteQueue, 1, -1 do
 		if not current[inviteQueue[index]] then
 			table.remove(inviteQueue, index)
 		end
 	end
+	-- "Já mostrado" vale enquanto o grupo existir: um convite que sai e volta para a lista
+	-- (o grupo encheu e esvaziou, por exemplo) não aparece de novo. Só quando o grupo some
+	-- de vez é que esquecemos (um grupo novo daquele dono pode convidar de novo).
+	local alive = {}
+	for _, party in ipairs(partyState.Parties) do
+		alive[party.Id] = true
+	end
+	if mine then
+		alive[mine.Id] = true
+	end
 	for partyId in pairs(inviteSeen) do
-		if not current[partyId] then
+		if not current[partyId] and not alive[partyId] then
 			inviteSeen[partyId] = nil
 		end
 	end
@@ -1725,13 +1985,21 @@ local function onPartyState(raw)
 	local oldParty, newParty = previous.MyParty, partyState.MyParty
 
 	-- O meu grupo está sendo teleportado: tela de carregamento com o mapa.
+	-- (A transição do Studio tem prioridade: ela já está na tela e some no Shutdown.)
 	if newParty and newParty.State == "Teleporting" then
-		if not (loading.Gui and loading.Reason == "Party") then
+		if
+			loading.Reason ~= "Studio"
+			and not (loading.Gui and loading.Reason == "Party")
+			and loading.GaveUpParty ~= newParty.Id
+		then
 			showLoading(newParty.MapId, "Party")
 		end
-	elseif newParty and loading.Gui and loading.Reason == "Party" then
-		-- O teleporte falhou e o grupo voltou a esperar: some a tela.
-		hideLoading()
+	else
+		loading.GaveUpParty = nil
+		if newParty and loading.Gui and loading.Reason == "Party" then
+			-- O teleporte falhou e o grupo voltou a esperar: some a tela.
+			hideLoading()
+		end
 	end
 	-- (Sem grupo durante o teleporte: a checagem com tempo cuida disso.)
 
@@ -1785,26 +2053,124 @@ local function runSubmodules(methodName)
 	end
 end
 
--- Liga os prompts do mundo do lobby às janelas.
+-- "Jogar sozinho" (prompt QuickPlay:<MapId>): cria um grupo só para o jogador, só por
+-- convite, e já começa (continua a partida salva desse mapa, se houver).
+local function quickPlay(arg)
+	local mapId = toMapId(arg)
+	if not mapId then
+		warn(("[LobbyUI] QuickPlay com um mapa que não existe: %s"):format(tostring(arg)))
+		NotifyController.Show("Esse mapa não está disponível.", "warning", 3)
+		return
+	end
+	if not LobbyUI.IsMapUnlocked(mapId) then
+		showLockedMap(mapId)
+		return
+	end
+	if quickPlaying then
+		return
+	end
+	if partyState.MyParty then
+		-- O servidor não deixa estar em dois grupos: mostra o grupo atual.
+		NotifyController.Show("Você já está num grupo. Saia dele para jogar sozinho.", "warning", 4)
+		LobbyUI.Open("Party")
+		return
+	end
+
+	quickPlaying = true
+	local resume = LobbyUI.GetRunSave(mapId) ~= nil
+	-- LobbyUI.Request já mostra a mensagem de erro do servidor (em pt-BR) num aviso.
+	local created = LobbyUI.Request("PartyCreate", {
+		MapId = mapId,
+		MaxPlayers = 1,
+		Privacy = "Invite",
+		Resume = resume,
+	})
+	if not created then
+		quickPlaying = false
+		return
+	end
+	local startedOk = LobbyUI.Request("PartyStart", true)
+	quickPlaying = false
+	if startedOk then
+		local text = resume and "Continuando sua partida salva no %s!" or "Partida solo no %s: começando!"
+		NotifyController.Show(text:format(LobbyUI.GetMapName(mapId)), "success", 3)
+	else
+		-- O grupo foi criado mas não começou: abre o "Meu Grupo" para tentar de novo.
+		LobbyUI.Open("Party", "Joining")
+	end
+end
+
+-- Liga os prompts do mundo do lobby às janelas (ClientAction "Ação" ou "Ação:Argumento").
 local function registerPrompts()
 	local PromptController = getController("PromptController")
 	if not (PromptController and PromptController.Register) then
 		warn("[LobbyUI] PromptController não encontrado; os prompts do lobby não vão abrir janelas.")
 		return
 	end
-	PromptController.Register("CreateParty", function()
+
+	-- Registra uma ação; a conexão vai para o lifeTrove (o Shutdown desfaz o registro).
+	-- Durante o teleporte (tela de carregamento na tela) os prompts não fazem nada.
+	local function register(action, fn)
+		lifeTrove:Add(PromptController.Register(action, function(arg, prompt)
+			if shutDown or loading.Gui then
+				return
+			end
+			fn(arg, prompt)
+		end))
+	end
+
+	-- CreateParty[:<MapId>]: "Criar Partida" com o mapa já escolhido.
+	register("CreateParty", function(arg)
+		local mapId = toMapId(arg)
+		if mapId and not LobbyUI.IsMapUnlocked(mapId) then
+			showLockedMap(mapId)
+			return
+		end
 		-- Quem já está num grupo abre o "Meu Grupo" (o LobbyCreate cuida disso).
-		LobbyUI.Open("Create")
+		LobbyUI.Open("Create", mapId)
 	end)
-	PromptController.Register("PartyList", function()
+	-- QuickPlay:<MapId>: partida solo nesse mapa, sem janela.
+	register("QuickPlay", quickPlay)
+	-- Reconnect: o mesmo que o botão "Reconectar".
+	register("Reconnect", function()
+		reconnect()
+	end)
+	register("PartyList", function()
 		LobbyUI.Open("List")
 	end)
-	PromptController.Register("Shop", function()
-		LobbyUI.Open("Shop")
+	-- Shop[:Passes] e Achievements[:Stats|Goals]: a janela abre na aba pedida.
+	register("Shop", function(arg)
+		LobbyUI.Open("Shop", arg)
 	end)
-	PromptController.Register("Achievements", function()
-		LobbyUI.Open("Achievements")
+	register("Achievements", function(arg)
+		LobbyUI.Open("Achievements", arg)
 	end)
+end
+
+-- Studio: o servidor está trocando o lobby pela partida (atributo StudioSwitching).
+local function onStudioSwitching()
+	if shutDown then
+		return
+	end
+	if workspace:GetAttribute("StudioSwitching") == true then
+		LobbyUI.ShowTransition(workspace:GetAttribute("StudioSwitchMap"))
+		return
+	end
+	-- A troca acabou. Deu certo: o Role vira "Match" e o Main chama o Shutdown.
+	-- Não virou partida (erro no servidor): espera um pouco e some com a tela.
+	if loading.Gui and loading.Reason == "Studio" then
+		local serial = loading.Serial
+		task.delay(STUDIO_SWITCH_GRACE, function()
+			if shutDown or loading.Serial ~= serial or loading.Reason ~= "Studio" then
+				return
+			end
+			if workspace:GetAttribute("Role") == "Match" then
+				return
+			end
+			LobbyUI.HideLoading()
+			NotifyController.Show("A partida de teste não abriu. Veja o Output do Studio.", "error", 6)
+		end)
+	end
 end
 
 function LobbyUI.Init()
@@ -1814,7 +2180,7 @@ function LobbyUI.Init()
 	initialized = true
 
 	-- Estado dos grupos (o servidor manda sempre que algo muda).
-	Net.On("PartyState", onPartyState)
+	lifeTrove:Add(Net.On("PartyState", onPartyState))
 
 	loadSubmodules()
 	runSubmodules("Init")
@@ -1822,7 +2188,7 @@ function LobbyUI.Init()
 end
 
 function LobbyUI.Start()
-	if started then
+	if started or shutDown then
 		return
 	end
 	started = true
@@ -1835,11 +2201,32 @@ function LobbyUI.Start()
 
 	runSubmodules("Start")
 
-	StateController.OnChanged("Profile", function()
+	lifeTrove:Add(StateController.OnChanged("Profile", function()
 		refreshSideMenu()
-	end)
-	UserInputService.LastInputTypeChanged:Connect(refreshGamepadHint)
+	end))
+	lifeTrove:Connect(UserInputService.LastInputTypeChanged, refreshGamepadHint)
 	ContextActionService:BindAction(GAMEPAD_MENU_ACTION, onGamepadMenu, false, GAMEPAD_MENU_KEY)
+	lifeTrove:Add(function()
+		ContextActionService:UnbindAction(GAMEPAD_MENU_ACTION)
+	end)
+
+	-- Prompts "Reconnect" que aparecerem depois (o mundo do lobby pode chegar aos poucos).
+	lifeTrove:Connect(CollectionService:GetInstanceAddedSignal(GAME_PROMPT_TAG), function(instance)
+		if reconnectPromptsOn ~= nil then
+			applyReconnectPrompt(instance, reconnectPromptsOn)
+		end
+	end)
+	-- Para o relógio do prazo de reconexão no Shutdown.
+	lifeTrove:Add(function()
+		if reconnectExpiry.Thread then
+			pcall(task.cancel, reconnectExpiry.Thread)
+		end
+		reconnectExpiry.Thread = nil
+		reconnectExpiry.At = nil
+	end)
+
+	-- Studio: tela de transição enquanto o servidor troca o lobby pela partida.
+	lifeTrove:Connect(workspace:GetAttributeChangedSignal("StudioSwitching"), onStudioSwitching)
 
 	refreshSideMenu()
 	refreshCountdown()
@@ -1847,9 +2234,101 @@ function LobbyUI.Start()
 	showNextInvite()
 
 	-- Lembra o jogador que a última partida ainda existe.
-	if LobbyUI.GetProfile().CanReconnect == true then
+	if canReconnectNow() then
 		NotifyController.Show("Sua última partida ainda está rolando! Use o botão Reconectar para voltar.", "info", 6)
 	end
+
+	-- A troca pode ter começado enquanto o lobby ainda estava ligando.
+	if workspace:GetAttribute("StudioSwitching") == true then
+		onStudioSwitching()
+	end
+end
+
+-- Some com a tela de carregamento (ou de transição) na hora e devolve o menu lateral.
+function LobbyUI.HideLoading()
+	hideLoading()
+	refreshSideMenu()
+	refreshCountdown()
+end
+
+-- Studio: mostra a tela "Preparando <mapa> (teste no Studio)..." enquanto o servidor troca
+-- o lobby pela partida. Não usa o TeleportService (não há teleporte). Some no Shutdown.
+function LobbyUI.ShowTransition(mapId)
+	if shutDown then
+		return
+	end
+	local def = LobbyUI.GetMapDef(mapId)
+	local statusText = ("Preparando %s (teste no Studio)"):format(def and def.DisplayName or "a partida")
+	if loading.Gui then
+		-- Já tem uma tela aberta (ex.: "Teleportando" do grupo chegou antes): vira a
+		-- transição do Studio sem piscar.
+		loadingTrove:Clean()
+		loading.Reason = "Studio"
+		loading.StatusBase = statusText
+		loading.FailedAt = nil
+		return
+	end
+	showLoading(mapId, "Studio", statusText)
+end
+
+-- Desliga toda a interface do lobby (a partida começou no mesmo servidor, no Studio).
+-- Fecha as janelas, destrói as telas do lobby, desfaz os registros e conexões e faz a
+-- tela de transição sumir aos poucos. Chamar de novo não faz nada.
+function LobbyUI.Shutdown()
+	if shutDown then
+		return
+	end
+	shutDown = true
+
+	-- 1. Fecha as janelas do lobby (cada uma avisa o UIKit que o modal fechou).
+	LobbyUI.CloseAll()
+
+	-- 2. Conexões, registros de prompt, a ação do controle e os relógios.
+	lifeTrove:Clean()
+	countdownTrove:Clean()
+	countdownActive = false
+	lastCountdownSecond = nil
+	LobbyUI.PartyChanged:DisconnectAll()
+
+	-- 3. Nenhum convite aparece mais.
+	table.clear(inviteQueue)
+	currentInvite = nil
+	inviteSerial += 1
+
+	-- 4. As janelas de cada submódulo (quem tem Destroy() destrói a própria janela;
+	--    as outras ficam fechadas e desligadas, sem atrapalhar a partida).
+	for _, entry in ipairs(SUBMODULES) do
+		local module = modules[entry.Key]
+		if module and type(module.Destroy) == "function" then
+			local ok, err = pcall(module.Destroy)
+			if not ok then
+				warn(("[LobbyUI] Erro ao destruir %s: %s"):format(entry.Module, tostring(err)))
+			end
+		end
+	end
+	table.clear(modules)
+
+	-- 5. Telas do lobby: botões laterais + contagem (LobbyHUD) e o convite (LobbyPopup).
+	local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
+	local selected = GuiService.SelectedObject
+	for _, screenName in ipairs({ HUD_SCREEN_NAME, POPUP_SCREEN_NAME }) do
+		local screen = playerGui and playerGui:FindFirstChild(screenName)
+		if screen and screen:IsA("ScreenGui") then
+			if selected and selected:IsDescendantOf(screen) then
+				pcall(function()
+					GuiService.SelectedObject = nil
+				end)
+			end
+			screen:Destroy()
+		end
+	end
+	hud = nil
+	popup = nil
+	quickPlaying = false
+	reconnecting = false
+
+	-- 6. A tela de transição some aos poucos, mostrando a partida por trás.
+	fadeOutLoading()
 end
 
 -- Deixa as funções do módulo funcionarem com "." e também com ":"

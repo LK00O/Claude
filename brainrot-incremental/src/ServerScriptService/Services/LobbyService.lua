@@ -31,6 +31,10 @@
 -- Memória: quem sai do servidor é esquecido nos mapas dos placares (Memory, LastWritten)
 -- depois da gravação final, a não ser que esteja aparecendo no quadro; o cache de nomes
 -- guarda só quem aparece nos quadros e quem está no servidor.
+--
+-- LobbyService.Stop() desliga o serviço (só usado no Studio, quando o lobby de teste vira
+-- a partida no mesmo servidor): os laços param, as conexões caem, as peças do lobby (ctx)
+-- deixam de ser usadas e o Request "Reconnect" responde "O lobby foi fechado.".
 
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
@@ -96,12 +100,17 @@ local MSG_LOADING = "Carregando placar..."
 local MSG_UNKNOWN_PLAYER = "Jogador %d"
 local MSG_STUDIO_NO_WRITE =
 	"[LobbyService] Studio: o placar público não é gravado nos testes (pontuações só na memória deste servidor)."
+local MSG_LOBBY_CLOSED = "O lobby foi fechado."
 
 -------------------------------------------------------------------------------
 -- Estado
 -------------------------------------------------------------------------------
 
-local trove = Trove.new() -- conexões do serviço
+-- Conexões e laços do serviço. Tudo o que roda "para sempre" (laço do placar, conexões
+-- de jogadores) entra aqui, para o LobbyService.Stop() desligar de uma vez.
+local trove = Trove.new()
+-- true depois do LobbyService.Stop(): os laços saem, os handlers recusam e o ctx some.
+local stopped = false
 local ctx = nil -- contexto do mapa do lobby (MapBuilder.Build("Lobby"))
 local storeWarned = false -- já avisamos no Output que o placar falhou?
 local studioWarned = false -- já avisamos no Output que o Studio não grava o placar?
@@ -653,6 +662,10 @@ local function refreshOneBoard(board)
 	-- Um GetSortedAsync (ou nenhum, se o store não existe): marca a hora para o rodízio.
 	lastReadAt = os.clock()
 	local entries = readStoreTop(board)
+	-- O lobby pode ter fechado (LobbyService.Stop) enquanto a leitura esperava a web.
+	if stopped then
+		return
+	end
 	if entries then
 		-- No Studio o placar público não é gravado: mostra também as pontuações do teste.
 		if leaderboardWritesBlocked() then
@@ -690,7 +703,7 @@ end
 -- Uma volta do rodízio: pega o próximo placar, grava nele (se mudou) a pontuação de quem
 -- está no servidor, lê o top dele (UM GetSortedAsync) e redesenha só o painel dele.
 local function refreshNextBoard()
-	if refreshRunning then
+	if refreshRunning or stopped then
 		return
 	end
 	refreshRunning = true
@@ -717,9 +730,12 @@ end
 -- Ciclo periódico: um placar por volta, respeitando o intervalo mínimo entre leituras.
 -- A primeira volta acontece logo depois do Start; as outras a cada readInterval() s.
 local function refreshLoop()
-	while true do
+	while not stopped do
 		local waitTime = readInterval() - (os.clock() - lastReadAt)
 		task.wait(math.max(MIN_LOOP_WAIT, waitTime))
+		if stopped then
+			break
+		end
 		refreshNextBoard()
 	end
 end
@@ -791,6 +807,9 @@ end
 
 -- Reconnect() -> true: volta para a última partida (TravelService cuida de tudo).
 local function onReconnect(player)
+	if stopped then
+		return false, MSG_LOBBY_CLOSED
+	end
 	local ok, err = Svc("TravelService").Reconnect(player)
 	if not ok then
 		return false, if type(err) == "string" then err else "Não foi possível reconectar."
@@ -822,6 +841,9 @@ function LobbyService.Init()
 end
 
 function LobbyService.Start()
+	if stopped then
+		return
+	end
 	-- Jogadores que já tinham o perfil carregado antes do Start.
 	for _, player in ipairs(Players:GetPlayers()) do
 		cachePlayerName(player)
@@ -840,6 +862,23 @@ function LobbyService.Start()
 
 	-- Ciclo periódico (a primeira volta é logo no começo).
 	trove:Add(task.spawn(refreshLoop))
+end
+
+-- LobbyService.Stop()
+-- Desliga o lobby neste servidor. Usado só no Studio, quando o lobby de teste vira a
+-- partida no mesmo servidor (Main.server.lua), ANTES de o MapBuilder apagar o mapa do
+-- lobby. Pode ser chamado mais de uma vez (da segunda em diante não faz nada).
+--   * os laços (rodízio do placar e os que forem entrando no trove) param;
+--   * as conexões (entrada/saída de jogadores, perfil carregado) caem;
+--   * o ctx do lobby é esquecido: nenhum quadro é desenhado em peças que vão sumir;
+--   * o Request "Reconnect" passa a responder "O lobby foi fechado.".
+function LobbyService.Stop()
+	if stopped then
+		return
+	end
+	stopped = true
+	trove:Clean()
+	ctx = nil
 end
 
 return LobbyService

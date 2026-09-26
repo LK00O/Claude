@@ -8,20 +8,23 @@
 --                   deixa a torreta apoiada certinho no chão.
 --         * "Head"  : a cabeça que gira no eixo Y. O cano aponta para -Z da Head.
 --         * "Muzzle": Attachment dentro da Head, na ponta dos canos (de onde sai o tiro).
+--         * "MuzzleFlash": Attachment no mesmo ponto do Muzzle (para o clarão do tiro no cliente).
 --         * BillboardGui "OwnerTag" com o nome do dono e o modo de mira.
 --         * Dois ProximityPrompts: "PickupPrompt" (ServerAction = "PickupTurret",
 --           "Recolher", segurar 0,3 s) e "ModePrompt" (ServerAction = "TurretMode",
---           "Mirar: mais valioso").
---         Tudo ancorado e no grupo de colisão "Turrets".
+--           "Mirar: mais valioso"). Os dois têm a tag "GamePrompt".
+--         Base, coluna e Head ancoradas; o resto da cabeça é soldado na Head.
+--         Tudo no grupo de colisão "Turrets".
 --       colors (opcional) = { Primary = Color3, Secondary = Color3, Accent = Color3 }.
 --
 --   TurretFactory.AimHead(model, targetPosition)
 --       Gira a cabeça (e tudo que está preso nela: canos, olho, antena...) para o alvo.
 --
--- Como a cabeça gira se tudo é ancorado? Cada parte da cabeça guarda no atributo
--- "HeadOffset" (um CFrame) onde ela fica em relação à Head. Para girar, calculamos o
--- novo CFrame da Head e movemos todas as partes da cabeça juntas com workspace:BulkMoveTo
--- (bem mais rápido que mudar o CFrame de cada parte separadamente).
+-- Como a cabeça gira? A Head é ancorada e as outras partes da cabeça (canos, olho, antena...)
+-- são soltas, sem massa (Massless) e presas nela com WeldConstraint. Para mirar, só o
+-- CFrame da Head muda: as partes soldadas vão junto e a rede manda UMA peça por mira em
+-- vez de onze. Cada parte da cabeça ainda guarda no atributo "HeadOffset" (um CFrame)
+-- onde ela fica em relação à Head.
 --
 -- World/* não dá require em nenhum serviço (regra 1.2 da especificação).
 
@@ -36,6 +39,8 @@ local PICKUP_HOLD = 0.3 -- seção 7.7: segurar 0,3 s para recolher
 local BILLBOARD_MAX_DISTANCE = 80 -- a plaquinha com o nome some de longe
 local HEAD_OFFSET_ATTRIBUTE = "HeadOffset" -- CFrame de cada parte em relação à Head
 local MIN_AIM_DOT = 0.99995 -- se a cabeça já está quase mirando (< ~0,6°), não mexe
+local GAME_PROMPT_TAG = "GamePrompt" -- tag de todo ProximityPrompt do jogo (PromptController)
+local FLICKER_TAG = "AmbientFlicker" -- o cliente faz a luz do olho tremer de leve
 
 -- Cores padrão (azul da Barraca de Torretas, aço escuro e detalhe amarelo).
 local DEFAULT_COLORS = {
@@ -62,7 +67,7 @@ local BARREL_DROP = -0.1 -- canos um pouquinho abaixo do centro da cabeça
 local CYLINDER_UP = CFrame.Angles(0, 0, math.rad(90)) -- eixo em Y (em pé)
 local CYLINDER_FORWARD = CFrame.Angles(0, math.rad(90), 0) -- eixo em Z (apontando para frente)
 
--- Cache das partes da cabeça de cada modelo: [model] = { Parts = {BasePart}, Offsets = {CFrame} }.
+-- Cache da cabeça de cada modelo: [model] = { Head, LegacyParts = {BasePart}, LegacyOffsets = {CFrame} }.
 -- Tabela "fraca" nas chaves: quando o modelo é destruído e esquecido, o cache some junto.
 local headCache = setmetatable({}, { __mode = "k" })
 
@@ -136,6 +141,7 @@ local function makePrompt(parent, name, actionText, objectText, serverAction, ho
 	prompt.GamepadKeyCode = gamepadKey
 	prompt.Style = Enum.ProximityPromptStyle.Default
 	prompt:SetAttribute("ServerAction", serverAction)
+	prompt:AddTag(GAME_PROMPT_TAG)
 	prompt.Parent = parent
 	return prompt
 end
@@ -229,7 +235,7 @@ function TurretFactory.Build(ownerName, colors)
 		Size = HEAD_SIZE,
 		CFrame = headCFrame,
 		Color = palette.Primary,
-		Material = Enum.Material.SmoothPlastic,
+		Material = Enum.Material.Metal,
 		CanCollide = true,
 	})
 	head.Parent = model
@@ -249,7 +255,7 @@ function TurretFactory.Build(ownerName, colors)
 			Name = "HeadArmor",
 			Size = Vector3.new(HEAD_SIZE.X, 0.6, 1.3),
 			Color = palette.Primary:Lerp(Color3.new(1, 1, 1), 0.2),
-			Material = Enum.Material.SmoothPlastic,
+			Material = Enum.Material.DiamondPlate,
 		}),
 		CFrame.new(0, HEAD_SIZE.Y / 2 + 0.3, -HEAD_SIZE.Z / 2 + 0.65)
 	)
@@ -277,12 +283,12 @@ function TurretFactory.Build(ownerName, colors)
 		)
 	end
 
-	-- "Olho" sensor brilhante na frente (com uma luz fraca).
+	-- "Olho" sensor pequeno e brilhante na frente (com uma luz fraca que treme no cliente).
 	local eye = addHeadPart(
 		makePart("Part", {
 			Name = "Eye",
 			Shape = Enum.PartType.Ball,
-			Size = Vector3.new(0.55, 0.55, 0.55),
+			Size = Vector3.new(0.42, 0.42, 0.42),
 			Color = palette.Accent,
 			Material = Enum.Material.Neon,
 			CastShadow = false,
@@ -295,6 +301,7 @@ function TurretFactory.Build(ownerName, colors)
 	light.Brightness = 1.2
 	light.Shadows = false
 	light.Parent = eye
+	eye:AddTag(FLICKER_TAG)
 
 	-- Caixa de munição na lateral.
 	addHeadPart(
@@ -311,7 +318,7 @@ function TurretFactory.Build(ownerName, colors)
 			Name = "AmmoStripe",
 			Size = Vector3.new(0.62, 0.18, 1.32),
 			Color = palette.Accent,
-			Material = Enum.Material.SmoothPlastic,
+			Material = Enum.Material.Metal,
 			CastShadow = false,
 		}),
 		CFrame.new(HEAD_SIZE.X / 2 + 0.3, 0.15, 0.25)
@@ -339,16 +346,34 @@ function TurretFactory.Build(ownerName, colors)
 		CFrame.new(-HEAD_SIZE.X / 2 + 0.4, HEAD_SIZE.Y / 2 + 1.25, HEAD_SIZE.Z / 2 - 0.4)
 	)
 
-	-- Guarda o CFrame relativo de cada parte da cabeça (usado pelo AimHead).
+	-- Guarda o CFrame relativo de cada parte da cabeça e solda na Head tudo que não é ela:
+	-- a Head continua ancorada e as outras partes (soltas e sem massa) vão junto quando ela gira.
 	for _, entry in ipairs(headParts) do
-		entry[1]:SetAttribute(HEAD_OFFSET_ATTRIBUTE, entry[2])
+		local part = entry[1]
+		part:SetAttribute(HEAD_OFFSET_ATTRIBUTE, entry[2])
+		if part ~= head then
+			part.Anchored = false
+			part.Massless = true
+			local weld = Instance.new("WeldConstraint")
+			weld.Name = "HeadWeld"
+			weld.Part0 = head
+			weld.Part1 = part
+			weld.Parent = part
+		end
 	end
 
 	-- Muzzle: ponto de onde sai o tiro, entre os dois canos, na ponta.
+	local muzzlePosition = Vector3.new(0, BARREL_DROP, brakeCenterZ - BRAKE_LENGTH / 2 - 0.1)
 	local muzzle = Instance.new("Attachment")
 	muzzle.Name = "Muzzle"
-	muzzle.Position = Vector3.new(0, BARREL_DROP, brakeCenterZ - BRAKE_LENGTH / 2 - 0.1)
+	muzzle.Position = muzzlePosition
 	muzzle.Parent = head
+
+	-- MuzzleFlash: mesmo ponto do Muzzle, reservado para o clarão do tiro (efeito no cliente).
+	local muzzleFlash = Instance.new("Attachment")
+	muzzleFlash.Name = "MuzzleFlash"
+	muzzleFlash.Position = muzzlePosition
+	muzzleFlash.Parent = head
 
 	---------------------------------------------------------------------------
 	-- Plaquinha com o nome do dono e o modo de mira
@@ -430,7 +455,10 @@ end
 -- TurretFactory.AimHead
 -------------------------------------------------------------------------------
 
--- Lê (e guarda no cache) as partes da cabeça do modelo e seus CFrames relativos.
+-- Lê (e guarda no cache) a Head do modelo. Numa torreta nova, as outras partes da cabeça
+-- estão soldadas na Head e seguem sozinhas. Só num modelo ANTIGO (feito antes da solda) pode
+-- haver partes da cabeça ainda ancoradas com "HeadOffset": essas vão em Legacy e são movidas
+-- junto com a Head.
 local function getHeadRig(model)
 	local rig = headCache[model]
 	if rig and rig.Head.Parent == model then
@@ -442,28 +470,24 @@ local function getHeadRig(model)
 		return nil
 	end
 
-	local parts, offsets = {}, {}
+	local legacyParts, legacyOffsets = {}, {}
 	for _, descendant in ipairs(model:GetDescendants()) do
-		if descendant:IsA("BasePart") then
+		if descendant ~= head and descendant:IsA("BasePart") and descendant.Anchored then
 			local offset = descendant:GetAttribute(HEAD_OFFSET_ATTRIBUTE)
 			if typeof(offset) == "CFrame" then
-				table.insert(parts, descendant)
-				table.insert(offsets, offset)
+				table.insert(legacyParts, descendant)
+				table.insert(legacyOffsets, offset)
 			end
 		end
 	end
-	-- Garante que a própria Head está na lista (mesmo num modelo sem atributos).
-	if not table.find(parts, head) then
-		table.insert(parts, head)
-		table.insert(offsets, CFrame.identity)
-	end
 
-	rig = { Head = head, Parts = parts, Offsets = offsets }
+	rig = { Head = head, LegacyParts = legacyParts, LegacyOffsets = legacyOffsets }
 	headCache[model] = rig
 	return rig
 end
 
 -- Gira a cabeça no eixo Y para que o cano (-Z da Head) aponte para targetPosition.
+-- Só o CFrame da Head muda: canos, olho e antena estão soldados nela e vão junto.
 function TurretFactory.AimHead(model, targetPosition)
 	if typeof(model) ~= "Instance" or not model:IsA("Model") or typeof(targetPosition) ~= "Vector3" then
 		return
@@ -491,12 +515,23 @@ function TurretFactory.AimHead(model, targetPosition)
 	-- Novo CFrame da cabeça: mesma posição, olhando para o alvo (lookAt deixa -Z virado para ele).
 	local newHeadCFrame = CFrame.lookAt(headPosition, headPosition + direction)
 
-	-- Move todas as partes da cabeça de uma vez só.
-	local cframes = table.create(#rig.Parts)
-	for index, offset in ipairs(rig.Offsets) do
-		cframes[index] = newHeadCFrame * offset
+	local legacyCount = #rig.LegacyParts
+	if legacyCount == 0 then
+		-- Caso normal: uma única escrita. As partes soldadas acompanham a Head.
+		rig.Head.CFrame = newHeadCFrame
+		return
 	end
-	workspace:BulkMoveTo(rig.Parts, cframes, Enum.BulkMoveMode.FireCFrameChanged)
+
+	-- Modelo antigo (partes da cabeça ainda ancoradas): move a Head e essas partes juntas.
+	local parts = table.create(legacyCount + 1)
+	local cframes = table.create(legacyCount + 1)
+	parts[1] = rig.Head
+	cframes[1] = newHeadCFrame
+	for index, offset in ipairs(rig.LegacyOffsets) do
+		parts[index + 1] = rig.LegacyParts[index]
+		cframes[index + 1] = newHeadCFrame * offset
+	end
+	workspace:BulkMoveTo(parts, cframes, Enum.BulkMoveMode.FireCFrameChanged)
 end
 
 return TurretFactory

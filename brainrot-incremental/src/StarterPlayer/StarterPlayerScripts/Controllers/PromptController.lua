@@ -13,7 +13,13 @@
 --   - a tecla "Interact" escolhida nas Configurações vale para todos os prompts;
 --   - enquanto uma janela está aberta, os prompts ficam escondidos.
 -- Extra: PromptController.SetHidden(reason, hidden) esconde os prompts por outro motivo.
+--
+-- Como achamos os prompts (para trocar a tecla): todo prompt do jogo criado pelo servidor
+-- (Common.Prompt, torretas, portal) tem a tag "GamePrompt" (CollectionService). Um prompt
+-- sem a tag é "adotado" na primeira vez que aparece na tela (PromptShown). Assim não
+-- precisamos olhar cada peça nova do workspace (o que pesava quando um mapa era montado).
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -40,6 +46,9 @@ local MANAGED_ATTRIBUTE = "InteractManaged"
 
 -- Por quanto tempo guardamos um pedido que chegou antes de alguém registrar a ação.
 local PENDING_TTL = 10
+
+-- Tag que o servidor coloca em todo ProximityPrompt do jogo.
+local GAME_PROMPT_TAG = "GamePrompt"
 
 local handlers = {} -- [action] = {fn, fn, ...}
 local pending = {} -- [action] = {Arg, Prompt, Time}
@@ -169,6 +178,11 @@ local function trackPrompt(prompt)
 	if managedPrompts[prompt] then
 		return
 	end
+	-- Só prompts de verdade que estão no mundo (a tag pode estar em um modelo guardado
+	-- no ReplicatedStorage, por exemplo; esse é adotado quando aparecer na tela).
+	if typeof(prompt) ~= "Instance" or not prompt:IsA("ProximityPrompt") or not prompt:IsDescendantOf(workspace) then
+		return
+	end
 	-- Só trocamos prompts que usam a tecla padrão (um prompt com outra tecla
 	-- de propósito continua como está, ex.: o "ModePrompt" da torreta, na tecla F).
 	-- Não basta a tecla ser igual à do jogador: se o Interagir fosse F, o ModePrompt
@@ -194,7 +208,7 @@ local function trackPrompt(prompt)
 			end
 		end)
 	)
-	-- Saiu do workspace: esquece (se voltar, o DescendantAdded pega de novo).
+	-- Saiu do workspace: esquece (se voltar, é adotado de novo quando aparecer na tela).
 	table.insert(
 		connections,
 		prompt.AncestryChanged:Connect(function()
@@ -278,17 +292,22 @@ function PromptController.Init()
 		PromptController.SetHidden("Modal", isAnyOpen)
 	end)
 
-	-- Todos os prompts do workspace, inclusive os que aparecerem depois.
-	workspace.DescendantAdded:Connect(function(descendant)
-		if descendant:IsA("ProximityPrompt") then
-			trackPrompt(descendant)
+	-- Prompts do jogo (tag "GamePrompt"): os que já existem e os que chegarem depois.
+	CollectionService:GetInstanceAddedSignal(GAME_PROMPT_TAG):Connect(trackPrompt)
+	CollectionService:GetInstanceRemovedSignal(GAME_PROMPT_TAG):Connect(function(instance)
+		if typeof(instance) == "Instance" and instance:IsA("ProximityPrompt") then
+			forgetPrompt(instance)
 		end
 	end)
-	for _, descendant in ipairs(workspace:GetDescendants()) do
-		if descendant:IsA("ProximityPrompt") then
-			trackPrompt(descendant)
-		end
+	for _, instance in ipairs(CollectionService:GetTagged(GAME_PROMPT_TAG)) do
+		trackPrompt(instance)
 	end
+
+	-- Prompts sem a tag (de outro lugar): adotados quando aparecem na tela pela primeira vez.
+	-- (Um prompt que já está sendo cuidado não é adotado de novo: trackPrompt confere.)
+	ProximityPromptService.PromptShown:Connect(function(prompt)
+		trackPrompt(prompt)
+	end)
 end
 
 function PromptController.Start()

@@ -13,8 +13,24 @@ local Game = {
 
 	-- Ao testar no Studio: qual papel o servidor assume ("Lobby" ou "Match")
 	-- e qual mapa é carregado quando o papel é "Match".
-	StudioRole = "Match",
+	-- "Lobby" (padrão): o Play abre o lobby. Crie um grupo e clique em Iniciar para
+	--   entrar na partida (ver StudioInPlaceMatch logo abaixo).
+	-- "Match": o Play abre direto a partida no mapa StudioMapId (o jeito antigo).
+	StudioRole = "Lobby",
 	StudioMapId = "Meadow",
+
+	-- Só no Studio, com StudioRole = "Lobby": o teleporte não funciona no Studio, então,
+	-- quando um grupo inicia a partida, o MESMO servidor de teste vira a partida do mapa
+	-- escolhido (o lobby é desmontado e o mapa é construído no lugar dele).
+	-- true (padrão) = liga essa troca. false = iniciar um grupo no Studio só mostra um aviso.
+	-- O próximo ato NÃO abre no mesmo servidor: para testar Inverno ou Deserto, use
+	-- /unlockall no lobby e escolha o mapa ao criar o grupo.
+	-- (Num jogo publicado isto é ignorado: lá o grupo sempre é teleportado.)
+	StudioInPlaceMatch = true,
+
+	-- true (padrão) = os mapas usam o Terrain do Roblox (chão, morros, água, trilhas) além
+	-- das peças. false = mapas só de peças (como antes), útil se algum aparelho sofrer.
+	UseTerrain = true,
 
 	-- true = libera os comandos de teste também fora do Studio (cuidado!).
 	-- Fora do Studio, mesmo com true, só os admins (Config/Admins) podem usar os comandos.
@@ -122,10 +138,19 @@ local Game = {
 	-- Moedas em Dobro e junta com ele: quem tem os dois ganha ×2 × 1,25 = ×2,5.
 	GamepassVipCoinMult = 1.25,
 
-	-- IDs de música por mapa (0 = sem música).
+	-- Sons e músicas: o que cada número quer dizer (vale para Music e Sounds abaixo).
+	--   maior que 0 = id fixo: usa exatamente esse áudio (o número do asset no Creator Hub).
+	--   0           = automático: o jogo escolhe sozinho pela biblioteca de áudio
+	--                 (ReplicatedStorage.AudioLibrary e Config/Audio) ou usa um som
+	--                 embutido do Roblox; se não achar nada, fica em silêncio.
+	--   -1          = mudo: esse som (ou a música desse mapa) nunca toca.
+	-- Exemplo: Sounds.Purchase = -1 desliga o som de compra; Music.Meadow = 1234567890
+	-- toca sempre essa música no Prado Brainrot.
+
+	-- Música de cada mapa (ver a regra dos números logo acima).
 	Music = { Lobby = 0, Meadow = 0, Winter = 0, Desert = 0, Ending = 0 },
 
-	-- IDs dos efeitos sonoros (0 = sem som).
+	-- Efeitos sonoros (ver a regra dos números logo acima).
 	Sounds = {
 		Shoot = 0,
 		Hit = 0,

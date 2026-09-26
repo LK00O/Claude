@@ -11,6 +11,9 @@
 -- Quem já está num grupo abre direto a janela "Meu Grupo".
 --
 -- Aberta pelo LobbyUI (botão lateral e prompt "CreateParty"). Recebe o LobbyUI no Init.
+-- O prompt "CreateParty:<MapId>" (portal de um mapa no lobby) abre com esse mapa já
+-- escolhido: LobbyCreate.Open(mapId). LobbyCreate.Destroy() apaga a janela (usado pelo
+-- LobbyUI.Shutdown quando a partida começa no mesmo servidor, no Studio).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -545,13 +548,18 @@ end
 -------------------------------------------------------------------------------
 
 -- Abre a janela (ou a do grupo, se o jogador já está num grupo).
-function LobbyCreate.Open()
+-- mapId (opcional): já deixa esse mapa escolhido, se ele existe e está liberado
+-- (um mapa trancado é ignorado: fica a escolha de antes).
+function LobbyCreate.Open(mapId)
 	if not getLobby() then
 		return
 	end
 	if Lobby.GetMyParty() then
 		Lobby.Open("Party")
 		return
+	end
+	if type(mapId) == "string" and Lobby.GetMapDef(mapId) and Lobby.IsMapUnlocked(mapId) then
+		selection.MapId = mapId
 	end
 	ensureWindow()
 	refresh()
@@ -569,6 +577,18 @@ end
 
 function LobbyCreate.IsOpen()
 	return window ~= nil and window.IsOpen()
+end
+
+-- Apaga a janela de vez (o próximo Open monta de novo, se alguém chamar).
+function LobbyCreate.Destroy()
+	listenTrove:Clean()
+	creating = false
+	if window then
+		local old = window
+		window = nil
+		ui = nil
+		old.Destroy()
+	end
 end
 
 -------------------------------------------------------------------------------

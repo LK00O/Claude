@@ -11,6 +11,11 @@
 --   Dura "Duration" segundos. Depois disso o servidor manda todo mundo para o lobby; se por
 --   algum motivo ninguém for teleportado (ex.: no Studio), devolvemos o controle ao jogador.
 --
+-- Os botões de toque do celular não são desligados "por fora": a cena pede ao
+-- MobileController (SetSuppressed("Ending", true/false)), que é o dono daquela tela.
+-- Assim eles não voltam no meio da cena (ex.: quando outro jogador entra) e voltam
+-- certinho no fim. No fim, a música volta a ser a do lugar (MusicController.Play(nil)).
+--
 -- API pública:
 --   EndingController.IsPlaying() -> boolean
 
@@ -228,9 +233,23 @@ local function isWindowScreen(gui)
 	return string.sub(gui.Name, 1, 7) == "Window_"
 end
 
+-- Tela dos botões de toque (MobileController). Quando o MobileController sabe se esconder
+-- (SetSuppressed), a cena pede para ele e não mexe na tela dele.
+local MOBILE_SCREEN_NAME = "MobileControls"
+local function mobileCanSuppress()
+	local mobile = Ctrl("MobileController")
+	return mobile ~= nil and type(mobile.SetSuppressed) == "function"
+end
+
 local function hideInterface(state)
 	local playerGui = player:FindFirstChildOfClass("PlayerGui")
 	state.DisabledGuis = {}
+	-- Botões de toque: o próprio MobileController esconde (e continua escondendo, mesmo
+	-- se algo mudar no meio da cena) até o finish liberar.
+	state.MobileSuppressed = mobileCanSuppress()
+	if state.MobileSuppressed then
+		callController("MobileController", "SetSuppressed", "Ending", true)
+	end
 	if playerGui then
 		for _, gui in ipairs(playerGui:GetChildren()) do
 			-- Mantém os avisos (toasts) visíveis: a conquista secreta aparece durante o final!
@@ -241,6 +260,7 @@ local function hideInterface(state)
 				and gui.Name ~= SCREEN_NAME
 				and not gui.Name:lower():find("notif")
 				and not isWindowScreen(gui)
+				and not (state.MobileSuppressed and gui.Name == MOBILE_SCREEN_NAME)
 			then
 				gui.Enabled = false
 				table.insert(state.DisabledGuis, gui)
@@ -266,6 +286,8 @@ local function restoreInterface(state)
 	for coreType, wasEnabled in pairs(state.CoreGuis or {}) do
 		pcall(StarterGui.SetCoreGuiEnabled, StarterGui, coreType, wasEnabled)
 	end
+	-- Libera os botões de toque (o MobileController decide se eles aparecem agora).
+	callController("MobileController", "SetSuppressed", "Ending", false)
 end
 
 -------------------------------------------------------------------------------
@@ -606,9 +628,9 @@ local function finish()
 	callController("CameraController", "SetEnabled", true)
 	callController("PromptController", "SetHidden", "Ending", false)
 
-	local match = StateController.Get("Match")
-	local mapId = if type(match) == "table" and type(match.MapId) == "string" then match.MapId else "Desert"
-	callController("MusicController", "Play", mapId)
+	-- Volta para a música normal do lugar (Play(nil)). Antes passávamos o mapa, e isso
+	-- "prendia" a música do mapa mesmo depois de voltar ao lobby ou trocar de lugar.
+	callController("MusicController", "Play", nil)
 end
 
 -------------------------------------------------------------------------------

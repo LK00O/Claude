@@ -34,6 +34,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local GuiService = game:GetService("GuiService")
 local StarterGui = game:GetService("StarterGui")
+local TextChatService = game:GetService("TextChatService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
@@ -1746,6 +1747,34 @@ function HUDController.ShowHitmarker(crit)
 	end)
 end
 
+-- No PC (teclado e mouse), a janela do chat vai para baixo: em cima ela ficaria por cima
+-- do painel de moedas e das missões. Se a configuração do chat ainda não existe (o chat
+-- pode carregar depois), tentamos de novo algumas vezes.
+local CHAT_ALIGN_TRIES = 5
+local CHAT_ALIGN_RETRY_SECONDS = 2
+
+local function moveChatToBottom(triesLeft)
+	local ok, preferred = pcall(function()
+		return UserInputService.PreferredInput
+	end)
+	if not ok or preferred ~= Enum.PreferredInput.KeyboardAndMouse then
+		return
+	end
+	local config = TextChatService:FindFirstChildOfClass("ChatWindowConfiguration")
+	if not config then
+		if triesLeft > 1 then
+			task.delay(CHAT_ALIGN_RETRY_SECONDS, moveChatToBottom, triesLeft - 1)
+		end
+		return
+	end
+	local changed, err = pcall(function()
+		config.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	end)
+	if not changed then
+		warn("[HUDController] Não consegui mover o chat para baixo: " .. tostring(err))
+	end
+end
+
 -- Mostra/esconde o HUD inteiro (usado em cenas especiais).
 function HUDController.SetVisible(value)
 	visible = value ~= false
@@ -1771,7 +1800,14 @@ function HUDController.Start()
 	-- (que ficaria por cima dos botões no canto direito).
 	pcall(StarterGui.SetCoreGuiEnabled, StarterGui, Enum.CoreGuiType.PlayerList, false)
 
-	local screen = UIKit.GetScreen(SCREEN_NAME, DISPLAY_ORDER)
+	-- Chat embaixo no PC (não cobre as moedas nem a missão).
+	moveChatToBottom(CHAT_ALIGN_TRIES)
+
+	-- A tela do HUD cobre também a faixa da barra do Roblox (DeviceSafeInsets, como o antigo
+	-- IgnoreGuiInset = true): a mira fica no centro real da tela (onde o tiro vai) e o
+	-- layoutTop desconta a barra sozinho. Com o padrão do UIKit (CoreUISafeInsets) a barra
+	-- seria descontada duas vezes e a mira ficaria abaixo do centro.
+	local screen = UIKit.GetScreen(SCREEN_NAME, DISPLAY_ORDER, Enum.ScreenInsets.DeviceSafeInsets)
 	local root = UIKit.New("Frame", {
 		Name = "Root",
 		Size = UDim2.fromScale(1, 1),
@@ -1805,8 +1841,13 @@ function HUDController.Start()
 		task.defer(layoutTop)
 	end)
 
-	-- Estado inicial.
-	onCoinsChanged(StateController.Get("Coins"))
+	-- Estado inicial. As moedas só são "semeadas" se o servidor já mandou o valor: sem
+	-- isso, o HUD começaria em 0 e a chegada do valor real apareceria como um ganho
+	-- enorme ("+1,2 mil"), por exemplo ao entrar numa partida salva ou na troca do Studio.
+	local initialCoins = StateController.Get("Coins")
+	if initialCoins ~= nil then
+		onCoinsChanged(initialCoins)
+	end
 	updateCoins(0)
 	applyMapFeatures()
 	refreshIncome()

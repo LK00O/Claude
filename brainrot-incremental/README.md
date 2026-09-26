@@ -16,7 +16,8 @@ Tudo (mapas, interface, efeitos) é construído **por código**. Não é preciso
 
 1. Baixe o arquivo **`BrainrotIncremental.rbxlx`** (está nesta pasta).
 2. Abra o Roblox Studio, clique em **Arquivo > Abrir do arquivo...** e escolha o `.rbxlx`.
-3. Aperte **Jogar (F5)**. Por padrão o Studio abre direto na partida do mapa **Prado**.
+3. Aperte **Jogar (F5)**. Por padrão o Studio abre no **lobby**: crie um grupo e clique em
+   **Iniciar** para entrar na partida no mesmo teste (seção 2).
 
 Os scripts ficam onde o Roblox espera:
 
@@ -39,25 +40,63 @@ Se você preferir editar os arquivos `.lua` num editor (VS Code) e ver as mudan�
 2. Nesta pasta, rode `rojo serve` e clique em **Connect** no plugin do Rojo dentro do Studio.
 3. Para gerar o `.rbxlx` de novo: `rojo build default.project.json -o BrainrotIncremental.rbxlx`.
 
+> **Atenção (versão 2.0): rode o `rojo build` de novo e abra o `.rbxlx` novo.** Duas coisas do
+> visual novo ficam só no arquivo do projeto (`default.project.json`) e **nenhum script nem o
+> plugin do Rojo consegue ligar**: a luz **Future** (`Lighting > Technology`) e a grama animada do
+> terreno (`Workspace > Terrain > Decoration`). O mesmo arquivo também liga a luz realista
+> (`LightingStyle = Realistic`), as sombras e a tela sempre deitada no celular
+> (`StarterGui > ScreenOrientation = LandscapeSensor`). Se você só usar o `rojo serve` num place
+> antigo, o jogo funciona, mas fica com a luz velha. Outra saída: no Studio, selecione **Lighting**
+> e mude **Technology** para **Future**, e selecione **Workspace > Terrain** e marque **Decoration**.
+
 ---
 
 ## 2. Testar no Studio
 
 O mesmo arquivo serve para o **lobby** e para a **partida**. No Studio, quem decide é o
-`ReplicatedStorage > Shared > Config > Game`:
+`ReplicatedStorage > Shared > Config > Game`. Os valores que já vêm no arquivo são:
 
 ```lua
-StudioRole = "Match",   -- "Match" abre uma partida; "Lobby" abre o lobby
-StudioMapId = "Meadow", -- mapa da partida: "Meadow" (Prado), "Winter" (Inverno) ou "Desert" (Deserto)
+StudioRole = "Lobby",       -- "Lobby" (padrão) abre o lobby; "Match" abre direto uma partida
+StudioMapId = "Meadow",     -- só com StudioRole = "Match": "Meadow" (Prado), "Winter" (Inverno) ou "Desert" (Deserto)
+StudioInPlaceMatch = true,  -- no Studio, iniciar um grupo vira a partida no MESMO teste
 ```
 
-- **Um jogador:** aperte **Jogar (F5)**.
-- **Vários jogadores:** aba **Testar > Clientes e servidores**, escolha 2 a 4 jogadores e clique em **Iniciar**.
-- **Teleporte não funciona no Studio** (limite do Roblox). No lobby você pode criar festas e testar a
-  interface, mas ao iniciar aparece um aviso. Para jogar um mapa, use `StudioRole = "Match"` e o `StudioMapId`.
+**Jeito normal: do lobby até a partida, sem sair do teste**
+
+1. Aperte **Jogar (F5)**. O teste abre no **lobby**.
+2. Crie um grupo: botão **Criar Partida** (no menu do lobby ou no terminal da praça), escolha o
+   mapa, clique em **Criar grupo!** e depois em **Iniciar partida!** (sozinho você já conta como
+   pronto; com outros jogadores, espere todos marcarem "pronto" ou use **Forçar início**). Depois
+   da contagem regressiva a troca começa.
+3. Aparece a tela **"Preparando <mapa> (teste no Studio)..."**. O Roblox não teleporta dentro do
+   Studio, então o **mesmo servidor de teste** desmonta o lobby, monta o mapa escolhido e vira a
+   partida. Em poucos segundos você renasce no mapa, com o HUD, a arma e a música da partida.
+   No Output aparecem as linhas `[Main] Studio: trocando o lobby pela partida ...` e
+   `[Main] Studio: servidor pronto como partida (...)`.
+
+Coisas que você precisa saber:
+
+- **A troca acontece uma vez por teste.** O próximo ato **não abre no mesmo teste**: ao concluir o
+  ato, você ganha as recompensas e aparece o aviso "No Studio o próximo ato não abre no mesmo
+  servidor...". Pare o teste (**Parar**) e dê **Jogar** de novo para voltar ao lobby.
+- **Para testar o Inverno e o Deserto:** no lobby, digite `/unlockall` no chat (ou use o botão
+  **DEBUG**), abra **Criar Partida** e escolha o mapa. Sem o acesso às APIs (abaixo) o perfil é
+  temporário, então repita o `/unlockall` a cada teste.
+- **"Voltar ao lobby"** dentro da partida de teste termina o teste com a mensagem "Fim do teste no
+  Studio: pare e dê Play de novo para voltar ao lobby." (no Studio não existe outro servidor para ir).
+- **Vários jogadores:** aba **Testar > Clientes e servidores**, escolha 2 a 4 jogadores e clique em
+  **Iniciar**. Quando um grupo começa, **todos** os jogadores do teste vão para a partida.
+- **Jeito antigo (direto na partida):** mude para `StudioRole = "Match"`. Aí o Play abre direto a
+  partida do mapa em `StudioMapId`, sem lobby.
+- Se preferir que iniciar um grupo no Studio só mostre um aviso (como antes), use
+  `StudioInPlaceMatch = false`. No jogo publicado nada disso muda: o grupo sempre é teleportado
+  para um servidor da partida.
 - **Salvamento:** sem acesso às APIs, o Studio usa um armazenamento temporário (o progresso some quando
   você para o teste). Para testar o salvamento de verdade, publique o jogo uma vez e ligue
-  **Configurações do jogo > Segurança > Habilitar acesso do Studio aos serviços de API**.
+  **Configurações do jogo > Segurança > Habilitar acesso do Studio aos serviços de API**. Com ele
+  ligado, o "Continuar partida salva" também funciona no teste do Studio (sempre nas lojas `_Studio`,
+  veja abaixo).
 
 ### Testar no Studio com segurança
 
@@ -142,8 +181,8 @@ A experiência tem **dois places**: o **Lobby** (place inicial) e a **Partida**.
 O guia completo, com o que a conta precisa ter, a página do jogo, os game passes e como divulgar,
 está em `docs/PUBLICAR_E_CRESCER.md`.
 
-Os teleportes entre lobby e partida, o convite de amigos e o "Continuar partida salva" só funcionam
-depois desses passos, num servidor publicado.
+Os teleportes entre lobby e partida, o convite de amigos e a reconexão só funcionam depois desses
+passos, num servidor publicado. (No Studio, o grupo vira a partida no mesmo teste: seção 2.)
 
 ---
 
@@ -167,8 +206,39 @@ pode ter um script escondido), sons, cadeiras, ferramentas, prompts, `SpawnLocat
 tirado, aparece um aviso no Output com o nome do modelo.
 
 ### Músicas e sons
-Em `Config/Game`, preencha `Music` (uma por mapa, mais a do final) e `Sounds` (tiro, acerto, moeda,
-explosão...) com os IDs dos áudios. Com `0` o jogo fica em silêncio, sem erro.
+Em `Config/Game` ficam `Music` (uma por lugar: `Lobby`, `Meadow`, `Winter`, `Desert` e a do final,
+`Ending`) e `Sounds` (tiro, acerto, moeda, explosão, compra...). Cada número quer dizer:
+
+| Valor | Nome | O que acontece |
+|---|---|---|
+| **maior que 0** (ex.: `1234567890`) | fixo | Toca exatamente esse áudio (o id do asset no Creator Hub ou na Toolbox). Vale mais que tudo. |
+| **`0`** (o padrão) | automático | O jogo escolhe sozinho: primeiro um id que você fixou em `Config/Audio > Pinned`; depois o que a busca automática de áudios do servidor achou (quando ela estiver ligada); senão um som que já vem instalado no Roblox (por exemplo o clique dos botões e a explosão). Se não houver nenhum, fica em silêncio, sem erro. |
+| **`-1`** | mudo | Esse som (ou a música desse lugar) nunca toca, nem o automático. |
+
+Exemplos:
+
+```lua
+Music = { Lobby = 0, Meadow = 1234567890, Winter = 0, Desert = 0, Ending = 0 }, -- música fixa no Prado
+
+-- dentro de Sounds = { ... }, troque a linha do som de compra:
+	Purchase = -1, -- sem som de compra
+```
+
+O arquivo `Config/Audio` guarda a lista de todos os sons do jogo (as "vagas": `Click`, `Coin`,
+`Music_Meadow`, `Amb_Winter`...), o volume de cada um e o som embutido de reserva. Para fixar um
+áudio numa vaga que não está no `Config/Game` (por exemplo o clique), coloque o id em `Pinned`:
+`Pinned = { Click = 1234567890 }`. Para proibir um áudio, ponha o id em `Blocked`. O volume que o
+jogador escolhe nas Configurações (música, efeitos e ambiente) vale para tudo.
+
+### Luz e terreno dos mapas
+- **Luz:** cada mapa tem a sua em `Config/Maps` (campo `Lighting` de cada mapa) e o lobby em
+  `Config/Lobby` (campo `Lighting`): hora do dia, cor do sol, neblina (`Atmosphere`), nuvens
+  (`Clouds`), tamanho do sol (`Sky`), brilho e cores (`PostFX`), vento (`Wind`) e a cor da água
+  (`Water`). Ao trocar de mapa tudo volta a um "normal" antes, então um mapa nunca herda a luz do outro.
+  No Inverno, deixe `Atmosphere.Density` igual a `AtmosphereDensity` (a nevasca diminui com os upgrades).
+- **Terreno:** `UseTerrain = true` (padrão, em `Config/Game`) faz o chão, os morros, os lagos e as
+  trilhas com o Terreno do Roblox (grama que balança com o vento). Com `false` os mapas voltam a ser
+  só de peças, como antes; use se algum aparelho fraco sofrer.
 
 ### Balanceamento
 Todos os números estão em `ReplicatedStorage > Shared > Config`:
@@ -183,6 +253,8 @@ Todos os números estão em `ReplicatedStorage > Shared > Config`:
 | `Quests` / `Recipes` | Missões e receitas do caldeirão do Deserto |
 | `Achievements` / `Cosmetics` | Conquistas e skins da loja do lobby |
 | `Keybinds` | Teclas padrão (o jogador pode remapear nas Configurações) |
+| `Lobby` | Regras dos grupos (limite de jogadores, contagem, reconexão), placares e a iluminação do lobby |
+| `Audio` | Lista de todos os sons e músicas do jogo, volumes, ids fixados (`Pinned`) e proibidos (`Blocked`) |
 
 **Atenção:** os valores de custo, dano e vida foram criados para este projeto (o jogo original não
 publica esses números). Eles foram ajustados com uma simulação para cada ato durar cerca de 35 a 50
@@ -372,5 +444,6 @@ no jogo publicado; no Studio, ligue o acesso às APIs (seção 2) para testar.
 - O código foi verificado com checagem de sintaxe Luau, lint (selene) e várias rodadas de revisão,
   mas **não foi rodado dentro do Roblox** antes de chegar até você. Se aparecer um erro no Output do
   Studio, copie a mensagem (com o nome do script e a linha) e peça a correção.
-- Teleporte, convites e servidores reservados só funcionam no jogo publicado.
+- Teleporte, convites e servidores reservados só funcionam no jogo publicado. No Studio o lobby vira
+  a partida no mesmo teste (seção 2), uma vez por teste: o próximo ato e a reconexão não dão para testar lá.
 - O balanceamento é um ponto de partida e ainda não foi testado jogando.

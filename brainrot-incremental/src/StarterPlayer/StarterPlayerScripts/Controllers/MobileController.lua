@@ -14,6 +14,11 @@
 -- Extras:
 --   MobileController.IsSprintHeld() -> boolean (corrida ligada pelo botão)
 --   MobileController.SprintChanged  -> Signal(isOn)
+--   MobileController.SetSuppressed(reason, suppressed)  esconde os botões enquanto houver
+--       algum motivo ativo (ex.: "Ending" durante a cena final). Quem liga/desliga a tela
+--       dos botões é só este módulo: os outros pedem por aqui.
+-- O papel ("Lobby"/"Match") é lido do atributo "Role" do workspace e acompanhado ao vivo
+-- (no Studio o lobby vira partida no mesmo servidor e o "Atirar" precisa aparecer).
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -89,6 +94,7 @@ local fireHeld = false
 local sprintOn = false
 local touchMode = false -- true = o jogador está usando a tela de toque
 local modalOpen = false
+local suppressReasons = {} -- [motivo] = true (qualquer motivo esconde os botões)
 local placementActive = false
 local mapHasTurrets = false
 local pollTimer = 0
@@ -266,7 +272,8 @@ local function updateVisibility()
 	if not built then
 		return
 	end
-	local show = touchMode and not modalOpen
+	-- Aparece só no modo de toque, sem janela aberta e sem nenhum motivo para esconder.
+	local show = touchMode and not modalOpen and next(suppressReasons) == nil
 	local inMatch = role == "Match"
 
 	screen.Enabled = show
@@ -515,9 +522,32 @@ function MobileController.IsSprintHeld()
 	return sprintOn
 end
 
+-- MobileController.SetSuppressed(reason, suppressed) — esconde (true) ou libera (false)
+-- os botões por um motivo. Os botões só voltam quando TODOS os motivos forem liberados.
+-- Ex.: a cena final chama SetSuppressed("Ending", true) no começo e ("Ending", false) no fim.
+function MobileController.SetSuppressed(reason, suppressed)
+	reason = tostring(reason or "Other")
+	local value = if suppressed then true else nil
+	if suppressReasons[reason] == value then
+		return
+	end
+	suppressReasons[reason] = value
+	updateVisibility()
+end
+
 -------------------------------------------------------------------------------
 -- Ciclo de vida
 -------------------------------------------------------------------------------
+
+-- Relê o papel do servidor (o atributo "Role" pode mudar de "Lobby" para "Match" no Studio).
+local function refreshRole()
+	local current = workspace:GetAttribute("Role")
+	if current == role then
+		return
+	end
+	role = current
+	refreshMap() -- também chama o updateVisibility (o "Atirar" aparece na partida)
+end
 
 function MobileController.Init()
 	role = workspace:GetAttribute("Role")
@@ -525,6 +555,7 @@ end
 
 function MobileController.Start()
 	role = workspace:GetAttribute("Role") or role
+	workspace:GetAttributeChangedSignal("Role"):Connect(refreshRole)
 
 	UserInputService.InputBegan:Connect(onInputBegan)
 	UserInputService.InputEnded:Connect(onInputEnded)

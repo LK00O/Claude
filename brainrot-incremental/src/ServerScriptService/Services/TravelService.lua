@@ -3,6 +3,13 @@
 --   SendToNewMatch(players, handoff) -> ok, err   lobby/partida -> NOVA partida (servidor reservado)
 --   SendToLobby(players)             -> ok, err   partida -> lobby
 --   Reconnect(player)                -> ok, err   lobby -> a última partida do jogador
+--   SetStudioMatchSwitch(fn)                       só no Studio: liga a troca lobby -> partida
+--                                                  no MESMO servidor (o Main registra fn)
+--
+-- No Studio o teleporte não funciona. Então, com o papel "Lobby" e a troca registrada
+-- (Config.Game.StudioInPlaceMatch), SendToNewMatch não teleporta: agenda a troca
+-- (task.defer) e o servidor de teste vira a partida do mapa escolhido. Nesse caminho
+-- nada vai para o MemoryStore, o LastMatch não é gravado e nenhum perfil é liberado.
 --
 -- Regra de ouro dos dados: ANTES de teleportar, salvamos o perfil e liberamos a
 -- trava de sessão (DataService.ReleaseForTeleport). Se o teleporte falhar, pegamos
@@ -21,6 +28,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.Config.Game)
 local LobbyConfig = require(Shared.Config.Lobby)
 local MapsConfig = require(Shared.Config.Maps)
+local PlaceRole = require(Shared.Util.PlaceRole)
 
 local DataService = require(script.Parent:WaitForChild("DataService"))
 local StateService = require(script.Parent:WaitForChild("StateService"))
@@ -32,11 +40,19 @@ local TravelService = {}
 -------------------------------------------------------------------------------
 
 -- Mensagens para o jogador.
+-- Studio sem a troca no mesmo servidor (Config.Game.StudioInPlaceMatch = false).
 local MSG_STUDIO_MATCH =
-	'O teleporte só funciona no jogo publicado. No Studio, mude Config.Game.StudioRole para "Match" para testar a partida.'
-local MSG_STUDIO_LOBBY =
-	'No Studio não existe lobby para voltar (o teleporte só funciona no jogo publicado). Para testar o lobby, mude Config.Game.StudioRole para "Lobby".'
-local MSG_STUDIO_RECONNECT = "A reconexão só funciona no jogo publicado."
+	'No Studio o teleporte não funciona. Para testar a partida, deixe Config.Game.StudioInPlaceMatch = true (o grupo vira a partida neste mesmo servidor) ou mude Config.Game.StudioRole para "Match".'
+-- Studio, já dentro da partida: o próximo ato não abre no mesmo servidor.
+local MSG_STUDIO_NEXT_ACT =
+	"No Studio o próximo ato não abre no mesmo servidor. Pare o teste e dê Play de novo; no lobby use /unlockall e escolha o mapa."
+-- Studio: a troca para a partida já foi pedida (outro grupo chegou primeiro).
+local MSG_STUDIO_SWITCHING = "A partida de teste já está sendo preparada neste servidor. Aguarde."
+-- Studio: não existe lobby para onde voltar (o teste acaba com um Kick).
+local MSG_STUDIO_LOBBY = "Fim do teste no Studio: pare e dê Play de novo para voltar ao lobby."
+-- Studio: não existe servidor reservado para reconectar.
+local MSG_STUDIO_RECONNECT =
+	"No Studio não dá para reconectar a uma partida. Crie um grupo e clique em Iniciar: a partida abre neste mesmo servidor."
 local MSG_NO_MATCH_PLACE = "O place da partida ainda não foi configurado (Config.Game.MatchPlaceId)."
 local MSG_NO_LOBBY_PLACE = "O place do lobby ainda não foi configurado (Config.Game.LobbyPlaceId)."
 local MSG_ALREADY_LOBBY_PLACE =
@@ -73,12 +89,42 @@ local pending = {}
 local tokenCounter = 0
 local initialized = false
 
+-- Só no Studio: função do Main que transforma este servidor de lobby em partida
+-- (SetStudioMatchSwitch). nil = troca desligada (StudioInPlaceMatch = false ou não é lobby).
+local studioMatchSwitch = nil
+-- A troca já foi agendada? Ela acontece uma vez só por sessão de teste.
+local studioSwitchQueued = false
+
 -------------------------------------------------------------------------------
 -- Ajudantes
 -------------------------------------------------------------------------------
 
 local function isStudio()
 	return RunService:IsStudio()
+end
+
+-- Papel atual do servidor ("Lobby" ou "Match"). O Main grava no atributo "Role" do
+-- Workspace (e muda para "Match" depois da troca no Studio); se o atributo ainda não
+-- existe, pergunta ao PlaceRole.
+local function currentRole()
+	local role = workspace:GetAttribute("Role")
+	if role == "Lobby" or role == "Match" then
+		return role
+	end
+	local ok, result = pcall(PlaceRole.Get)
+	if ok and (result == "Lobby" or result == "Match") then
+		return result
+	end
+	return "Lobby"
+end
+
+-- Mapa que pode virar partida: existe em Config.Maps, tem Act e não é o lobby.
+local function isPlayableMap(mapId)
+	if type(mapId) ~= "string" or mapId == "Lobby" then
+		return false
+	end
+	local mapDef = MapsConfig[mapId]
+	return type(mapDef) == "table" and mapDef.Act ~= nil
 end
 
 -- Config errado: lobby e partida com o mesmo PlaceId (0 = ainda não configurado).
@@ -265,6 +311,50 @@ local function performTeleport(list, placeId, options, onTotalFailure)
 	return false
 end
 
+-- Só no Studio: agenda a troca lobby -> partida no mesmo servidor (sem teleporte).
+-- O handoff de teste é uma tabela NOVA (a do chamador não é mexida), no formato que o
+-- MatchService lê em MatchService.StudioHandoff:
+--   Members = nil (todos os jogadores do servidor entram), sem AccessCode/PrivateServerId
+--   (não é servidor reservado), sem CreatedAt, e Resume só quando o Studio usa as lojas
+--   separadas "_Studio" (assim um teste nunca continua nem sobrescreve um save real).
+-- Nada é gravado: nem MemoryStore, nem LastMatch; nenhum perfil é liberado.
+local function queueStudioSwitch(list, handoff)
+	local hostUserId = handoff.HostUserId
+	if type(hostUserId) ~= "number" or hostUserId ~= hostUserId then
+		hostUserId = list[1].UserId
+	end
+	local maxPlayers = handoff.MaxPlayers
+	if type(maxPlayers) ~= "number" or maxPlayers ~= maxPlayers then
+		maxPlayers = LobbyConfig.MaxPlayersLimit
+	end
+	local privacy = handoff.Privacy
+	if type(privacy) ~= "string" then
+		privacy = "Invite"
+	end
+
+	local studioHandoff = {
+		MapId = handoff.MapId,
+		HostUserId = hostUserId,
+		MaxPlayers = maxPlayers,
+		Privacy = privacy,
+		Resume = handoff.Resume == true and DataService.UsesStudioStores(),
+		Members = nil,
+		CreatedAt = nil,
+		AccessCode = nil,
+		PrivateServerId = nil,
+		Studio = true,
+	}
+
+	studioSwitchQueued = true
+	print(("[TravelService] Studio: o lobby vai virar a partida %s neste servidor (sem teleporte)."):format(
+		tostring(handoff.MapId)
+	))
+	-- task.defer: a troca roda logo depois desta chamada terminar (quem chamou, como o
+	-- PartyService, termina o que estava fazendo antes de o lobby ser desligado).
+	task.defer(studioMatchSwitch, studioHandoff)
+	return true
+end
+
 -------------------------------------------------------------------------------
 -- API pública
 -------------------------------------------------------------------------------
@@ -272,19 +362,37 @@ end
 -- TravelService.SendToNewMatch(players, handoff) -> ok, err
 -- handoff = {MapId, HostUserId, MaxPlayers, Privacy, Resume}
 -- (completado aqui com AccessCode, PrivateServerId, Members e CreatedAt)
+-- No Studio não teleporta: com o papel "Lobby" e a troca registrada, agenda a troca
+-- para a partida neste mesmo servidor (queueStudioSwitch); senão devolve false e um aviso.
 function TravelService.SendToNewMatch(players, handoff)
 	TravelService.Init()
 
+	-- O mapa é conferido antes de tudo (também no Studio).
+	if type(handoff) ~= "table" or not isPlayableMap(handoff.MapId) then
+		return false, MSG_BAD_MAP
+	end
+
 	if isStudio() then
-		return false, MSG_STUDIO_MATCH
+		-- Já é a partida: o próximo ato não abre no mesmo servidor (os serviços da
+		-- partida só ligam uma vez por servidor).
+		if currentRole() == "Match" then
+			return false, MSG_STUDIO_NEXT_ACT
+		end
+		-- Lobby sem a troca registrada (Config.Game.StudioInPlaceMatch = false).
+		if type(studioMatchSwitch) ~= "function" then
+			return false, MSG_STUDIO_MATCH
+		end
+		-- A troca acontece uma vez só: outro grupo já pediu.
+		if studioSwitchQueued then
+			return false, MSG_STUDIO_SWITCHING
+		end
+		local list = normalizePlayers(players)
+		if #list == 0 then
+			return false, MSG_NO_PLAYERS
+		end
+		return queueStudioSwitch(list, handoff)
 	end
-	if type(handoff) ~= "table" then
-		return false, MSG_BAD_MAP
-	end
-	local mapDef = MapsConfig[handoff.MapId]
-	if type(handoff.MapId) ~= "string" or type(mapDef) ~= "table" or mapDef.Act == nil then
-		return false, MSG_BAD_MAP
-	end
+
 	if GameConfig.MatchPlaceId == 0 then
 		return false, MSG_NO_MATCH_PLACE
 	end
@@ -426,7 +534,8 @@ function TravelService.SendToLobby(players)
 		return false, MSG_NO_PLAYERS
 	end
 
-	-- No Studio não há lobby para onde ir: a saída (Kick) salva os dados normalmente.
+	-- No Studio não há lobby para onde ir (o teleporte não funciona lá): o teste acaba
+	-- com um Kick, e a saída salva os dados normalmente.
 	if isStudio() then
 		for _, player in ipairs(list) do
 			player:Kick(MSG_STUDIO_LOBBY)
@@ -577,5 +686,22 @@ function TravelService.Init()
 end
 
 function TravelService.Start() end
+
+-- TravelService.SetStudioMatchSwitch(fn)
+-- Só no Studio. O Main registra aqui a função que transforma o lobby de teste na
+-- partida (switchToMatch). Com ela registrada, SendToNewMatch no lobby do Studio chama
+-- fn(studioHandoff) com task.defer em vez de teleportar. nil desliga a troca.
+-- Fora do Studio é ignorado (num jogo publicado o grupo sempre é teleportado).
+function TravelService.SetStudioMatchSwitch(fn)
+	if not isStudio() then
+		warn("[TravelService] SetStudioMatchSwitch só funciona no Studio; ignorado.")
+		return
+	end
+	if fn ~= nil and type(fn) ~= "function" then
+		warn("[TravelService] SetStudioMatchSwitch precisa de uma função (ou nil).")
+		return
+	end
+	studioMatchSwitch = fn
+end
 
 return TravelService

@@ -71,6 +71,8 @@ local NEUTRAL_TINT = Color3.new(1, 1, 1)
 -- Estado interno
 -------------------------------------------------------------------------------
 local player = Players.LocalPlayer
+-- Papel do servidor ("Lobby" ou "Match"), lido do atributo "Role" do workspace. Ele é
+-- atualizado quando o atributo muda: no Studio o lobby vira partida no mesmo servidor.
 local role = "Lobby"
 
 local settings = {
@@ -565,8 +567,19 @@ function MovementController.Init()
 	end)
 end
 
+-- Relê o papel do servidor (o atributo "Role" pode mudar de "Lobby" para "Match" no Studio).
+local function refreshRole()
+	local current = workspace:GetAttribute("Role")
+	if current == "Lobby" or current == "Match" then
+		role = current
+	end
+	-- O calor do deserto só vale na partida (o updateHeat confere o papel a cada 0,2 s).
+	refreshHeatImmunity()
+end
+
 function MovementController.Start()
-	role = workspace:GetAttribute("Role") or "Lobby"
+	refreshRole()
+	mainTrove:Connect(workspace:GetAttributeChangedSignal("Role"), refreshRole)
 
 	refreshSettings()
 	mainTrove:Add(StateController.OnChanged("Profile", refreshSettings))

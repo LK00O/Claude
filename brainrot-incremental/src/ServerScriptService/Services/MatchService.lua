@@ -16,6 +16,8 @@
 --
 -- Estado público (seção 8.2 da especificação):
 --   MatchService.MapId, .MapDef, .Act, .Context (ctx do mapa), .Handoff
+--   MatchService.StudioHandoff = só no Studio: handoff da troca lobby -> partida no mesmo
+--     servidor (o Main preenche antes de chamar o Init; ver resolveHandoff).
 --   MatchService.Team  = progresso do time
 --   MatchService.Runs[userId] = progresso de cada jogador (fica na memória mesmo se ele sair)
 
@@ -176,6 +178,10 @@ MatchService.MapDef = nil
 MatchService.Act = nil
 MatchService.Context = nil
 MatchService.Handoff = nil
+-- Só no Studio: o lobby de teste virou esta partida (troca no mesmo servidor). O Main
+-- guarda aqui o handoff que o TravelService montou ({MapId, HostUserId, MaxPlayers,
+-- Privacy, Resume, Studio = true}) ANTES de chamar MatchService.Init. nil = não houve troca.
+MatchService.StudioHandoff = nil
 MatchService.Team = newTeam()
 MatchService.Runs = {}
 
@@ -210,6 +216,11 @@ local lastHandoffRefresh = 0 -- os.clock() da última leitura/renovação do han
 -- restaurados como no "continuar partida", em vez de começar do zero.
 local resumingSameMatch = false
 local runReadyPlayers = {} -- [player] = true (o run dele já foi criado e enviado nesta entrada)
+-- true = esta partida NÃO grava nem apaga o save do time e não mexe no RunData do perfil.
+-- Só acontece no Studio, na partida que veio do lobby de teste, quando o Studio usa os
+-- DataStores reais (Config.Game.StudioLiveData = true): lá o "Continuar" é desligado de
+-- propósito (Resume = false), então gravar por cima apagaria o save verdadeiro do dono.
+local teamSaveBlocked = false
 local startedAt = 0
 local lastTeamListKey = nil
 local rng = Random.new()
@@ -577,10 +588,58 @@ local function defaultHandoff(mapId, hostUserId)
 	}
 end
 
+-- Handoff da troca lobby -> partida no Studio (MatchService.StudioHandoff), por cima do
+-- padrão (defaultHandoff). Os valores vêm do TravelService, mas conferimos tudo de novo:
+--   * MapId inválido -> Config.Game.StudioMapId (como no teste direto da partida);
+--   * dono = HostUserId do grupo, se ele ainda está no servidor (senão o primeiro que
+--     entrar vira o dono, como no teste direto);
+--   * Members = nil: todos os jogadores do servidor de teste entram;
+--   * MaxPlayers nunca fica menor que o número de jogadores presentes (ninguém que
+--     estava no lobby de teste é mandado embora por "partida cheia");
+--   * Resume só quando o Studio usa as lojas separadas "_Studio";
+--   * sem AccessCode/PrivateServerId/CreatedAt: nada de LastMatch nem de MemoryStore.
+local function buildStudioHandoff(raw)
+	local mapId = raw.MapId
+	if not isValidMapId(mapId) then
+		mapId = isValidMapId(GameConfig.StudioMapId) and GameConfig.StudioMapId or Maps.Order[1]
+		warn("[MatchService] Studio: mapa da troca inválido (" .. tostring(raw.MapId) .. "); usando " .. mapId)
+	end
+
+	local handoff = defaultHandoff(mapId, nil)
+	handoff.PrivateServerId = nil
+	handoff.Studio = true
+
+	local hostUserId = isFiniteNumber(raw.HostUserId) and math.floor(raw.HostUserId) or nil
+	if hostUserId and Players:GetPlayerByUserId(hostUserId) then
+		handoff.HostUserId = hostUserId
+	end
+
+	local maxPlayers = sanitizeInteger(
+		raw.MaxPlayers,
+		LobbyConfig.MinMaxPlayers,
+		LobbyConfig.MaxPlayersLimit,
+		LobbyConfig.MaxPlayersLimit
+	)
+	handoff.MaxPlayers = math.max(maxPlayers, #Players:GetPlayers())
+
+	if type(raw.Privacy) == "string" and LobbyConfig.Privacy[raw.Privacy] then
+		handoff.Privacy = raw.Privacy
+	end
+
+	-- (DataService.UsesStudioStores é conferida de novo aqui: o save real nunca é lido.)
+	handoff.Resume = raw.Resume == true and DataService.UsesStudioStores()
+	return handoff
+end
+
 -- Decide qual partida é esta. Devolve (handoff, mandarTodosParaOLobby).
 local function resolveHandoff()
 	-- 1. Studio: mapa do Config, todos entram, host = primeiro jogador.
+	--    Se o lobby de teste virou esta partida (troca no mesmo servidor), usa o handoff
+	--    do grupo (MatchService.StudioHandoff). No Studio nunca mandamos ninguém embora.
 	if PlaceRole.IsStudio() then
+		if type(MatchService.StudioHandoff) == "table" then
+			return buildStudioHandoff(MatchService.StudioHandoff), false
+		end
 		local mapId = isValidMapId(GameConfig.StudioMapId) and GameConfig.StudioMapId or Maps.Order[1]
 		if mapId ~= GameConfig.StudioMapId then
 			warn("[MatchService] Config.Game.StudioMapId inválido; usando " .. mapId)
@@ -738,7 +797,7 @@ end
 
 -- Copia o run do jogador para profile.RunData[mapId] (o DataService salva o perfil).
 local function syncRunToProfile(player)
-	if actCompleted or bounceEveryone then
+	if actCompleted or bounceEveryone or teamSaveBlocked then
 		return
 	end
 	-- Já recebeu a recompensa do ato: o RunData deste mapa foi apagado de propósito
@@ -860,7 +919,10 @@ local function createOrRestoreRun(player, profile)
 
 	if not run then
 		run = newRun(player)
-		profile.RunData[MatchService.MapId] = nil
+		-- (teste do Studio com dados reais: não apaga o RunData verdadeiro, ver teamSaveBlocked)
+		if not teamSaveBlocked then
+			profile.RunData[MatchService.MapId] = nil
+		end
 	end
 
 	MatchService.Runs[userId] = run
@@ -1272,6 +1334,7 @@ function MatchService.GetHostUserId()
 end
 
 -- true se o jogador pode estar nesta partida (sem lista de membros = todos podem).
+-- A partida de teste do Studio (troca no mesmo servidor) não tem lista: todos entram.
 function MatchService.IsMember(userId)
 	local handoff = MatchService.Handoff
 	if not handoff or not handoff.Members then
@@ -1433,7 +1496,7 @@ end
 -- RunSaves[mapa] no perfil do dono (para o lobby oferecer "Continuar").
 -- Também renova o handoff no MemoryStore (refreshHandoff, no máximo a cada 10 min).
 function MatchService.SaveAll()
-	if actCompleted or bounceEveryone then
+	if actCompleted or bounceEveryone or teamSaveBlocked then
 		return false
 	end
 	local key = getRunKey()
@@ -1495,7 +1558,7 @@ end
 -- recompensa do ato. Se ninguém recebeu (ex.: todos saíram antes), o save fica: o grupo
 -- pode "Continuar" depois e concluir de novo, sem perder nada.
 local function deleteRunIfRewarded()
-	if runDeleteStarted or next(rewardedUserIds) == nil then
+	if runDeleteStarted or next(rewardedUserIds) == nil or teamSaveBlocked then
 		return
 	end
 	local runKey = getRunKey()
@@ -1561,15 +1624,18 @@ function MatchService.GrantActRewards(player)
 	local reward = mapDef.TokensReward or 0
 	profile.Tokens = (tonumber(profile.Tokens) or 0) + reward
 
-	-- O save deste mapa acabou.
-	if type(profile.RunData) == "table" then
-		profile.RunData[mapId] = nil
+	-- O save deste mapa acabou. (Teste do Studio com dados reais, teamSaveBlocked: esta
+	-- partida não é a do save verdadeiro, então ele e o LastMatch real ficam como estão.)
+	if not teamSaveBlocked then
+		if type(profile.RunData) == "table" then
+			profile.RunData[mapId] = nil
+		end
+		if type(profile.RunSaves) == "table" then
+			profile.RunSaves[mapId] = nil
+		end
+		-- A partida acabou: não faz sentido "Reconectar" nela.
+		profile.LastMatch = nil
 	end
-	if type(profile.RunSaves) == "table" then
-		profile.RunSaves[mapId] = nil
-	end
-	-- A partida acabou: não faz sentido "Reconectar" nela.
-	profile.LastMatch = nil
 
 	DataService.IncrementStat(player, "ActsCompleted", 1)
 	callService("AchievementService", "FireEvent", player, "CompleteMap", { Map = mapId })
@@ -1720,6 +1786,15 @@ function MatchService.Init()
 	local handoff, bounce = resolveHandoff()
 	bounceEveryone = bounce
 	MatchService.Handoff = handoff
+	-- Partida que veio do lobby de teste do Studio usando os DataStores reais: não grava
+	-- nem apaga o save do time (ver teamSaveBlocked). Com as lojas "_Studio" (o normal),
+	-- salva como uma partida de verdade.
+	if handoff.Studio == true and not DataService.UsesStudioStores() then
+		teamSaveBlocked = true
+		warn(
+			"[MatchService] Studio com dados reais (StudioLiveData): esta partida de teste não grava o save do time nem o RunData."
+		)
+	end
 	MatchService.MapId = handoff.MapId
 	MatchService.MapDef = Maps[handoff.MapId]
 	MatchService.Act = MatchService.MapDef.Act
@@ -1804,7 +1879,20 @@ function MatchService.Start()
 	-- Jogadores (inclusive os que chegaram enquanto o servidor preparava o mapa).
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
-	for _, player in ipairs(Players:GetPlayers()) do
+	local present = Players:GetPlayers()
+	-- Troca no Studio: todos já estão no servidor (vieram do lobby de teste). O dono do
+	-- grupo entra primeiro, para ser o primeiro da ordem de entrada (joinOrder).
+	local handoff = MatchService.Handoff
+	if handoff and handoff.Studio == true and handoff.HostUserId ~= nil then
+		for index, player in ipairs(present) do
+			if player.UserId == handoff.HostUserId then
+				table.remove(present, index)
+				table.insert(present, 1, player)
+				break
+			end
+		end
+	end
+	for _, player in ipairs(present) do
 		task.spawn(onPlayerAdded, player)
 	end
 

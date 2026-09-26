@@ -4,6 +4,11 @@
 -- 2. Carrega (require) os controllers e janelas na ordem da especificação (seção 10.1).
 -- 3. Chama Init() de todos e depois Start() de todos, cada um protegido:
 --    se um módulo der erro, aparece um aviso no Output e os outros continuam.
+--    (Isso tudo fica na função bootList(lista), usada no começo e na troca de papel.)
+-- 4. Teste no Studio: o servidor abre no lobby e, quando um grupo começa, vira a partida
+--    no MESMO servidor (o "Role" muda de "Lobby" para "Match", uma vez só). Aí este script
+--    liga os módulos da partida (MATCH_ONLY) e desliga a interface do lobby
+--    (LobbyUI.Shutdown). A volta (Match -> Lobby) não existe: o servidor expulsa no fim.
 --
 -- Os módulos ficam em Players.LocalPlayer.PlayerScripts (irmãos deste script).
 
@@ -23,8 +28,12 @@ local START_TIMEOUT = 10
 -- O StateController espera o estado completo do servidor (que pode demorar um pouco
 -- quando o servidor acabou de abrir), então ele ganha mais tempo.
 local STATE_INIT_TIMEOUT = 45
+-- Quanto tempo esperamos um ModuleScript aparecer na pasta (normal / opcional).
+local MODULE_WAIT = 10
+local OPTIONAL_WAIT = 2
 
 -- Módulos que rodam sempre (lobby e partida), nesta ordem.
+-- Cada item: { pasta, "Nome", opcional? } (opcional = true: pode não existir).
 local ALWAYS = {
 	{ ControllersFolder, "StateController" },
 	{ ControllersFolder, "NotifyController" },
@@ -32,6 +41,9 @@ local ALWAYS = {
 	{ ControllersFolder, "PromptController" },
 	{ ControllersFolder, "MobileController" },
 	{ ControllersFolder, "MusicController" },
+	-- Ambiente do mapa (bichinhos, partículas, luzes piscando...). É opcional (o "true" no
+	-- fim): se o arquivo não existir, o jogo segue sem ele (só um aviso no Output).
+	{ ControllersFolder, "AmbientController", true },
 	{ ControllersFolder, "MovementController" },
 	{ ControllersFolder, "ChatTagController" },
 	-- Admin (lobby e partida): voo do admin, faixas de aviso/evento para todos e o painel.
@@ -112,11 +124,24 @@ local function runWithTimeout(timeout, fn, ...)
 	return finished, success, result
 end
 
+-- Módulos que já avisamos que estão faltando (o aviso sai uma vez só por módulo).
+local warnedMissing = {}
+
 -- Carrega um módulo (require). Devolve a tabela do módulo ou nil.
-local function loadModule(folder, name)
-	local moduleScript = folder:FindFirstChild(name) or folder:WaitForChild(name, 10)
+-- optional = true: o módulo pode não existir (espera pouco e avisa uma vez só).
+local function loadModule(folder, name, optional)
+	local waitTime = optional and OPTIONAL_WAIT or MODULE_WAIT
+	local moduleScript = folder:FindFirstChild(name) or folder:WaitForChild(name, waitTime)
 	if not moduleScript then
-		warn(("[Main] Módulo %s/%s não encontrado; pulando."):format(folder.Name, name))
+		local key = folder.Name .. "/" .. name
+		if not warnedMissing[key] then
+			warnedMissing[key] = true
+			if optional then
+				warn(("[Main] Módulo opcional %s não encontrado; o jogo segue sem ele."):format(key))
+			else
+				warn(("[Main] Módulo %s não encontrado; pulando."):format(key))
+			end
+		end
 		return nil
 	end
 
@@ -158,40 +183,112 @@ local function runLifecycle(entry, methodName, timeout)
 	end
 end
 
+-- Tudo que já foi ligado: [nome] = tabela do módulo. Um módulo nunca liga duas vezes.
+local loadedModules = {}
+
+-- Liga uma lista de módulos: carrega todos, depois Init de todos (na ordem) e por fim
+-- Start de todos (na ordem). Cada etapa é protegida e tem tempo máximo.
+-- list = { {pasta, "Nome", opcional?}, ... }
+-- Devolve a lista de módulos que carregaram: { {Name = "Nome", Module = tabela}, ... }
+local function bootList(list)
+	-- 1. Carrega todos.
+	local entries = {}
+	for _, item in ipairs(list) do
+		local folder, name = item[1], item[2]
+		if loadedModules[name] == nil then
+			local module = loadModule(folder, name, item[3] == true)
+			if module then
+				table.insert(entries, { Name = name, Module = module })
+			end
+		end
+	end
+
+	-- 2. Init de todos, na ordem.
+	for _, entry in ipairs(entries) do
+		local timeout = entry.Name == "StateController" and STATE_INIT_TIMEOUT or INIT_TIMEOUT
+		runLifecycle(entry, "Init", timeout)
+	end
+
+	-- 3. Start de todos, na ordem.
+	for _, entry in ipairs(entries) do
+		runLifecycle(entry, "Start", START_TIMEOUT)
+		loadedModules[entry.Name] = entry.Module
+	end
+
+	return entries
+end
+
+-- Junta várias listas numa só (mantendo a ordem).
+local function joinLists(...)
+	local result = {}
+	for _, list in ipairs({ ... }) do
+		for _, item in ipairs(list) do
+			table.insert(result, item)
+		end
+	end
+	return result
+end
+
+-------------------------------------------------------------------------------
+-- Troca de papel no Studio (lobby -> partida no mesmo servidor)
+-------------------------------------------------------------------------------
+
+-- O servidor do Studio virou partida: liga os módulos da partida e desliga o lobby.
+-- Roda uma vez só (o servidor também só troca uma vez).
+local switchedToMatch = false
+local function switchToMatch()
+	if switchedToMatch then
+		return
+	end
+	switchedToMatch = true
+	print("[Main] O servidor virou partida (teste no Studio): ligando os módulos da partida...")
+
+	local entries = bootList(MATCH_ONLY)
+
+	-- Só agora (com o HUD da partida pronto) a interface do lobby some: a tela de
+	-- transição do LobbyUI fica por cima enquanto os módulos da partida ligam.
+	local LobbyUI = loadedModules.LobbyUI
+	if LobbyUI and type(LobbyUI.Shutdown) == "function" then
+		local ok, err = pcall(LobbyUI.Shutdown)
+		if not ok then
+			warn("[Main] Erro ao desligar o LobbyUI: " .. tostring(err))
+		end
+	end
+
+	print(("[Main] Cliente pronto (Match, trocado no Studio): %d módulos da partida iniciados."):format(#entries))
+end
+
+-- Escuta o atributo "Role" depois do boot no lobby. Só a troca Lobby -> Match conta.
+local function watchRoleSwitch()
+	local connection
+	local function check()
+		if switchedToMatch or workspace:GetAttribute("Role") ~= "Match" then
+			return -- Match -> Lobby (ou outro valor) é ignorado: o servidor expulsa no fim do teste
+		end
+		if connection then
+			connection:Disconnect()
+			connection = nil
+		end
+		task.spawn(switchToMatch)
+	end
+	connection = workspace:GetAttributeChangedSignal("Role"):Connect(check)
+	-- O papel pode ter mudado enquanto os módulos do lobby ainda estavam ligando.
+	check()
+end
+
 -------------------------------------------------------------------------------
 -- Inicialização
 -------------------------------------------------------------------------------
 
 local role = waitForRole()
 
--- Monta a lista de módulos deste papel.
-local list = {}
-for _, item in ipairs(ALWAYS) do
-	table.insert(list, item)
-end
-for _, item in ipairs(role == "Match" and MATCH_ONLY or LOBBY_ONLY) do
-	table.insert(list, item)
-end
-
--- 1. Carrega todos.
-local entries = {}
-for _, item in ipairs(list) do
-	local folder, name = item[1], item[2]
-	local module = loadModule(folder, name)
-	if module then
-		table.insert(entries, { Name = name, Module = module })
-	end
-end
-
--- 2. Init de todos, na ordem.
-for _, entry in ipairs(entries) do
-	local timeout = entry.Name == "StateController" and STATE_INIT_TIMEOUT or INIT_TIMEOUT
-	runLifecycle(entry, "Init", timeout)
-end
-
--- 3. Start de todos, na ordem.
-for _, entry in ipairs(entries) do
-	runLifecycle(entry, "Start", START_TIMEOUT)
-end
+-- Primeiro boot: módulos de sempre + os do papel atual, numa lista só (assim todos os
+-- Init rodam antes de todos os Start, como sempre foi).
+local entries = bootList(joinLists(ALWAYS, role == "Match" and MATCH_ONLY or LOBBY_ONLY))
 
 print(("[Main] Cliente pronto (%s): %d módulos iniciados."):format(role, #entries))
+
+-- No lobby, fica de olho na troca para partida (teste no Studio).
+if role == "Lobby" then
+	watchRoleSwitch()
+end

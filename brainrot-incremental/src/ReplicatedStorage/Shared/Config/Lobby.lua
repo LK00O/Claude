@@ -33,6 +33,52 @@ local Lobby = {
 		Friends = "Só amigos",
 		Invite = "Só convidados",
 	},
+
+	-- Iluminação do lobby: pôr do sol de festival (céu laranja-rosado, luzes quentes).
+	-- Aplicada pelo MapBuilder com Common.ApplyLighting (mesmo formato de Config.Maps[x].Lighting).
+	-- O DepthOfField desfoca de leve o fundo bem distante, para o lobby parecer uma maquete.
+	Lighting = {
+		ClockTime = 17.6, -- quase 18h: sol baixo e dourado
+		GeographicLatitude = 30,
+		Brightness = 2.1,
+		Ambient = Color3.fromRGB(84, 70, 80),
+		OutdoorAmbient = Color3.fromRGB(160, 130, 124),
+		ColorShift_Top = Color3.fromRGB(255, 196, 150), -- luz do sol alaranjada
+		EnvironmentSpecularScale = 0.8,
+		ShadowSoftness = 0.3,
+		Atmosphere = {
+			Density = 0.3,
+			Offset = 0.22,
+			Color = Color3.fromRGB(255, 204, 172), -- pêssego
+			Decay = Color3.fromRGB(196, 112, 124), -- rosa do horizonte
+			Glare = 0.45,
+			Haze = 1.6,
+		},
+		Sky = { SunAngularSize = 21 },
+		Clouds = { Cover = 0.5, Density = 0.5, Color = Color3.fromRGB(255, 226, 212) },
+		PostFX = {
+			Bloom = { Intensity = 0.42, Size = 26, Threshold = 1.25 },
+			ColorCorrection = {
+				Contrast = 0.06,
+				Saturation = 0.12,
+				TintColor = Color3.fromRGB(255, 240, 228),
+			},
+			SunRays = { Intensity = 0.07, Spread = 0.7 },
+			DepthOfField = {
+				FarIntensity = 0.12,
+				FocusDistance = 55,
+				InFocusRadius = 80,
+				NearIntensity = 0,
+			},
+		},
+		Wind = Vector3.new(4, 0, 2), -- brisa bem leve (bandeirinhas e grama)
+		Water = {
+			Color = Color3.fromRGB(70, 150, 160),
+			Transparency = 0.5,
+			WaveSize = 0.05,
+			WaveSpeed = 5,
+		},
+	},
 }
 
 return Lobby

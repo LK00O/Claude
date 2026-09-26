@@ -6,6 +6,12 @@
       "$className": "Workspace",
       "$properties": {
         "StreamingEnabled": false
+      },
+      "Terrain": {
+        "$className": "Terrain",
+        "$properties": {
+          "Decoration": true
+        }
       }
     },
     "Players": {
@@ -15,7 +21,16 @@
       }
     },
     "Lighting": {
-      "$className": "Lighting"
+      "$className": "Lighting",
+      "$properties": {
+        "Technology": "Future",
+        "LightingStyle": "Realistic",
+        "PrioritizeLightingQuality": true,
+        "GlobalShadows": true,
+        "EnvironmentDiffuseScale": 1,
+        "EnvironmentSpecularScale": 1,
+        "ShadowSoftness": 0.2
+      }
     },
     "ReplicatedStorage": {
       "$className": "ReplicatedStorage",
@@ -39,6 +54,12 @@
       "$className": "ServerStorage",
       "BrainrotModels": {
         "$className": "Folder"
+      }
+    },
+    "StarterGui": {
+      "$className": "StarterGui",
+      "$properties": {
+        "ScreenOrientation": "LandscapeSensor"
       }
     },
     "StarterPlayer": {
