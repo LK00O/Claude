@@ -17,7 +17,16 @@ local Game = {
 	StudioMapId = "Meadow",
 
 	-- true = libera os comandos de teste também fora do Studio (cuidado!).
+	-- Fora do Studio, mesmo com true, só os admins (Config/Admins) podem usar os comandos.
 	DebugMode = false,
+
+	-- Dados de verdade no Studio:
+	-- false (padrão, recomendado) = o Studio salva em DataStores separados, com "_Studio"
+	--   no fim do nome (ex.: "BrainrotIncremental_Player_v1_Studio"), e nunca escreve no
+	--   placar de líderes. Assim um teste no Studio não mexe no progresso real de ninguém.
+	-- true = o Studio usa os DataStores reais. Só ligue para investigar um problema nos
+	--   dados de verdade, e desligue logo depois.
+	StudioLiveData = false,
 
 	-- Nomes dos DataStores (trocar o "_v1" apaga o progresso de todo mundo).
 	DataStoreName = "BrainrotIncremental_Player_v1",

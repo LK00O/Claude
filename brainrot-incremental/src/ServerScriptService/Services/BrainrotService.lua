@@ -95,7 +95,13 @@ local WALK_RAY_UP = 6 -- brainrot andando: procura o chão perto dos pés
 local WALK_RAY_DOWN = 20
 
 local MIN_MODEL_SCALE = 0.05 -- ScaleTo não aceita zero
-local SCALE_EPSILON = 0.004 -- só reescala quando muda mais de 0,4%
+-- Cada Model:ScaleTo muda o tamanho/posição de TODAS as partes do modelo, e cada mudança
+-- vai pela rede para todos os jogadores. Por isso, enquanto cresce, o brainrot só é
+-- reescalado quando o tamanho mudou pelo menos 8% E já passou meio segundo desde a
+-- última vez (no máximo 2 por segundo). O tamanho final é sempre aplicado exato.
+-- A vida e as moedas usam entity.SizeFactor (contínuo), não o tamanho mostrado.
+local SCALE_EPSILON = 0.08 -- só reescala quando muda 8% ou mais
+local SCALE_MIN_INTERVAL = 0.5 -- segundos entre dois ScaleTo do mesmo brainrot
 local CHAIN_DELAY = 0.12 -- atraso entre explosões em cadeia (fica bonito de ver)
 local RAINBOW_SPEED = 0.35 -- voltas no círculo de cores por segundo
 local FACE_JITTER = 40 -- graus de variação ao virar para a praça
@@ -471,13 +477,27 @@ end
 -------------------------------------------------------------------------------
 
 -- Aplica Model:ScaleTo(BaseScale × SizeFactor) quando o tamanho mudou o bastante.
-local function applyScale(entity)
+-- "exact" = true (tamanho final): ignora as duas travas (8% e meio segundo) e aplica
+-- o tamanho exato. Devolve true se reescalou (aí o modelo precisa de PivotTo).
+local function applyScale(entity, exact)
 	local scale = math.max(MIN_MODEL_SCALE, (entity.Def.BaseScale or 1) * entity.SizeFactor)
 	local applied = entity.AppliedScale
-	if applied and math.abs(scale - applied) <= applied * SCALE_EPSILON then
-		return false
+	if applied then
+		local change = math.abs(scale - applied)
+		if change <= applied * 1e-6 then
+			return false -- já está exatamente neste tamanho
+		end
+		if not exact then
+			if change < applied * SCALE_EPSILON then
+				return false -- mudou pouco: espera crescer mais
+			end
+			if os.clock() - (entity.LastScaleAt or 0) < SCALE_MIN_INTERVAL then
+				return false -- reescalou há pouco: espera o próximo meio segundo
+			end
+		end
 	end
 	entity.AppliedScale = scale
+	entity.LastScaleAt = os.clock()
 	local ok, err = pcall(function()
 		entity.Model:ScaleTo(scale)
 	end)
@@ -690,6 +710,8 @@ local function createEntity(def, options, env)
 		CoinValue = 0,
 		-- Campos internos deste serviço:
 		BurnTickAt = env.Now, -- até quando a queimadura já foi cobrada
+		AppliedScale = nil, -- escala que o modelo mostra agora (ver applyScale)
+		LastScaleAt = 0, -- os.clock() do último ScaleTo (no máximo 2 por segundo)
 		Facing = options.Facing,
 		FootprintRadius = footprintRadius(def, options.TargetSize),
 		HueOffset = rng:NextNumber(),
@@ -772,13 +794,48 @@ end
 -- Leva de brainrots
 -------------------------------------------------------------------------------
 
+-- AdminService é OPCIONAL (fica fora do escopo do jogo; o dono pode apagá-lo).
+-- Padrão "serviço opcional": procuramos o ModuleScript UMA vez (FindFirstChild, sem
+-- esperar), guardamos a tabela e, se ele não existir ou der erro, seguimos "sem evento".
+-- Assim o quadro nunca fica esperando um WaitForChild de um serviço que não existe.
+local adminService = nil -- tabela do AdminService (nil = não existe ou deu erro)
+local adminLookupDone = false -- já procuramos? (procura uma vez só)
+
+local function getAdminService()
+	if adminLookupDone then
+		return adminService
+	end
+	adminLookupDone = true
+	local moduleScript = Services:FindFirstChild("AdminService")
+	if moduleScript and moduleScript:IsA("ModuleScript") then
+		local ok, result = pcall(require, moduleScript)
+		if ok and type(result) == "table" then
+			adminService = result
+		elseif not ok then
+			warn("[BrainrotService] AdminService deu erro ao carregar; seguindo sem eventos globais: " .. tostring(result))
+		end
+	end
+	return adminService
+end
+
+-- Efeitos do evento global ligado por um admin (":event"), ou nil (sem evento).
+local function getEventEffects()
+	local admin = getAdminService()
+	local fn = admin and admin.GetEventEffects
+	if type(fn) ~= "function" then
+		return nil
+	end
+	local ok, effects = pcall(fn)
+	if ok and type(effects) == "table" then
+		return effects
+	end
+	return nil
+end
+
 -- Recarga do quadro em segundos: Config.Game.BoardCooldown × o efeito do evento global
--- ("abuse" corta pela metade). Se o AdminService der erro, usa a recarga normal.
+-- ("abuse" corta pela metade). Sem AdminService (ou com erro nele), usa a recarga normal.
 local function boardCooldown()
-	local ok, effects = pcall(function()
-		return Svc("AdminService").GetEventEffects()
-	end)
-	return GameConfig.BoardCooldown * Formulas.EventBoardCooldownMult(if ok then effects else nil)
+	return GameConfig.BoardCooldown * Formulas.EventBoardCooldownMult(getEventEffects())
 end
 
 -- BrainrotService.SpawnWave(triggeredBy?, opts?) -> ok, msg
@@ -1037,6 +1094,20 @@ local function safeCall(label, fn, ...)
 	end
 end
 
+-- Moedas de torreta direto na carteira do jogador (com o "+moedas" na tela dele).
+-- Devolve quanto entrou de verdade; 0 = não entrou (sem run, saiu do servidor, erro),
+-- e aí quem chamou solta as moedas no chão.
+local function creditDirect(player, amount, position)
+	local ok, credited = pcall(function()
+		return Svc("CoinService").CreditDirect(player, amount, position, "Turret")
+	end)
+	if not ok then
+		warn("[BrainrotService] Erro em CoinService.CreditDirect: " .. tostring(credited))
+		return 0
+	end
+	return if isFiniteNumber(credited) then credited else 0
+end
+
 -- BrainrotService.Kill(entity, killer?, info)
 function BrainrotService.Kill(entity, killer, info)
 	if type(entity) ~= "table" or entity.Dead then
@@ -1080,18 +1151,32 @@ function BrainrotService.Kill(entity, killer, info)
 			end
 		end
 		local turretValue = value * stat(teamStats, "TurretCoinMult", 1)
+		-- Moedas da torreta que não entraram em nenhuma carteira (jogador sem run, saiu
+		-- no meio do caminho...): caem no chão em vez de sumir.
+		local uncredited = 0
 		if #members > 0 then
-			-- Divide em partes iguais (cada um recebe direto na carteira).
+			-- Divide em partes iguais (cada um recebe direto na carteira, com o "+moedas" na tela).
 			local share = turretValue / #members
 			for _, member in ipairs(members) do
-				safeCall("MatchService.AddCoins", MatchService.AddCoins, member, share, "Turret")
+				if creditDirect(member, share, center) <= 0 then
+					uncredited += share
+				end
 			end
 		elseif owner then
 			-- Abate de torreta com o dono no servidor: moedas direto na carteira dele.
-			safeCall("MatchService.AddCoins", MatchService.AddCoins, owner, turretValue, "Turret")
+			if creditDirect(owner, turretValue, center) <= 0 then
+				uncredited += turretValue
+			end
+		elseif isTurretKill then
+			-- Dono da torreta fora do servidor: as moedas (com o bônus de torreta) caem no chão.
+			uncredited += turretValue
 		else
+			-- Abate normal (tiro, explosão, fogo): moedas no chão, como sempre.
+			uncredited += value
+		end
+		if uncredited > 0 then
 			safeCall("CoinService.SpawnCoins", function()
-				Svc("CoinService").SpawnCoins(value, center)
+				Svc("CoinService").SpawnCoins(uncredited, center)
 			end)
 		end
 	end
@@ -1249,7 +1334,9 @@ local function updateEntity(entity, env)
 			else entity.StartSize + (entity.TargetSize - entity.StartSize) * eased
 		-- ScaleTo cresce em volta do pivô (centro da base); o PivotTo logo abaixo
 		-- garante que os pés continuam exatamente em entity.Position (no chão).
-		needsPivot = applyScale(entity)
+		-- O modelo só é reescalado a cada 8% / meio segundo (ver applyScale); quando o
+		-- crescimento termina, o tamanho final é aplicado exato na hora.
+		needsPivot = applyScale(entity, progress >= 1)
 	end
 
 	-- 2. Vida máxima acompanha o tamanho (e o número de jogadores), mantendo a fração.
@@ -1415,6 +1502,30 @@ local function onBoardTriggered(player)
 end
 
 -------------------------------------------------------------------------------
+-- Pré-aquecimento dos modelos
+-------------------------------------------------------------------------------
+
+-- Monta com antecedência o molde de cada brainrot do mapa (BrainrotFactory guarda um
+-- molde por brainrot e depois só clona). Um por quadro, para não travar a largada.
+-- Se a primeira leva vier antes de terminar, o Build monta o que faltar na hora.
+local function prewarmModels()
+	local okMap, mapId = pcall(function()
+		return Svc("MatchService").GetMapId()
+	end)
+	local pool = if okMap then Brainrots.ByMap[mapId] else nil
+	if type(pool) ~= "table" then
+		return
+	end
+	for _, def in ipairs(pool) do
+		local ok, err = pcall(BrainrotFactory.Prewarm, def)
+		if not ok then
+			warn("[BrainrotService] Falha ao preparar o modelo de " .. tostring(def.Id) .. ": " .. tostring(err))
+		end
+		task.wait()
+	end
+end
+
+-------------------------------------------------------------------------------
 -- Ciclo de vida
 -------------------------------------------------------------------------------
 
@@ -1456,6 +1567,9 @@ function BrainrotService.Start()
 	else
 		warn("[BrainrotService] O mapa não tem BoardPrompt; o quadro não vai funcionar.")
 	end
+
+	-- Moldes dos brainrots deste mapa, montados logo depois da largada (sem atrasá-la).
+	trove:Add(task.defer(prewarmModels))
 
 	-- Laço de 5 Hz.
 	trove:Add(task.spawn(function()

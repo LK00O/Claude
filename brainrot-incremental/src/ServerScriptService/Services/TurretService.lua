@@ -8,7 +8,7 @@
 --   PlaceTurret(position: Vector3, rotY: number) -> turretId
 --   PickupTurret(turretId: string)              -> true   (só o dono ou o dono da partida)
 --   RecallTurrets()                             -> true   (todas voltam para os pads da base)
---   SetTurretMode(turretId, "Valuable"|"Nearest") -> true
+--   SetTurretMode(turretId, "Valuable"|"Nearest") -> true   (só o dono ou o dono da partida)
 --
 -- Torreta (tabela interna):
 --   { Id, OwnerUserId, Model, Position (Vector3 no chão), RotY, Mode, NextShot,
@@ -775,6 +775,13 @@ function toggleMode(player, turretId, mode)
 	local turret = turrets[turretId]
 	if not turret then
 		return false, "Essa torreta não existe mais."
+	end
+
+	-- Só quem colocou a torreta (ou o dono da partida) muda a mira dela: mesma regra do
+	-- PickupTurret. Antes qualquer jogador trocava o modo da torreta dos outros.
+	local hostUserId = getMatch().GetHostUserId()
+	if player.UserId ~= turret.OwnerUserId and player.UserId ~= hostUserId then
+		return false, "Essa torreta não é sua."
 	end
 
 	if turret.Mode ~= mode then

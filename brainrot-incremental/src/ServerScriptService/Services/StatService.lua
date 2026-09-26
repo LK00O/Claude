@@ -46,12 +46,39 @@ local function isFiniteNumber(value)
 	return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
 end
 
+-- AdminService é OPCIONAL (padrão "serviço opcional"): procuramos o ModuleScript UMA vez
+-- (FindFirstChild, sem esperar), guardamos a tabela e, se ele não existir ou der erro,
+-- seguimos "sem evento". Antes era Svc("AdminService"), que usa WaitForChild: sem o
+-- módulo, o cálculo dos stats (chamado a cada tiro) ficaria esperando para sempre.
+local adminService = nil -- tabela do AdminService (nil = não existe ou deu erro)
+local adminLookupDone = false
+
+local function getAdminService()
+	if adminLookupDone then
+		return adminService
+	end
+	adminLookupDone = true
+	local moduleScript = Services:FindFirstChild("AdminService")
+	if moduleScript and moduleScript:IsA("ModuleScript") then
+		local ok, result = pcall(require, moduleScript)
+		if ok and type(result) == "table" then
+			adminService = result
+		elseif not ok then
+			warn("[StatService] AdminService deu erro ao carregar; seguindo sem eventos globais: " .. tostring(result))
+		end
+	end
+	return adminService
+end
+
 -- Efeitos do evento global ligado por um admin (":event"), ou nil sem evento.
--- Se o AdminService der erro, calcula sem evento (melhor do que quebrar os stats).
+-- Se o AdminService não existir ou der erro, calcula sem evento (melhor do que quebrar os stats).
 local function getEventEffects()
-	local ok, effects = pcall(function()
-		return Svc("AdminService").GetEventEffects()
-	end)
+	local admin = getAdminService()
+	local fn = admin and admin.GetEventEffects
+	if type(fn) ~= "function" then
+		return nil
+	end
+	local ok, effects = pcall(fn)
 	if ok and type(effects) == "table" then
 		return effects
 	end

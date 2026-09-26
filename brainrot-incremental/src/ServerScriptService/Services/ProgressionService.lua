@@ -40,6 +40,9 @@ end
 
 local ProgressionService = {}
 
+-- Segundos até conferir de novo a conclusão quando um jogador sai (ver PlayerRemoving).
+local LEAVE_RECHECK_DELAY = 1
+
 local completed = false -- o ato já foi marcado como concluído
 local portalOpen = false -- o portal está aberto
 local traveling = false -- a viagem já começou (não aceita mais votos)
@@ -67,18 +70,32 @@ local function getParticipants(exclude)
 	return list
 end
 
--- Quem decide no modo "Host": o dono, se estiver aqui; senão o jogador mais antigo presente.
+-- Quem decide no modo "Host": o dono, se estiver aqui; senão o jogador mais antigo presente
+-- (o que entrou PRIMEIRO na partida, pela ordem do MatchService.GetJoinOrder; a ordem de
+-- Players:GetPlayers() não é garantida e mudava o "Decider" sem motivo).
 local function getEffectiveHostUserId(exclude)
 	local MatchService = Svc("MatchService")
 	local hostUserId = MatchService.GetHostUserId()
 	local participants = getParticipants(exclude)
+	if #participants == 0 then
+		return nil
+	end
+	local present = {} -- [userId] = true (participantes presentes agora)
 	for _, player in ipairs(participants) do
-		if player.UserId == hostUserId then
-			return hostUserId
+		present[player.UserId] = true
+	end
+	if hostUserId ~= nil and present[hostUserId] then
+		return hostUserId
+	end
+	if type(MatchService.GetJoinOrder) == "function" then
+		for _, userId in ipairs(MatchService.GetJoinOrder()) do
+			if present[userId] then
+				return userId
+			end
 		end
 	end
-	local first = participants[1]
-	return first and first.UserId or nil
+	-- Rede de segurança (não deveria acontecer: todo participante está no joinOrder).
+	return participants[1].UserId
 end
 
 -- Votos de jogadores que ainda estão aqui.
@@ -305,11 +322,22 @@ function ProgressionService.Start()
 	-- Jogador saiu: tira o voto dele e reconfere (menos gente = menos votos necessários).
 	-- (task.defer: espera os outros serviços terminarem de tratar a saída, assim o
 	-- MatchService já não conta esse jogador se a viagem começar agora.)
+	-- Também reconfere a conclusão do ato: com Config.Game.WeaponMaxRule = "AllPlayers",
+	-- se quem saiu era o último sem a arma no máximo, o ato fica completo AGORA. Sem isso
+	-- ninguém mais chamava CheckCompletion (só compras chamam) e a partida travava.
 	Players.PlayerRemoving:Connect(function(player)
 		votes[player.UserId] = nil
 		task.defer(function()
 			publishPortal(player)
 			checkVotes(player)
+			ProgressionService.CheckCompletion()
+			-- A regra "AllPlayers" olha Players:GetPlayers(). Se o Roblox ainda não tirou o
+			-- jogador de lá neste momento, confere de novo daqui a pouco (conta barata).
+			if not completed and player.Parent == Players then
+				task.delay(LEAVE_RECHECK_DELAY, function()
+					ProgressionService.CheckCompletion()
+				end)
+			end
 		end)
 	end)
 

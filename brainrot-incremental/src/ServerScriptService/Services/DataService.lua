@@ -15,6 +15,11 @@
 -- No Studio, se o DataStore não estiver liberado, usamos um armazenamento em memória
 -- (mock) com a mesma interface: dá para testar tudo, só não fica salvo de verdade.
 --
+-- No Studio COM o acesso às APIs ligado, os testes NÃO mexem nos dados reais: abrimos
+-- lojas separadas com o sufixo "_Studio" (ex.: "BrainrotIncremental_Player_v1_Studio").
+-- Só com Config.Game.StudioLiveData = true o Studio usa as lojas de verdade
+-- (DataService.UsesStudioStores() diz qual é o caso).
+--
 -- É um serviço-folha: não dá require em outros serviços no topo do arquivo.
 -- (O StateService é pego dentro das funções, pelo helper Svc.)
 
@@ -66,6 +71,8 @@ local PROFILE_TEMPLATE = {
 		ActsCompleted = 0,
 		RecipesDiscovered = 0,
 		QuestsCompleted = 0,
+		-- Brainrots de tamanho "Enorme" destruídos (2.0; o BrainrotService soma).
+		Huge = 0,
 	},
 	Achievements = {},
 	RecipesKnown = {},
@@ -78,6 +85,15 @@ local PROFILE_TEMPLATE = {
 		SfxVolume = 0.7,
 		DamageNumbers = true,
 		Keybinds = {},
+		-- Campos novos da 2.0 (o reconcile coloca estes padrões nos perfis antigos;
+		-- as faixas aceitas ficam no SettingsService).
+		CameraShake = 1, -- força do tremor de câmera (0 = desligado, 1 = normal)
+		ViewBob = true, -- balanço da câmera ao andar
+		EffectsQuality = 0, -- 0 = automático (pela qualidade gráfica do Roblox), 1 baixa, 2 média, 3 alta
+		UIScale = 1, -- tamanho da interface (0.85 a 1.25)
+		AmbientVolume = 0.6, -- volume dos sons de ambiente
+		AimAssist = true, -- ajuda de mira (celular/controle)
+		AutoFire = true, -- atirar sozinho ao mirar num brainrot (celular)
 	},
 	Tokens = 0,
 	Cosmetics = { Owned = { Classic = true }, Equipped = "Classic" },
@@ -88,6 +104,10 @@ local PROFILE_TEMPLATE = {
 	-- prompt original): [mapId] = { BestCoins = maior quantidade de moedas ganhas numa
 	-- partida nesse mapa }. Chave nova: o reconcile coloca {} nos perfis antigos.
 	MapRecords = {},
+	-- Resumo da última partida jogada (2.0), para o lobby mostrar "sua última partida".
+	-- Vazio ({}) até a primeira partida; quando preenchido tem pelo menos MapId (texto).
+	-- Chave nova: o reconcile coloca {} nos perfis antigos.
+	LastResult = {},
 }
 local CURRENT_VERSION = PROFILE_TEMPLATE.Version
 
@@ -116,6 +136,11 @@ local CLOSE_GRACE = 1
 
 -- SyncProfile: no máximo 2 envios por segundo (junta chamadas seguidas).
 local SYNC_INTERVAL = 0.5
+
+-- IncrementStat "silencioso" (quiet = true, para estatísticas que mudam o tempo todo,
+-- como tiros e tempo de jogo): em vez de mandar o perfil na hora, junta tudo num envio
+-- só, no máximo QUIET_SYNC_DELAY segundos depois (ou antes, na próxima mudança normal).
+local QUIET_SYNC_DELAY = 5
 
 -- De quanto em quanto tempo somamos o tempo de jogo (Stats.PlayTime, em segundos).
 local PLAYTIME_INTERVAL = 60
@@ -170,10 +195,29 @@ end
 
 local useMock = false -- true = usando o armazenamento em memória
 local backendState = "idle" -- "idle" -> "resolving" -> "ready"
-local stores = {} -- [nome do DataStore] = store (cache)
+local stores = {} -- [nome do DataStore (o do Config, sem sufixo)] = store (cache)
+
+-- Sufixo das lojas de teste do Studio (seção "Studio" no topo do arquivo).
+local STUDIO_STORE_SUFFIX = "_Studio"
+
+-- true quando este servidor é um teste do Studio que deve usar as lojas "_Studio".
+-- GameConfig.StudioLiveData pode nem existir (nil): nesse caso também protegemos os dados.
+local function usesStudioStores()
+	return RunService:IsStudio() and GameConfig.StudioLiveData ~= true
+end
+
+-- Nome de verdade do DataStore que abrimos: o do Config, com "_Studio" no fim quando
+-- estamos testando no Studio. Assim o Studio nunca lê nem grava o progresso real.
+local function realStoreName(name)
+	if usesStudioStores() then
+		return name .. STUDIO_STORE_SUFFIX
+	end
+	return name
+end
 
 -- Decide qual armazenamento usar. No Studio testamos se o DataStore funciona;
 -- se não funcionar (API desligada ou place não publicado), usamos o mock.
+-- A leitura de teste também vai para a loja "_Studio" (nem ler a loja real o Studio lê).
 local function resolveBackend()
 	if not RunService:IsStudio() then
 		useMock = false
@@ -181,7 +225,7 @@ local function resolveBackend()
 	end
 
 	local ok, store = pcall(function()
-		return DataStoreService:GetDataStore(GameConfig.DataStoreName)
+		return DataStoreService:GetDataStore(realStoreName(GameConfig.DataStoreName))
 	end)
 	if ok and store then
 		-- Uma leitura de teste: com a API desligada no Studio ela dá erro.
@@ -221,6 +265,8 @@ end
 
 -- Devolve o store com esse nome (cria na primeira vez). Dá erro se não conseguir,
 -- por isso é sempre chamado dentro de pcall.
+-- "name" é sempre o nome do Config (ex.: GameConfig.DataStoreName); no Studio o
+-- DataStore aberto de verdade é "<name>_Studio" (ver realStoreName).
 local function getStore(name)
 	ensureBackend()
 	local store = stores[name]
@@ -230,7 +276,12 @@ local function getStore(name)
 	if useMock then
 		store = MockStore.new()
 	else
-		store = DataStoreService:GetDataStore(name)
+		local storeName = realStoreName(name)
+		store = DataStoreService:GetDataStore(storeName)
+		if RunService:IsStudio() then
+			-- Uma linha por loja no Output: dá para conferir que o teste não usa a loja real.
+			print(("[DataService] Studio: DataStore aberto = %s"):format(storeName))
+		end
 	end
 	stores[name] = store
 	return store
@@ -376,6 +427,12 @@ local releasingUserIds = {}
 -- Controle do SyncProfile: [player] = {Last = os.clock(), Scheduled = boolean}.
 local syncInfo = {}
 
+-- Perfis "sujos" por um IncrementStat silencioso, esperando o envio juntado:
+-- [player] = marcador (uma tabela vazia) do único task.delay pendente daquele jogador.
+-- Qualquer envio do perfil (sendProfile) apaga o marcador, porque já levou as mudanças;
+-- o task.delay antigo vê que o marcador mudou e não faz nada.
+local quietSyncPending = {}
+
 -- Moedas que cada jogador ganhou NESTA partida (um servidor de partida é um mapa só):
 -- [userId] = moedas. Fica na memória do servidor (e não na sessão), então quem cair e
 -- voltar para a mesma partida continua somando de onde parou. Usado em MapRecords.
@@ -414,7 +471,8 @@ local function accruePlayTime(session, silent)
 		local stats = session.Profile.Stats
 		stats.PlayTime = (tonumber(stats.PlayTime) or 0) + elapsed
 	else
-		DataService.IncrementStat(session.Player, "PlayTime", elapsed)
+		-- quiet = true: o tempo de jogo não precisa aparecer na hora no cliente.
+		DataService.IncrementStat(session.Player, "PlayTime", elapsed, true)
 	end
 end
 
@@ -560,6 +618,7 @@ local function dropSession(session)
 		sessions[session.Player] = nil
 	end
 	syncInfo[session.Player] = nil
+	quietSyncPending[session.Player] = nil
 end
 
 -------------------------------------------------------------------------------
@@ -668,6 +727,14 @@ end
 -------------------------------------------------------------------------------
 -- API pública
 -------------------------------------------------------------------------------
+
+-- DataService.UsesStudioStores() -> boolean
+-- true quando é um teste do Studio usando as lojas separadas "_Studio" (o normal no Studio).
+-- false no jogo publicado, ou no Studio com Config.Game.StudioLiveData = true.
+-- Outros serviços usam isto para não gravar coisas públicas (ex.: placar do lobby) em testes.
+function DataService.UsesStudioStores()
+	return usesStudioStores()
+end
 
 -- DataService.GetProfile(player) -> profile | nil (a tabela viva)
 function DataService.GetProfile(player)
@@ -827,8 +894,25 @@ function DataService.Reacquire(player)
 	return false
 end
 
+-- DataService.IsReleased(player) -> boolean
+-- true depois de ReleaseForTeleport (a trava foi devolvida porque o jogador vai para
+-- outro servidor) até um Reacquire dar certo. Também fica true quando o perfil já foi
+-- liberado na saída ou quando outro servidor assumiu a trava.
+-- Enquanto está liberado, este servidor NÃO salva mais o perfil: o que mudar nele se
+-- perde. Por isso quem dá recompensas (ex.: AchievementService.Award) confere isto antes.
+function DataService.IsReleased(player)
+	local session = sessions[player]
+	if not session then
+		return false
+	end
+	return session.Released == true or session.ReleaseRequested == true
+end
+
 -- DataService.BuildClientView(profile) -> cópia só com o que o cliente pode ver.
 -- NÃO manda RunData nem o AccessCode da última partida.
+-- Campos extras da 2.0 (só aparecem quando fazem sentido; o cliente trata nil):
+--   LastResult     = cópia de profile.LastResult, só quando ele tem MapId (texto)
+--   ReconnectUntil = os.time() até quando dá para reconectar, só quando CanReconnect
 function DataService.BuildClientView(profile)
 	if type(profile) ~= "table" then
 		return nil
@@ -848,7 +932,16 @@ function DataService.BuildClientView(profile)
 		MapRecords = Tables.DeepCopy(profile.MapRecords),
 		CanReconnect = false,
 		LastMatchMap = nil,
+		LastResult = nil,
+		ReconnectUntil = nil,
 	}
+
+	-- Resumo da última partida: só vai quando está preenchido (tem MapId).
+	-- Cópia, para o cliente nunca receber (nem nós mexermos por engano) a tabela viva.
+	local lastResult = profile.LastResult
+	if type(lastResult) == "table" and type(lastResult.MapId) == "string" then
+		view.LastResult = Tables.DeepCopy(lastResult)
+	end
 
 	-- Reconexão: existe uma última partida com código de acesso e dentro da janela de tempo.
 	local lastMatch = profile.LastMatch
@@ -864,6 +957,8 @@ function DataService.BuildClientView(profile)
 			and os.time() - lastTime < LobbyConfig.ReconnectWindowSeconds
 		then
 			view.CanReconnect = true
+			-- Hora (os.time) em que a reconexão deixa de valer: o lobby mostra a contagem.
+			view.ReconnectUntil = lastTime + LobbyConfig.ReconnectWindowSeconds
 		end
 	end
 
@@ -883,6 +978,8 @@ local function sendProfile(player, info)
 	if not session or not session.Profile or player.Parent ~= Players then
 		return
 	end
+	-- Este envio já leva as mudanças silenciosas pendentes: cancela o envio juntado.
+	quietSyncPending[player] = nil
 	Svc("StateService").Set(player, "Profile", DataService.BuildClientView(session.Profile))
 end
 
@@ -950,9 +1047,33 @@ local function updateMapRecord(player, profile, amount)
 	end
 end
 
--- DataService.IncrementStat(player, path, amount) -> novo valor | nil
+-- Marca o perfil como "sujo" por uma mudança silenciosa e agenda UM envio juntado,
+-- daqui a QUIET_SYNC_DELAY segundos. Se já existe um agendado, não agenda outro:
+-- o que está marcado vai levar esta mudança junto.
+local function scheduleQuietSync(player)
+	if quietSyncPending[player] then
+		return
+	end
+	local marker = {}
+	quietSyncPending[player] = marker
+	task.delay(QUIET_SYNC_DELAY, function()
+		-- Outro envio já levou as mudanças (ou o jogador saiu): nada a fazer.
+		if quietSyncPending[player] ~= marker then
+			return
+		end
+		quietSyncPending[player] = nil
+		DataService.SyncProfile(player)
+	end)
+end
+
+-- DataService.IncrementStat(player, path, amount, quiet?) -> novo valor | nil
 -- path com ponto para subtabelas: "Kills.Low", "TotalCoins", "PlayTime"...
-function DataService.IncrementStat(player, path, amount)
+-- quiet (opcional) = true para estatísticas que mudam muito (tiros, críticos, tempo de
+-- jogo): soma e dispara StatChanged igual, mas NÃO manda o perfil para o cliente na hora;
+-- só marca como sujo e junta num envio em até 5 s (ou na próxima chamada normal).
+-- Sem quiet (as chamadas de 3 argumentos de sempre), funciona exatamente como antes.
+-- (O salvamento no DataStore não muda: o autosave e a saída gravam a tabela viva inteira.)
+function DataService.IncrementStat(player, path, amount, quiet)
 	local profile = DataService.GetProfile(player)
 	if not profile then
 		return nil
@@ -998,7 +1119,12 @@ function DataService.IncrementStat(player, path, amount)
 	end
 
 	DataService.StatChanged:Fire(player, path, newValue)
-	DataService.SyncProfile(player)
+	if quiet == true then
+		scheduleQuietSync(player)
+	else
+		-- Envio normal: também leva (e cancela) um envio silencioso pendente.
+		DataService.SyncProfile(player)
+	end
 	return newValue
 end
 
@@ -1096,6 +1222,8 @@ end
 local function onPlayerRemoving(player)
 	local session = sessions[player]
 	syncInfo[player] = nil
+	-- Envio silencioso pendente não serve mais (o perfil é salvo inteiro logo abaixo).
+	quietSyncPending[player] = nil
 	if not session then
 		return
 	end
@@ -1193,6 +1321,16 @@ function DataService.Init()
 		return
 	end
 	initialized = true
+
+	-- Aviso (uma vez) de quais lojas o Studio usa, para o dono saber que os dados reais
+	-- estão protegidos (ou, com StudioLiveData = true, que NÃO estão).
+	if RunService:IsStudio() then
+		if usesStudioStores() then
+			print("[DataService] Studio: usando lojas _Studio (dados reais protegidos)")
+		else
+			warn("[DataService] Studio: Config.Game.StudioLiveData = true, usando as lojas REAIS do jogo publicado!")
+		end
+	end
 
 	-- Escolhe o armazenamento em segundo plano (pode demorar um pouco no Studio).
 	task.spawn(ensureBackend)

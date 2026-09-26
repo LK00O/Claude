@@ -13,7 +13,10 @@
 --
 -- AchievementService.Award(player, id): se o jogador ainda não tem a conquista, grava a data
 -- (os.time()), soma os Tokens, dá a badge do Roblox (se BadgeId > 0), mostra um aviso "rare"
--- e manda o perfil atualizado para o cliente.
+-- (com Achievement = id no pacote do Notify) e manda o perfil atualizado para o cliente.
+-- Vários avisos de conquista seguidos saem espaçados (1,5 s), nunca todos de uma vez.
+-- Com o perfil liberado para teleporte (DataService.IsReleased), não dá nada: o próximo
+-- servidor dá a conquista na checagem retroativa.
 
 local BadgeService = game:GetService("BadgeService")
 local Players = game:GetService("Players")
@@ -36,6 +39,7 @@ local StateService = require(Services:WaitForChild("StateService"))
 -- Constantes
 -------------------------------------------------------------------------------
 local NOTIFY_DURATION = 6 -- segundos que o aviso de conquista fica na tela
+local NOTIFY_SPACING = 1.5 -- segundos entre dois avisos de conquista do mesmo jogador
 local BADGE_ATTEMPTS = 3 -- tentativas de dar a badge (chamada web pode falhar)
 local BADGE_RETRY_DELAY = 2 -- segundos entre as tentativas
 
@@ -60,6 +64,12 @@ for _, def in ipairs(Achievements.List) do
 end
 
 local initialized = false
+
+-- Fila dos avisos de conquista: [player] = os.clock() a partir do qual o próximo aviso
+-- daquele jogador pode aparecer. Quando várias conquistas chegam juntas (ex.: a checagem
+-- retroativa ao carregar o perfil dá 3 de uma vez), os avisos saem um a cada
+-- NOTIFY_SPACING segundos, em vez de todos no mesmo instante. Nenhum aviso é descartado.
+local nextNotifyAt = {}
 
 -------------------------------------------------------------------------------
 -- Pequenos ajudantes
@@ -148,6 +158,26 @@ local function syncOwnedBadgesAsync(player, profile)
 	end)
 end
 
+-- Mostra o aviso "rare" de uma conquista, respeitando a fila do jogador (NOTIFY_SPACING).
+-- O primeiro aviso sai na hora; os seguintes esperam a vez com task.delay.
+-- O pacote leva Achievement = id, para o cliente saber qual conquista mostrar.
+local function queueAchievementNotify(player, text, id)
+	local now = os.clock()
+	local slot = math.max(now, nextNotifyAt[player] or now)
+	nextNotifyAt[player] = slot + NOTIFY_SPACING
+
+	local extra = { Achievement = id }
+	local waitTime = slot - now
+	if waitTime <= 0 then
+		StateService.Notify(player, text, "rare", NOTIFY_DURATION, extra)
+	else
+		task.delay(waitTime, function()
+			-- Se o jogador saiu enquanto esperava, o Notify simplesmente não faz nada.
+			StateService.Notify(player, text, "rare", NOTIFY_DURATION, extra)
+		end)
+	end
+end
+
 -- Uma conquista de evento aceita estes dados? (Map e Count só são conferidos se a conquista tiver.)
 local function eventMatches(def, data)
 	if def.Map ~= nil and data.Map ~= def.Map then
@@ -223,6 +253,9 @@ end
 -- AchievementService.Award(player, id) -> true se deu agora, false se já tinha / não deu.
 -- Tudo que mexe no perfil acontece sem esperar nada (a badge vai numa thread separada),
 -- então funciona mesmo se o jogador for teleportado logo em seguida.
+-- Perfil já liberado para teleporte (DataService.IsReleased): não dá agora, porque este
+-- servidor não salva mais o perfil (os tokens se perderiam e o aviso apareceria duas
+-- vezes). A checagem retroativa do próximo ProfileLoaded dá a conquista no outro servidor.
 function AchievementService.Award(player, id)
 	if not isPlayerInGame(player) or type(id) ~= "string" then
 		return false
@@ -230,6 +263,9 @@ function AchievementService.Award(player, id)
 	local def = Achievements.ById[id]
 	if not def then
 		warn("[AchievementService] Conquista desconhecida: " .. tostring(id))
+		return false
+	end
+	if DataService.IsReleased(player) then
 		return false
 	end
 	local profile = DataService.GetProfile(player)
@@ -262,13 +298,13 @@ function AchievementService.Award(player, id)
 		awardBadgeAsync(player, badgeId)
 	end
 
-	-- Aviso na tela.
+	-- Aviso na tela (na fila do jogador: várias conquistas juntas saem uma de cada vez).
 	local text = "Conquista desbloqueada: " .. tostring(def.Name or id)
 	if tokens > 0 then
 		local unit = if tokens == 1 then "token" else "tokens"
 		text ..= (" (+%s %s)"):format(NumberFormat.Commas(tokens), unit)
 	end
-	StateService.Notify(player, text, "rare", NOTIFY_DURATION)
+	queueAchievementNotify(player, text, def.Id)
 
 	DataService.SyncProfile(player)
 	return true
@@ -306,6 +342,11 @@ function AchievementService.Init()
 
 	DataService.StatChanged:Connect(onStatChanged)
 	DataService.ProfileLoaded:Connect(onProfileLoaded)
+
+	-- Quem sai perde o lugar na fila de avisos (os avisos já agendados não fazem nada).
+	Players.PlayerRemoving:Connect(function(player)
+		nextNotifyAt[player] = nil
+	end)
 
 	-- Perfis que já carregaram antes deste Init (checagem retroativa também para eles).
 	for _, player in ipairs(Players:GetPlayers()) do

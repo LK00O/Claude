@@ -17,7 +17,10 @@ local Lobby = {
 
 	-- MemoryStore onde o lobby deixa os dados do grupo para o servidor da partida ler.
 	HandoffMapName = "BrainrotMatchHandoff",
-	HandoffExpiration = 86400, -- 1 dia (segundos)
+	-- Validade dos dados do grupo na MemoryStore: 3 horas (10800 segundos). O salvamento
+	-- automático da partida renova esse prazo enquanto houver jogadores nela, então uma
+	-- partida longa não perde os dados. Um prazo curto evita lotar a cota da MemoryStore.
+	HandoffExpiration = 10800,
 
 	-- Placar de líderes (OrderedDataStore com as moedas totais).
 	LeaderboardStoreName = "BrainrotIncremental_TopCoins_v1",

@@ -5,6 +5,12 @@
 -- IMPORTANTE: só o SERVIDOR chama PlaceRole.Get() (no Main.server.lua) e grava o
 -- resultado em workspace:SetAttribute("Role", role). O cliente lê esse atributo,
 -- nunca calcula o papel por conta própria.
+--
+-- Travas contra configuração errada (um erro aqui faria os jogadores ficarem
+-- teleportando sem parar entre lobby e partida):
+--   * o atributo "ForceRole" só vale no Studio (num jogo publicado ele é ignorado);
+--   * se LobbyPlaceId e MatchPlaceId forem o MESMO número (e não 0), o servidor
+--     vira "Lobby" e avisa uma vez no Output.
 
 local RunService = game:GetService("RunService")
 
@@ -24,28 +30,55 @@ local function isValidRole(role)
 	return type(role) == "string" and VALID_ROLES[role] == true
 end
 
+-- Já avisamos que os dois PlaceIds do Config são iguais? (o aviso sai uma vez só,
+-- mesmo que PlaceRole.Get() seja chamado por vários serviços)
+local warnedSamePlaceIds = false
+
+-- Os dois places do Config.Game apontam para o mesmo número? (0 = ainda não configurado)
+local function hasSamePlaceIds()
+	local lobbyId = GameConfig.LobbyPlaceId
+	return type(lobbyId) == "number" and lobbyId ~= 0 and lobbyId == GameConfig.MatchPlaceId
+end
+
 -- Devolve "Lobby" ou "Match", seguindo a ordem de prioridade da especificação.
 function PlaceRole.Get()
+	local isStudio = RunService:IsStudio()
+
 	-- 1. Atributo "ForceRole" no workspace força o papel (útil para testes).
-	local forced = workspace:GetAttribute("ForceRole")
-	if isValidRole(forced) then
-		return forced
+	--    Só no Studio: se o atributo ficar salvo no place publicado, ele é ignorado
+	--    (senão um servidor de lobby poderia virar partida e mandar todos de volta
+	--    ao lobby, sem fim).
+	if isStudio then
+		local forced = workspace:GetAttribute("ForceRole")
+		if isValidRole(forced) then
+			return forced
+		end
+	end
+
+	-- 2. Config errado: lobby e partida com o mesmo PlaceId. Não dá para saber qual
+	--    papel é o certo, então ficamos no lobby (que nunca teleporta sozinho).
+	if hasSamePlaceIds() then
+		if not warnedSamePlaceIds then
+			warnedSamePlaceIds = true
+			warn("[PlaceRole] LobbyPlaceId e MatchPlaceId iguais: usando Lobby")
+		end
+		return "Lobby"
 	end
 
 	local placeId = game.PlaceId
 
-	-- 2. Estamos no place da partida (PlaceId preenchido no Config.Game).
+	-- 3. Estamos no place da partida (PlaceId preenchido no Config.Game).
 	if placeId ~= 0 and placeId == GameConfig.MatchPlaceId then
 		return "Match"
 	end
 
-	-- 3. Estamos no place do lobby.
+	-- 4. Estamos no place do lobby.
 	if placeId ~= 0 and placeId == GameConfig.LobbyPlaceId then
 		return "Lobby"
 	end
 
-	-- 4. Testando no Studio: usa o papel escolhido no Config.Game.StudioRole.
-	if RunService:IsStudio() then
+	-- 5. Testando no Studio: usa o papel escolhido no Config.Game.StudioRole.
+	if isStudio then
 		if isValidRole(GameConfig.StudioRole) then
 			return GameConfig.StudioRole
 		end
@@ -57,7 +90,7 @@ function PlaceRole.Get()
 		)
 	end
 
-	-- 5. Qualquer outro caso: lobby.
+	-- 6. Qualquer outro caso: lobby.
 	return "Lobby"
 end
 

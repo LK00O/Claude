@@ -86,6 +86,7 @@ local BUY_OPTIONS = {
 
 local window = nil
 local currentStall = nil -- id da barraca aberta ("Weapon", "Quest"...)
+local builtStall = nil -- barraca que está montada agora na janela (nil = nada montado)
 local builtShelfLevel = nil -- prateleira usada na última montagem
 local builtMapId = nil
 
@@ -1213,6 +1214,7 @@ end
 -- Monta todo o conteúdo da barraca aberta (chamado ao abrir e quando a prateleira muda).
 local function rebuild()
 	contentTrove:Clean()
+	builtStall = nil -- o conteúdo antigo foi destruído
 	table.clear(rows)
 	table.clear(panel)
 	unlock = nil
@@ -1224,6 +1226,7 @@ local function rebuild()
 	if not mapDef or not stallDef then
 		return
 	end
+	builtStall = currentStall
 	local accent = stallDef.Color or Theme.Accent
 	local shelfLevel = getShelfLevel()
 	local maxShelf = mapDef.MaxShelf or 1
@@ -1487,7 +1490,14 @@ function StallWindow.Open(stallId)
 	currentStall = stallId
 	window.SetTitle(stallDef.Name)
 	tintWindow(stallDef.Color or Theme.Accent)
-	rebuild()
+	-- A janela já está montada com esta barraca? Então só atualiza os valores (montar
+	-- tudo de novo cria centenas de objetos de interface). Se a prateleira ou o mapa
+	-- mudaram, o refreshAll percebe e monta de novo sozinho.
+	if builtStall ~= stallId then
+		rebuild()
+	elseif panel.Kind == "Quest" then
+		panel.ConfirmUntil = 0 -- o "Certeza?" do Abandonar não sobrevive a fechar e abrir
+	end
 	refreshAll(true)
 	window.Content.CanvasPosition = Vector2.zero
 	if window.IsOpen() then

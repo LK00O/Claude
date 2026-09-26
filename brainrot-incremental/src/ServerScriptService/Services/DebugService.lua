@@ -3,8 +3,14 @@
 --
 -- Fica ligado quando:
 --   * o jogo roda no Roblox Studio, ou
---   * Config.Game.DebugMode = true, ou
---   * o Workspace tem o atributo DebugMode = true.
+--   * Config.Game.DebugMode = true.
+-- O atributo DebugMode do Workspace só valeria no Studio (onde tudo já está liberado):
+-- se ele ficar salvo no place publicado, é ignorado (senão qualquer jogador poderia
+-- mexer no próprio perfil).
+--
+-- Fora do Studio, mesmo com o modo de teste ligado, só ADMINISTRADORES
+-- (AdminService.IsAdmin) conseguem rodar os comandos. Os outros recebem a mensagem
+-- "comandos desligados".
 --
 -- Dá para usar de dois jeitos:
 --   * Request "Debug"(command, arg) — usado pelo painel DEBUG do cliente;
@@ -79,8 +85,27 @@ local MSG_NO_PROFILE = "Seus dados ainda estão carregando."
 -------------------------------------------------------------------------------
 
 -- Os comandos estão liberados agora?
+-- No Studio: sempre (o atributo DebugMode do Workspace só seria lido aqui, e o Studio
+-- já libera tudo). Fora do Studio: só o Config.Game.DebugMode conta; o atributo é
+-- ignorado, porque ele pode ter ficado salvo no place publicado sem ninguém perceber.
 local function isEnabled()
-	return RunService:IsStudio() or GameConfig.DebugMode == true or workspace:GetAttribute("DebugMode") == true
+	if RunService:IsStudio() then
+		return true
+	end
+	return GameConfig.DebugMode == true
+end
+
+-- O jogador é administrador? Usa o AdminService só se ele existir (FindFirstChild, sem
+-- esperar). Qualquer erro, ou AdminService ausente, conta como "não é admin".
+local function isAdminPlayer(player)
+	local moduleScript = Services:FindFirstChild("AdminService")
+	if not moduleScript then
+		return false
+	end
+	local ok, result = pcall(function()
+		return require(moduleScript).IsAdmin(player)
+	end)
+	return ok and result == true
 end
 
 -- Papel deste servidor ("Lobby" ou "Match"). O Main grava no atributo "Role".
@@ -432,9 +457,17 @@ Commands.help = {
 
 -- Roda um comando e devolve ok, mensagem (sempre um texto em português).
 -- bypassGate = true pula a trava do modo de teste (só quando um admin pediu; veja RunCommand).
+-- Sem bypassGate:
+--   * modo de teste desligado -> "comandos desligados";
+--   * fora do Studio, quem pede precisa ser admin (mesmo com o DebugMode ligado).
 local function execute(player, commandName, arg, bypassGate)
-	if not bypassGate and not isEnabled() then
-		return false, MSG_DISABLED
+	if not bypassGate then
+		if not isEnabled() then
+			return false, MSG_DISABLED
+		end
+		if not RunService:IsStudio() and not isAdminPlayer(player) then
+			return false, MSG_DISABLED
+		end
 	end
 	if type(commandName) ~= "string" or commandName == "" or #commandName > MAX_COMMAND_LENGTH then
 		return false, MSG_UNKNOWN
@@ -595,6 +628,8 @@ function DebugService.Init()
 
 	-- Se alguém ligar/desligar o atributo DebugMode com o jogo rodando, atualiza o
 	-- atributo DebugEnabled (lido pelo cliente para mostrar o botão DEBUG).
+	-- Fora do Studio o atributo DebugMode é ignorado (isEnabled nem olha para ele),
+	-- então lá a conta abaixo só repete o valor do Config.Game.DebugMode.
 	workspace:GetAttributeChangedSignal("DebugMode"):Connect(function()
 		local enabled = isEnabled()
 		workspace:SetAttribute("DebugEnabled", if enabled then true else nil)

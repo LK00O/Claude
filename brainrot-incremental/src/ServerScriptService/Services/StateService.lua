@@ -124,25 +124,40 @@ function StateService.Clear(player)
 	playerDirty[player] = nil
 end
 
--- StateService.Notify(player, text, kind?, duration?): mostra um aviso na tela de um jogador.
-function StateService.Notify(player, text, kind, duration)
+-- Monta o pacote do evento "Notify".
+-- Sem "extra", o pacote é exatamente o de sempre: {Text, Kind, Duration}.
+-- "extra" (opcional) é uma tabela com campos a mais; hoje só "Achievement" é copiado
+-- (o id da conquista, texto de até MAX_ACHIEVEMENT_ID caracteres), para o cliente
+-- mostrar o ícone/cartão da conquista. Qualquer outro campo de "extra" é ignorado.
+local MAX_ACHIEVEMENT_ID = 64
+
+local function buildNotifyPayload(text, kind, duration, extra)
+	local payload = {
+		Text = tostring(text),
+		Kind = if NOTIFY_KINDS[kind] then kind else "info",
+		Duration = if type(duration) == "number" and duration > 0 then duration else nil,
+	}
+	if type(extra) == "table" then
+		local achievement = extra.Achievement
+		if type(achievement) == "string" and achievement ~= "" and #achievement <= MAX_ACHIEVEMENT_ID then
+			payload.Achievement = achievement
+		end
+	end
+	return payload
+end
+
+-- StateService.Notify(player, text, kind?, duration?, extra?): mostra um aviso na tela de um jogador.
+-- extra (opcional): {Achievement = id da conquista} (ver buildNotifyPayload).
+function StateService.Notify(player, text, kind, duration, extra)
 	if not isActivePlayer(player) then
 		return
 	end
-	Net.FireClient(player, "Notify", {
-		Text = tostring(text),
-		Kind = if NOTIFY_KINDS[kind] then kind else "info",
-		Duration = if type(duration) == "number" and duration > 0 then duration else nil,
-	})
+	Net.FireClient(player, "Notify", buildNotifyPayload(text, kind, duration, extra))
 end
 
--- StateService.NotifyAll(text, kind?, duration?): mostra um aviso para todos os jogadores.
-function StateService.NotifyAll(text, kind, duration)
-	Net.FireAll("Notify", {
-		Text = tostring(text),
-		Kind = if NOTIFY_KINDS[kind] then kind else "info",
-		Duration = if type(duration) == "number" and duration > 0 then duration else nil,
-	})
+-- StateService.NotifyAll(text, kind?, duration?, extra?): mostra um aviso para todos os jogadores.
+function StateService.NotifyAll(text, kind, duration, extra)
+	Net.FireAll("Notify", buildNotifyPayload(text, kind, duration, extra))
 end
 
 -------------------------------------------------------------------------------

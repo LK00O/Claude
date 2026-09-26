@@ -5,15 +5,19 @@
 --     Não atira com janela aberta, mouse solto (Alt), colocando torreta, superaquecido ou na cena final.
 --   * Cadência: um tiro a cada 1 / stats.FireRate segundos.
 --   * Leque: stats.Projectiles balas espalhadas na horizontal (abertura total
---     min(Spread × (n - 1), 40) graus) + um desvio aleatório pequeno.
+--     min(Spread × (n - 1), Config.Stats.Fan.MaxDegrees) graus) + um desvio aleatório pequeno
+--     (Fan.JitterDegrees). O servidor confere esse formato com os mesmos números.
 --   * Manda ao servidor Net.Fire("Fire", origem = câmera, direções, shotId). O SERVIDOR é quem
 --     decide se acertou e quanto de dano deu; aqui é só o visual imediato.
 --   * Visual local: arma na câmera (viewmodel feito de Parts, na cor da skin), coice,
---     clarão no cano, som, tracer até onde a bala bateu (raycast local) e CameraController.Kick.
+--     clarão no cano, som, tracer até onde a bala bateu (raycast local, igual ao servidor:
+--     brainrots encostados na origem primeiro, depois raio fino + esfera; no máximo 2
+--     esferas por projétil) e CameraController.Kick.
 --   * Calor (Deserto): prevê o calor localmente para travar na hora, e respeita Heat.Overheated
 --     do servidor. O cano vai ficando vermelho e solta fumaça quando superaquece.
---   * HitConfirm do servidor: hitmarker (HUDController.ShowHitmarker) e números de dano
---     (se a configuração DamageNumbers estiver ligada) via EffectsController.
+--   * HitConfirm do servidor: hitmarker (HUDController.ShowHitmarker, no máximo 1 a cada
+--     50 ms; um crítico passa na frente de um normal pendente) e números de dano (se a
+--     configuração DamageNumbers estiver ligada) via EffectsController.
 --
 -- API pública:
 --   WeaponController.IsFiring() -> boolean
@@ -31,6 +35,7 @@ local Util = Shared:WaitForChild("Util")
 local Cosmetics = require(Config:WaitForChild("Cosmetics"))
 local GameConfig = require(Config:WaitForChild("Game"))
 local Maps = require(Config:WaitForChild("Maps"))
+local StatsConfig = require(Config:WaitForChild("Stats"))
 local Weapons = require(Config:WaitForChild("Weapons"))
 local Formulas = require(Util:WaitForChild("Formulas"))
 local Net = require(Util:WaitForChild("Net"))
@@ -49,9 +54,13 @@ local RENDER_STEP_NAME = "BrainrotWeapon"
 -- Roda depois da câmera (Camera + 1), para a arma "grudar" certinho nela.
 local RENDER_PRIORITY = Enum.RenderPriority.Camera.Value + 2
 
-local MAX_FAN_DEGREES = 40 -- abertura máxima do leque
-local RANDOM_DEVIATION_DEGREES = 0.6 -- desvio aleatório de cada bala
+-- Formato do leque (Config.Stats.Fan): abertura máxima e desvio aleatório de cada bala.
+-- O servidor confere o leque com os mesmos números (e uma folga, Fan.ToleranceDegrees).
+local FAN = type(StatsConfig.Fan) == "table" and StatsConfig.Fan or { MaxDegrees = 40, JitterDegrees = 0.6 }
 local MAX_SHOTS_PER_FRAME = 3 -- se o jogo engasgar, no máximo 3 tiros de uma vez
+local TRACER_MAX_SPHERE_CASTS = 2 -- tracer: no máximo 2 esferas por projétil (só visual)
+local NEAR_MAX_PARTS = 100 -- brainrots encostados na origem: limite de peças lidas
+local HITMARKER_INTERVAL = 0.05 -- hitmarker no máximo 1 vez a cada 50 ms
 local HEAT_RESUME_FRACTION = 0.3 -- superaquecida volta a atirar quando esfria para 30%
 local FLASH_DURATION = 0.05
 local HIT_SOUND_INTERVAL = 0.06
@@ -137,6 +146,60 @@ local shootSounds = {}
 local shootSoundIndex = 0
 local lastShootSound = 0
 local lastHitSound = 0
+
+-- Hitmarker (no máximo 1 a cada HITMARKER_INTERVAL).
+local lastHitmarker = -math.huge
+local pendingHitmarker = nil -- nil = nada esperando; false = normal; true = crítico
+local hitmarkerScheduled = false
+
+-- Listas reaproveitadas a cada frame pela arma na tela (sem criar tabelas novas).
+local vmParts = {}
+local vmCFrames = {}
+
+-- Filtros dos raios do tracer, criados uma vez só (e não a cada tiro/projétil).
+--   worldParams:  raio FINO contra o mundo (ignora personagens, moedas, torretas, brainrots,
+--                 efeitos e a câmera). A lista fica guardada e só é montada de novo quando
+--                 entra/sai jogador, nasce personagem ou alguma dessas pastas aparece/some.
+--   sphereParams: esfera grossa que só enxerga a pasta Brainrots (menos os já atravessados).
+--   overlapParams: brainrots que já encostam na esfera logo na origem do tiro.
+local worldParams = RaycastParams.new()
+worldParams.FilterType = Enum.RaycastFilterType.Exclude
+worldParams.IgnoreWater = true
+local overlapParams = OverlapParams.new()
+overlapParams.FilterType = Enum.RaycastFilterType.Include
+overlapParams.MaxParts = NEAR_MAX_PARTS
+
+-- O Roblox novo aceita IncludeInstances + ExcludeInstances juntos ("só a pasta Brainrots,
+-- menos estes modelos"). Se não aceitar, usamos o jeito antigo (lista de candidatos).
+-- Se a esfera acertar algo que o filtro misto devia barrar, ele é desligado no próximo tiro.
+local useMixedFilter = pcall(function()
+	local probe = RaycastParams.new()
+	probe.IncludeInstances = {}
+	probe.ExcludeInstances = {}
+end)
+local mixedFilterFailed = false -- o filtro misto falhou: trocar pelo antigo no próximo tiro
+
+local sphereParams = nil -- criado por makeSphereParams (logo abaixo)
+local sphereDirty = true -- a lista de excluídos mudou e ainda não foi para o sphereParams
+local excludeDirty = true -- a lista do raio fino precisa ser montada de novo
+local filterFolder = nil -- pasta Brainrots que está nos filtros da esfera e da origem
+local sphereExcluded = {} -- modelos que o projétil atual já atravessou
+local sphereCandidates = {} -- (jeito antigo) modelos que a esfera ainda pode acertar
+local brainrotModels = {} -- (jeito antigo) modelos da pasta Brainrots neste tiro
+local nearModels = {} -- brainrots encostados na origem do tiro atual {Model, Center, Distance, Inside}
+local characterConnections = {} -- [Player] = conexão do CharacterAdded (lista do raio fino)
+
+-- (Re)cria o filtro da esfera no modo atual (misto ou antigo).
+local function makeSphereParams()
+	sphereParams = RaycastParams.new()
+	sphereParams.IgnoreWater = true
+	if not useMixedFilter then
+		sphereParams.FilterType = Enum.RaycastFilterType.Include
+	end
+	filterFolder = nil -- força apontar os filtros para a pasta Brainrots de novo
+	sphereDirty = true
+end
+makeSphereParams()
 
 -------------------------------------------------------------------------------
 -- Acesso preguiçoso a outros controllers (regra anti-require-circular)
@@ -601,6 +664,16 @@ local function findBrainrotModel(instance)
 	return nil
 end
 
+-- Sobe pelos pais de "instance" até achar o filho direto de "folder" (o modelo do brainrot).
+-- Devolve nil se a peça não está dentro da pasta.
+local function topLevelChild(folder, instance)
+	local current = instance
+	while current ~= nil and current.Parent ~= folder do
+		current = current.Parent
+	end
+	return current
+end
+
 -- O que o raio FINO (obstáculos do mundo) ignora, igual ao servidor: personagens, moedas,
 -- torretas e brainrots; e, só aqui no cliente, os efeitos e a arma na câmera.
 -- (Os brainrots são testados à parte, pela esfera grossa: ver traceShot.)
@@ -624,43 +697,170 @@ local function buildExcludeList()
 	return list
 end
 
--- Modelos dos brainrots (filhos de workspace.Brainrots): os únicos que a esfera enxerga.
-local function getBrainrotModels()
-	local folder = workspace:FindFirstChild("Brainrots")
-	return if folder then folder:GetChildren() else {}
+-- Pastas do workspace que entram na lista do raio fino (se aparecerem/sumirem, remonta).
+local EXCLUDED_FOLDER_NAMES = { ClientEffects = true, Coins = true, Turrets = true, Brainrots = true }
+
+local function markExcludeDirty()
+	excludeDirty = true
 end
 
--- Tira da lista "candidates" o modelo que contém a peça atingida (a esfera "atravessa"
--- esse brainrot no próximo teste). Devolve o modelo, ou nil se não achou (trava de segurança).
-local function removeCandidate(candidates, part)
-	local current = part
-	while current and current ~= workspace do
-		local position = table.find(candidates, current)
-		if position then
-			table.remove(candidates, position)
-			return current
-		end
-		current = current.Parent
+local function onWorkspaceChildChanged(child)
+	if EXCLUDED_FOLDER_NAMES[child.Name] then
+		excludeDirty = true
 	end
-	return nil
+end
+
+-- Passa a acompanhar os personagens de um jogador (cada personagem novo remonta a lista).
+local function watchPlayer(other)
+	if characterConnections[other] then
+		return
+	end
+	characterConnections[other] = other.CharacterAdded:Connect(markExcludeDirty)
+	excludeDirty = true
+end
+
+local function unwatchPlayer(other)
+	local connection = characterConnections[other]
+	if connection then
+		connection:Disconnect()
+		characterConnections[other] = nil
+	end
+	excludeDirty = true
+end
+
+-- Monta de novo a lista do raio fino, só se algo mudou desde a última vez.
+local function refreshExcludeList()
+	if excludeDirty then
+		excludeDirty = false
+		worldParams.FilterDescendantsInstances = buildExcludeList()
+	end
+end
+
+-- Filtro da esfera: começa um projétil novo (nenhum brainrot atravessado ainda).
+local function resetSphere()
+	if useMixedFilter then
+		if #sphereExcluded > 0 then
+			table.clear(sphereExcluded)
+			sphereDirty = true
+		end
+	else
+		table.clear(sphereExcluded)
+		table.clear(sphereCandidates)
+		table.move(brainrotModels, 1, #brainrotModels, 1, sphereCandidates)
+		sphereDirty = true
+	end
+end
+
+-- Este projétil já atravessou "model": a esfera não enxerga mais esse modelo.
+local function excludeFromSphere(model)
+	if table.find(sphereExcluded, model) then
+		return
+	end
+	table.insert(sphereExcluded, model)
+	if not useMixedFilter then
+		local index = table.find(sphereCandidates, model)
+		if index then
+			table.remove(sphereCandidates, index)
+		end
+	end
+	sphereDirty = true
+end
+
+-- Passa a lista atual para o RaycastParams da esfera (só se mudou). Devolve false se não
+-- sobrou nenhum brainrot para testar (jeito antigo).
+local function applySphere()
+	if sphereDirty then
+		sphereDirty = false
+		if useMixedFilter then
+			sphereParams.ExcludeInstances = sphereExcluded
+		else
+			sphereParams.FilterDescendantsInstances = sphereCandidates
+		end
+	end
+	return useMixedFilter or #sphereCandidates > 0
+end
+
+-- O ponto está dentro da caixa da peça? (a origem do tiro dentro do corpo do brainrot)
+local function isPointInsidePart(part, point)
+	local localPoint = part.CFrame:PointToObjectSpace(point)
+	local half = part.Size * 0.5
+	return math.abs(localPoint.X) <= half.X and math.abs(localPoint.Y) <= half.Y and math.abs(localPoint.Z) <= half.Z
+end
+
+-- Brainrots que já encostam na esfera da bala logo na origem (queima-roupa ou de dentro de
+-- um Gigante): o Spherecast não enxerga essas peças, então buscamos UMA vez por tiro,
+-- igual ao servidor. Enche nearModels do mais perto para o mais longe. Inside = a origem
+-- está dentro de uma peça dele (acerta em qualquer direção, igual ao servidor).
+local function findNearModels(origin, radius, folder)
+	table.clear(nearModels)
+	local parts = workspace:GetPartBoundsInRadius(origin, radius, overlapParams)
+	for _, part in ipairs(parts) do
+		local brainrot = findBrainrotModel(part)
+		local model = brainrot and topLevelChild(folder, part)
+		if model then
+			local known = nil
+			for _, item in ipairs(nearModels) do
+				if item.Model == model then
+					known = item
+					break
+				end
+			end
+			if not known then
+				-- Centro = meio da caixa que envolve o modelo (se der erro, a própria peça).
+				local ok, boxCFrame = pcall(brainrot.GetBoundingBox, brainrot)
+				local center = if ok and typeof(boxCFrame) == "CFrame" then boxCFrame.Position else part.Position
+				known = { Model = model, Center = center, Distance = (center - origin).Magnitude, Inside = false }
+				table.insert(nearModels, known)
+			end
+			if not known.Inside and isPointInsidePart(part, origin) then
+				known.Inside = true
+			end
+		end
+	end
+	if #nearModels > 1 then
+		table.sort(nearModels, function(a, b)
+			return a.Distance < b.Distance
+		end)
+	end
+end
+
+-- Prepara os filtros de brainrots para um tiro. Devolve a pasta Brainrots (ou nil).
+local function prepareBrainrotFilters(origin, radius)
+	table.clear(nearModels)
+	if mixedFilterFailed and useMixedFilter then
+		useMixedFilter = false
+		makeSphereParams()
+		warn("[WeaponController] Filtro misto (IncludeInstances + ExcludeInstances) falhou; usando o filtro antigo.")
+	end
+	local folder = workspace:FindFirstChild("Brainrots")
+	if not folder then
+		filterFolder = nil
+		return nil
+	end
+	if folder ~= filterFolder then
+		filterFolder = folder
+		overlapParams.FilterDescendantsInstances = { folder }
+		if useMixedFilter then
+			sphereParams.IncludeInstances = { folder }
+		end
+	end
+	if not useMixedFilter then
+		brainrotModels = folder:GetChildren()
+	end
+	findNearModels(origin, radius, folder)
+	return folder
 end
 
 -- Descobre onde a bala para (só para desenhar o tracer). Imita o servidor:
+--   0. brainrots encostados na origem (nearModels): cada um gasta uma vaga da perfuração;
 --   1. raio FINO contra o mundo: até onde a bala vai (chão, pedra, parede, piso da plataforma);
---   2. spherecast que só enxerga brainrots (FilterType Include) até esse ponto, atravessando
---      até 1 + Pierce brainrots.
+--   2. spherecast que só enxerga brainrots até esse ponto, atravessando até 1 + Pierce
+--      brainrots no total, mas com no máximo 2 esferas por projétil (é só o desenho: se a
+--      perfuração ainda não acabou, o tracer vai até o ponto do raio fino).
 -- A esfera grossa não testa o mundo: senão, no Inverno, ela raspava no piso da plataforma
 -- bem antes da borda e o tracer (e o tiro no servidor) parava no chão da plataforma.
-local function traceShot(origin, direction, stats, excludeList, brainrotModels)
-	local range = math.max(tonumber(stats.Range) or 350, 1)
-	local radius = math.clamp(GameConfig.BulletHitRadius * (tonumber(stats.Caliber) or 1), 0.05, 50)
-	local maxTargets = 1 + math.max(0, math.floor(tonumber(stats.Pierce) or 0))
-
+local function traceShot(origin, direction, range, radius, maxTargets, folder)
 	-- 1. Raio fino (mundo).
-	local worldParams = RaycastParams.new()
-	worldParams.FilterType = Enum.RaycastFilterType.Exclude
-	worldParams.FilterDescendantsInstances = excludeList
-	worldParams.IgnoreWater = true
 	local travel = range
 	local endpoint = origin + direction * range
 	local hitWall = false
@@ -670,26 +870,47 @@ local function traceShot(origin, direction, stats, excludeList, brainrotModels)
 		endpoint = wall.Position
 		hitWall = true
 	end
+	if not folder then
+		return endpoint, hitWall
+	end
+
+	-- 0. Brainrots encostados na origem (só os que não estão atrás do jogador, ou qualquer
+	--    um com a origem dentro dele).
+	resetSphere()
+	local hits = 0
+	for _, near in ipairs(nearModels) do
+		local ahead = direction:Dot(near.Center - origin)
+		if near.Inside or ahead > -radius then
+			hits += 1
+			excludeFromSphere(near.Model)
+			if hits >= maxTargets then
+				local nearest = if near.Inside then math.min(radius, travel) else 0
+				return origin + direction * math.clamp(ahead, nearest, travel), true
+			end
+		end
+	end
 	if travel <= 1e-3 then
 		return endpoint, hitWall
 	end
 
 	-- 2. Esfera só contra os brainrots, até o ponto do raio fino.
-	local brainrotParams = RaycastParams.new()
-	brainrotParams.FilterType = Enum.RaycastFilterType.Include
-	brainrotParams.IgnoreWater = true
-	local candidates = table.clone(brainrotModels)
-	local hits = 0
-	while #candidates > 0 do
-		brainrotParams.FilterDescendantsInstances = candidates
-		local result = workspace:Spherecast(origin, radius, direction * travel, brainrotParams)
+	local casts = 0
+	while casts < TRACER_MAX_SPHERE_CASTS and applySphere() do
+		casts += 1
+		local result = workspace:Spherecast(origin, radius, direction * travel, sphereParams)
 		if not result then
 			break
 		end
-		local model = removeCandidate(candidates, result.Instance)
-		if not model then
+		local model = topLevelChild(folder, result.Instance)
+		if not model or table.find(sphereExcluded, model) then
+			-- Trava de segurança: peça fora da pasta ou modelo já atravessado. No filtro
+			-- misto isso nunca devia acontecer: se acontecer, ele é trocado no próximo tiro.
+			if useMixedFilter then
+				mixedFilterFailed = true
+			end
 			break
 		end
+		excludeFromSphere(model)
 		if findBrainrotModel(result.Instance) then
 			hits += 1
 			if hits >= maxTargets then
@@ -700,11 +921,13 @@ local function traceShot(origin, direction, stats, excludeList, brainrotModels)
 	return endpoint, hitWall
 end
 
--- Calcula as direções do leque a partir da mira.
+-- Calcula as direções do leque a partir da mira (da esquerda para a direita).
+-- O servidor confere este formato (CombatService: leque de Config.Stats.Fan).
 local function buildDirections(aimCFrame, stats)
 	local count = math.max(1, math.floor(tonumber(stats.Projectiles) or 1))
 	local spread = math.max(0, tonumber(stats.Spread) or 0)
-	local totalAngle = math.min(spread * (count - 1), MAX_FAN_DEGREES)
+	local totalAngle = math.min(spread * (count - 1), FAN.MaxDegrees)
+	local jitter = FAN.JitterDegrees
 	local rotation = aimCFrame.Rotation
 	local directions = {}
 	for index = 1, count do
@@ -712,8 +935,8 @@ local function buildDirections(aimCFrame, stats)
 		if count > 1 then
 			fanAngle = -totalAngle / 2 + totalAngle * (index - 1) / (count - 1)
 		end
-		local jitterYaw = rng:NextNumber(-1, 1) * RANDOM_DEVIATION_DEGREES
-		local jitterPitch = rng:NextNumber(-1, 1) * RANDOM_DEVIATION_DEGREES
+		local jitterYaw = rng:NextNumber(-1, 1) * jitter
+		local jitterPitch = rng:NextNumber(-1, 1) * jitter
 		local shotRotation = rotation
 			* CFrame.Angles(0, math.rad(fanAngle + jitterYaw), 0)
 			* CFrame.Angles(math.rad(jitterPitch), 0, 0)
@@ -741,14 +964,17 @@ local function fireOnce(stats)
 
 	-- 2) Visual imediato: tracers do cano até onde cada bala bateu.
 	local _, _, tracerColor = getColors()
-	local excludeList = buildExcludeList()
-	local brainrotModels = getBrainrotModels()
+	local range = math.max(tonumber(stats.Range) or 350, 1)
+	local radius = math.clamp(GameConfig.BulletHitRadius * (tonumber(stats.Caliber) or 1), 0.05, 50)
+	local maxTargets = 1 + math.max(0, math.floor(tonumber(stats.Pierce) or 0))
+	refreshExcludeList()
+	local folder = prepareBrainrotFilters(origin, radius)
 	local from = if muzzleWorld then muzzleWorld.Position else origin + aimCFrame.LookVector * 1.5
 	local caliberScale = math.clamp((tonumber(stats.Caliber) or 1) / ((weaponDef and weaponDef.Stats.Caliber) or 1), 1, 2.5)
 	local width = feel.TracerWidth * caliberScale
 	local speed = (weaponDef and weaponDef.BulletVisualSpeed) or 700
 	for _, direction in ipairs(directions) do
-		local endpoint, hitSomething = traceShot(origin, direction, stats, excludeList, brainrotModels)
+		local endpoint, hitSomething = traceShot(origin, direction, range, radius, maxTargets, folder)
 		callController("EffectsController", "Tracer", from, endpoint, tracerColor, width, speed, hitSomething)
 	end
 
@@ -926,8 +1152,11 @@ local function updateViewmodel(dt, stats)
 		spinTransform = viewmodel.SpinCenter * CFrame.Angles(0, 0, spinAngle) * viewmodel.SpinCenter:Inverse()
 	end
 
-	local parts = {}
-	local cframes = {}
+	-- As mesmas duas listas todo frame (table.clear), sem criar tabelas novas.
+	local parts = vmParts
+	local cframes = vmCFrames
+	table.clear(parts)
+	table.clear(cframes)
 	for _, piece in ipairs(viewmodel.Pieces) do
 		table.insert(parts, piece.Part)
 		if piece.Spin and spinTransform then
@@ -1001,6 +1230,34 @@ end
 -------------------------------------------------------------------------------
 -- Acertos confirmados pelo servidor
 -------------------------------------------------------------------------------
+
+-- Hitmarker no máximo 1 vez a cada 50 ms (cada um cria vários tweens no HUD). Acerto
+-- dentro da janela fica "pendente" e aparece no fim dela; um crítico passa na frente
+-- de um acerto normal pendente.
+local function showHitmarker(crit)
+	local t = os.clock()
+	local elapsed = t - lastHitmarker
+	if elapsed >= HITMARKER_INTERVAL and not hitmarkerScheduled then
+		lastHitmarker = t
+		callController("HUDController", "ShowHitmarker", crit)
+		return
+	end
+	pendingHitmarker = pendingHitmarker == true or crit
+	if hitmarkerScheduled then
+		return
+	end
+	hitmarkerScheduled = true
+	task.delay(math.max(0, HITMARKER_INTERVAL - elapsed), function()
+		hitmarkerScheduled = false
+		local pending = pendingHitmarker
+		pendingHitmarker = nil
+		if pending ~= nil then
+			lastHitmarker = os.clock()
+			callController("HUDController", "ShowHitmarker", pending)
+		end
+	end)
+end
+
 local function onHitConfirm(hits)
 	if type(hits) ~= "table" or #hits == 0 then
 		return
@@ -1012,12 +1269,21 @@ local function onHitConfirm(hits)
 				anyCrit = true
 			end
 			if showDamageNumbers and typeof(hit.Position) == "Vector3" then
-				callController("EffectsController", "DamageNumber", hit.Position, tonumber(hit.Damage) or 0, hit.Crit == true)
+				-- Id (opcional) = BrainrotId do alvo: números do mesmo alvo se juntam.
+				local targetId = if type(hit.Id) == "string" then hit.Id else nil
+				callController(
+					"EffectsController",
+					"DamageNumber",
+					hit.Position,
+					tonumber(hit.Damage) or 0,
+					hit.Crit == true,
+					targetId
+				)
 			end
 		end
 	end
 
-	callController("HUDController", "ShowHitmarker", anyCrit)
+	showHitmarker(anyCrit)
 
 	local t = os.clock()
 	if t - lastHitSound >= HIT_SOUND_INTERVAL then
@@ -1146,11 +1412,25 @@ function WeaponController.Start()
 		task.spawn(onCharacterAdded, player.Character)
 	end
 
+	-- Lista do raio fino do tracer: remonta quando entra/sai jogador, nasce personagem,
+	-- troca a câmera ou alguma das pastas ignoradas aparece/some.
+	mainTrove:Connect(Players.PlayerAdded, watchPlayer)
+	mainTrove:Connect(Players.PlayerRemoving, unwatchPlayer)
+	for _, other in ipairs(Players:GetPlayers()) do
+		watchPlayer(other)
+	end
+	mainTrove:Connect(workspace.ChildAdded, onWorkspaceChildChanged)
+	mainTrove:Connect(workspace.ChildRemoved, onWorkspaceChildChanged)
+	mainTrove:Connect(workspace:GetPropertyChangedSignal("CurrentCamera"), markExcludeDirty)
+
 	RunService:BindToRenderStep(RENDER_STEP_NAME, RENDER_PRIORITY, onRenderStep)
 	mainTrove:Add(function()
 		RunService:UnbindFromRenderStep(RENDER_STEP_NAME)
 		destroyViewmodel()
 		clearShootSounds()
+		for other in pairs(characterConnections) do
+			unwatchPlayer(other)
+		end
 	end)
 end
 

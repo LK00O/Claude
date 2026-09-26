@@ -59,6 +59,26 @@ StudioMapId = "Meadow", -- mapa da partida: "Meadow" (Prado), "Winter" (Inverno)
   você para o teste). Para testar o salvamento de verdade, publique o jogo uma vez e ligue
   **Configurações do jogo > Segurança > Habilitar acesso do Studio aos serviços de API**.
 
+### Testar no Studio com segurança
+
+Com o acesso às APIs ligado, o Studio **não mexe nos dados de verdade dos jogadores**. Ele salva
+num "caderno separado": os DataStores do Studio têm `_Studio` no fim do nome
+(`BrainrotIncremental_Player_v1_Studio` e `BrainrotIncremental_Runs_v1_Studio`). Então você pode
+usar `/coins`, `/nextact`, `/reset` e fechar o teste no meio à vontade: o seu perfil e as partidas
+salvas do jogo publicado continuam intactos, e os placares do lobby (moedas, abates e atos) não
+recebem nenhuma pontuação de teste. No Output aparece a linha
+`[DataService] Studio: usando lojas _Studio (dados reais protegidos)`.
+
+Quem controla isso é o `StudioLiveData` no `Config/Game`:
+
+```lua
+StudioLiveData = false, -- false (padrão) = Studio usa as lojas _Studio e não grava placar
+```
+
+Só mude para `true` se precisar investigar um problema nos **dados reais** (por exemplo, o perfil de
+um jogador que reclamou). Com `true`, o Studio lê e **grava** nos DataStores de verdade: um teste pode
+sobrescrever progresso real. Volte para `false` assim que terminar.
+
 ### Comandos de teste (modo debug)
 
 No Studio o modo debug já vem ligado. Aparece um botão **DEBUG** no canto da tela, e também dá para
@@ -77,8 +97,18 @@ digitar no chat:
 | `/reset` | Zera o seu progresso nesta partida |
 | `/help` | Lista os comandos |
 
-Fora do Studio os comandos ficam desligados. Só ligue `DebugMode = true` no `Config/Game` para testar
-num servidor de verdade e desligue antes de abrir o jogo ao público.
+Fora do Studio os comandos de teste ficam desligados. Para testar no jogo publicado, **use os
+comandos de administrador** (seção 5: `:coins`, `:maxall`, `:nextact`, `:tokens`...), que só funcionam
+para quem está no `Config/Admins`.
+
+- O `DebugMode = true` no `Config/Game` não abre os comandos para todo mundo: fora do Studio, mesmo
+  ligado, só os **admins** conseguem usar os comandos com `/`. Mesmo assim, deixe `false` no jogo
+  publicado.
+- **Não coloque o atributo `DebugMode` no Workspace do place publicado** (instruções antigas pediam
+  isso para testar). Hoje esse atributo só vale no Studio e é ignorado nos servidores de verdade; se
+  ele estiver lá, pode apagar.
+- O mesmo vale para o atributo `ForceRole` do Workspace: ele só serve para testes no Studio e é
+  ignorado no jogo publicado.
 
 ---
 
@@ -97,6 +127,9 @@ A experiência tem **dois places**: o **Lobby** (place inicial) e a **Partida**.
    LobbyPlaceId = 1234567890, -- id do place inicial
    MatchPlaceId = 9876543210, -- id do place "Partida"
    ```
+   Os dois números precisam ser **diferentes**. Se ficarem iguais, o jogo avisa no Output
+   (`LobbyPlaceId e MatchPlaceId iguais: usando Lobby`) e não teleporta ninguém, para não prender
+   os jogadores num vai-e-volta entre lobby e partida.
 5. Publique de novo **nos dois places**: **Arquivo > Publicar no Roblox como...**, escolha a sua
    experiência, depois o place e **Substituir** (Overwrite). Faça uma vez para o Lobby e outra para a Partida.
 6. Em **Configurações do jogo**:
@@ -127,6 +160,11 @@ qualquer tamanho: o jogo ajusta a escala, ancora e posiciona sozinho.
 `TricTracBaraboom`, `TigrrulliniWatermellini`, `LaVacaSaturnoSaturnita`, `LiriliLarila`,
 `CactusinoBandito`, `SahurDelDeserto`, `CamelloTostato`, `Garamararam`, `BananitaDolfinita`,
 `BurbaloniLuliloli`, `GraipussiMedussi`, `TralaleroFaraone` e o chefão final `TralaleroSupremo`.
+
+Por segurança, o jogo **limpa** cada modelo antes de usar: tira scripts (um modelo grátis da Toolbox
+pode ter um script escondido), sons, cadeiras, ferramentas, prompts, `SpawnLocation` e telas
+(`BillboardGui`/`SurfaceGui`), e deixa no máximo 2 efeitos de partícula e 2 luzes. Se algo for
+tirado, aparece um aviso no Output com o nome do modelo.
 
 ### Músicas e sons
 Em `Config/Game`, preencha `Music` (uma por mapa, mais a do final) e `Sounds` (tiro, acerto, moeda,

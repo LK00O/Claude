@@ -58,6 +58,7 @@ local Stats = {
 	},
 
 	-- Limites {mínimo, máximo} aplicados no fim do cálculo.
+	-- (Formulas.ComputeStats percorre TODAS as chaves desta tabela: aqui só entram stats.)
 	Clamps = {
 		CritChance = { 0, 1 },
 		ExplodeChance = { 0, 0.9 },
@@ -69,6 +70,21 @@ local Stats = {
 		Projectiles = { 1, 20 },
 		QuestCooldown = { 5, 600 },
 		SpawnCount = { 1, 60 },
+		-- Cadência: no mínimo 1 tiro a cada 10 s e no máximo 30 tiros por segundo
+		-- (trava de segurança: o servidor valida os tiros com esse valor).
+		FireRate = { 0.1, 30 },
+	},
+
+	-- Formato do leque de projéteis (usado pelo cliente para montar o leque e pelo
+	-- servidor para conferir se o leque é de verdade). NÃO é um stat: fica fora dos Clamps.
+	--   MaxDegrees        abertura total máxima do leque (graus)
+	--   JitterDegrees     desvio aleatório de cada projétil, para cada lado (graus)
+	--   ToleranceDegrees  folga da conferência do servidor (graus); precisa ser maior que
+	--                     2 × JitterDegrees, senão tiros normais seriam recusados
+	Fan = {
+		MaxDegrees = 40,
+		JitterDegrees = 0.6,
+		ToleranceDegrees = 1.5,
 	},
 
 	-- Como mostrar cada stat para o jogador (nome em português e formato do número).

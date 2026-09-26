@@ -42,6 +42,43 @@ local function Svc(name)
 	return require(Services:WaitForChild(name))
 end
 
+-- AdminService é OPCIONAL (padrão "serviço opcional"): procuramos o ModuleScript UMA vez
+-- (FindFirstChild, sem esperar), guardamos a tabela e, se ele não existir ou der erro,
+-- seguimos "sem evento". Assim pegar uma missão nunca fica esperando um serviço sumido.
+local adminService = nil -- tabela do AdminService (nil = não existe ou deu erro)
+local adminLookupDone = false
+
+local function getAdminService()
+	if adminLookupDone then
+		return adminService
+	end
+	adminLookupDone = true
+	local moduleScript = Services:FindFirstChild("AdminService")
+	if moduleScript and moduleScript:IsA("ModuleScript") then
+		local ok, result = pcall(require, moduleScript)
+		if ok and type(result) == "table" then
+			adminService = result
+		elseif not ok then
+			warn("[QuestService] AdminService deu erro ao carregar; seguindo sem eventos globais: " .. tostring(result))
+		end
+	end
+	return adminService
+end
+
+-- Efeitos do evento global ligado por um admin (":event"), ou nil (sem evento ou erro).
+local function getEventEffects()
+	local admin = getAdminService()
+	local fn = admin and admin.GetEventEffects
+	if type(fn) ~= "function" then
+		return nil
+	end
+	local ok, effects = pcall(fn)
+	if ok and type(effects) == "table" then
+		return effects
+	end
+	return nil
+end
+
 -------------------------------------------------------------------------------
 -- Constantes
 -------------------------------------------------------------------------------
@@ -51,7 +88,8 @@ local COMPLETE_NOTIFY_DURATION = 5 -- segundos que o aviso de missão concluída
 -- Fontes de moedas que NÃO contam para missões "Collect":
 --   Quest  = a própria recompensa de missão (spec 8.9)
 --   Refund = devolução de moedas não é "coletar"
-local IGNORED_COIN_SOURCES = { Quest = true, Refund = true }
+--   Debug  = moedas do comando de teste/admin ("/coins") não completam missões
+local IGNORED_COIN_SOURCES = { Quest = true, Refund = true, Debug = true }
 
 -- Mensagens para o jogador (português do Brasil).
 local MSG_NOT_READY = "Sua partida ainda está carregando. Tente de novo em instantes."
@@ -162,6 +200,29 @@ local function formatQuestText(template, targetText)
 	return tostring(template.Text) .. " (" .. targetText .. ")"
 end
 
+-- Stats do time SEM o evento global, usados só no "Requires" dos modelos.
+-- Por quê: um evento de admin (ex.: ":event gigantes", +30% de chance de gigante) dura só
+-- alguns minutos. Se o sorteio usasse esses stats, a missão de gigantes poderia sair para
+-- um time SEM o upgrade de gigantes e ficar impossível quando o evento acabasse.
+-- Mesma conta do StatService.GetTeam (Formulas.ComputeStats com os upgrades e receitas do
+-- time e {Team = true}), só que sem o Event.
+local function eventFreeTeamStats(MatchService)
+	local team = MatchService.GetTeam()
+	local ok, stats = pcall(
+		Formulas.ComputeStats,
+		MatchService.GetMapId(),
+		{},
+		type(team) == "table" and team.Upgrades or {},
+		type(team) == "table" and team.Recipes or {},
+		{ Team = true }
+	)
+	if ok and type(stats) == "table" then
+		return stats
+	end
+	warn("[QuestService] Erro ao calcular os stats do time para as missões: " .. tostring(stats))
+	return Svc("StatService").GetTeam() -- plano B: os stats de sempre (com evento)
+end
+
 -- O time cumpre o "Requires" do modelo? (ex.: missão de explosão só com chance de explosão)
 local function meetsRequirements(template, teamStats)
 	local requires = template.Requires
@@ -212,13 +273,10 @@ end
 local function passCoinMult(player)
 	local ok, mult = pcall(function()
 		local MonetizationService = Svc("MonetizationService")
-		local okEvent, eventEffects = pcall(function()
-			return Svc("AdminService").GetEventEffects()
-		end)
 		return Formulas.PassCoinMult({
 			DoubleCoins = MonetizationService.HasPass(player, "DoubleCoins") == true,
 			VIP = MonetizationService.HasPass(player, "VIP") == true,
-			Event = if okEvent and type(eventEffects) == "table" then eventEffects else nil,
+			Event = getEventEffects(), -- AdminService opcional (nil = sem evento)
 		})
 	end)
 	if ok and isFiniteNumber(mult) and mult > 0 then
@@ -378,8 +436,9 @@ local function handleTakeQuest(player)
 		return false, MSG_COOLDOWN:format(NumberFormat.Time(math.ceil(remaining)))
 	end
 
-	-- Modelo: só os que o time consegue cumprir (Requires usa os stats do time).
-	local teamStats = Svc("StatService").GetTeam()
+	-- Modelo: só os que o time consegue cumprir (Requires usa os stats do time SEM o
+	-- evento global: ver eventFreeTeamStats).
+	local teamStats = eventFreeTeamStats(MatchService)
 	local template = pickTemplate(teamStats, lastTemplateByUser[player.UserId])
 	if not template then
 		return false, MSG_NO_TEMPLATE

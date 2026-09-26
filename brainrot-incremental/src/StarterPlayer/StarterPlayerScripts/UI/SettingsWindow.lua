@@ -9,10 +9,18 @@
 --   * Teclas (teclado): clica no botão da ação e aperta a tecla nova.
 --     Se a tecla já era de outra ação, as duas trocam. "Restaurar padrão" volta tudo.
 --
--- Salvar: cada mudança espera 1 segundo sem novas mudanças e então manda tudo com
+-- Salvar: cada mudança espera 1 segundo sem novas mudanças e então manda com
 -- Request "SaveSettings" (debounce). O servidor confere, grava no perfil e devolve
 -- o perfil atualizado; os outros módulos (câmera, música, movimento...) leem de
 -- Profile.Settings e se atualizam sozinhos.
+--
+-- Só vai para o servidor o que o jogador MEXEU (o conjunto "dirty"): assim uma mudança
+-- nunca apaga uma configuração salva que o jogador nem tocou. As teclas só vão quando
+-- alguma ação de tecla foi trocada. Enquanto o perfil não chega do servidor, a janela
+-- mostra "Carregando suas configurações..." e não deixa mexer em nada.
+--
+-- No lobby, as linhas que só valem dentro da partida (câmera, FOV e números de dano)
+-- ganham o aviso " (vale na partida)".
 --
 -- Como usar em cada aparelho:
 --   * PC: clique e arraste as barrinhas, ou use os botões - e +.
@@ -72,6 +80,10 @@ local KNOB_SIZE = 26
 local SAVE_DEBOUNCE = 1 -- segundos sem mudanças antes de salvar (pedido na especificação)
 local SAVE_RETRY_DELAY = 3 -- espera para tentar salvar de novo depois de um erro
 local MAX_SAVE_RETRIES = 3
+-- Depois que o servidor confirma um salvamento, o perfil novo leva um instante para
+-- chegar. Até lá (no máximo este tempo), o valor confirmado vale mais que um perfil
+-- "velho" que ainda esteja a caminho.
+local CONFIRM_WAIT = 10
 
 -- Linhas da janela, por seção. As faixas são as mesmas que o SettingsService aceita
 -- (seção 8.15 da especificação): são limites de validação, não de balanceamento.
@@ -83,6 +95,7 @@ local SECTIONS = {
 			{
 				Kind = "Slider",
 				Key = "Sensitivity",
+				MatchOnly = true, -- só vale na partida (no lobby a descrição ganha um aviso)
 				Name = "Sensibilidade",
 				Description = "Quão rápido a câmera gira com o mouse, o controle ou o dedo.",
 				Min = 0.05,
@@ -93,12 +106,14 @@ local SECTIONS = {
 			{
 				Kind = "Toggle",
 				Key = "InvertY",
+				MatchOnly = true, -- só vale na partida (no lobby a descrição ganha um aviso)
 				Name = "Inverter eixo Y",
 				Description = "Mover para cima faz olhar para baixo (como em simulador de avião).",
 			},
 			{
 				Kind = "Slider",
 				Key = "FOV",
+				MatchOnly = true, -- só vale na partida (no lobby a descrição ganha um aviso)
 				Name = "Campo de visão",
 				Description = "Quanto do mundo cabe na tela. Maior = visão mais aberta.",
 				Min = 60,
@@ -153,6 +168,7 @@ local SECTIONS = {
 			{
 				Kind = "Toggle",
 				Key = "DamageNumbers",
+				MatchOnly = true, -- só vale na partida (no lobby a descrição ganha um aviso)
 				Name = "Números de dano",
 				Description = "Mostra quanto dano cada tiro causou, pulando do brainrot.",
 			},
@@ -171,6 +187,8 @@ local RESERVED_KEYS = {
 	-- fosse F, os dois prompts da torreta disputariam a mesma tecla e só um apareceria;
 	-- qualquer outra ação no F também dispararia junto com o prompt perto da torreta.
 	[Enum.KeyCode.F] = true,
+	[Enum.KeyCode.F2] = true, -- painel de testes (DebugPanel)
+	[Enum.KeyCode.F3] = true, -- painel de admin (AdminPanel)
 	[Enum.KeyCode.F9] = true, -- console do desenvolvedor
 	[Enum.KeyCode.F11] = true, -- tela cheia
 	[Enum.KeyCode.LeftSuper] = true, -- tecla do Windows / Command
@@ -236,13 +254,19 @@ local lifeTrove = Trove.new() -- conexões do módulo
 local draft = nil -- cópia local das configurações (o que aparece na janela)
 local controls = {} -- [chave] = {Set = fn(valor)} (barrinhas e interruptores)
 local keyRows = {} -- [actionId] = {Button, Default, Action}
-local ui = {} -- outras peças (status, botão de restaurar)
+local descriptionLabels = {} -- {Item, Label} das linhas com descrição (para o aviso do lobby)
+local ui = {} -- outras peças (status, botão de restaurar, capa de "carregando")
 
 local activeDrag = nil -- barrinha sendo arrastada: {SetFromX, Input}
 local capturingAction = nil -- ação esperando o jogador apertar a tecla nova
 
-local changeSerial = 0 -- sobe a cada mudança
-local savedSerial = 0 -- última mudança confirmada pelo servidor
+-- O que o jogador mexeu e o servidor ainda não confirmou:
+local dirty = {} -- [chave da configuração] = true (ex.: dirty.FOV = true)
+local dirtyKeys = {} -- [actionId] = true (teclas trocadas; o valor fica em draft.Keybinds)
+-- O que o servidor já confirmou, mas o perfil com o valor novo ainda não chegou:
+local confirmed = {} -- [chave] = {Value = valor, At = os.clock()}
+local confirmedKeys = {} -- [actionId] = {Value = "NomeDaTecla" ou false (padrão), At = os.clock()}
+
 local saving = false -- um pedido de salvar está a caminho
 local saveFailed = false
 local failures = 0
@@ -308,7 +332,8 @@ local function getKey(actionId)
 	return action and action.Default or Enum.KeyCode.Unknown
 end
 
--- Guarda a tecla de uma ação no rascunho (o perfil guarda só as diferentes do padrão).
+-- Guarda a tecla de uma ação no rascunho (o perfil guarda só as diferentes do padrão)
+-- e marca a ação como "mexida" (vai no próximo salvamento).
 local function setKey(actionId, keyCode)
 	local action = Keybinds.ById[actionId]
 	if action and action.Default == keyCode then
@@ -316,6 +341,7 @@ local function setKey(actionId, keyCode)
 	else
 		draft.Keybinds[actionId] = keyCode.Name
 	end
+	dirtyKeys[actionId] = true
 end
 
 -- true se alguma tecla foi trocada.
@@ -328,17 +354,61 @@ local function hasCustomKeys()
 	return false
 end
 
--- true se há mudanças que o servidor ainda não confirmou.
-local function hasPendingChanges()
-	return saving or changeSerial ~= savedSerial
+-- true quando o perfil já chegou do servidor. Antes disso, GetSettings() só tem os
+-- valores padrão, e salvar poderia apagar o que o jogador tinha salvo.
+local function isProfileReady()
+	return type(StateController.Get("Profile")) == "table"
 end
 
--- Recarrega o rascunho a partir do perfil (Profile.Settings com valores padrão).
+-- true se o jogador mexeu em algo que o servidor ainda não confirmou.
+local function hasDirty()
+	return next(dirty) ~= nil or next(dirtyKeys) ~= nil
+end
+
+-- true se há mudanças que o servidor ainda não confirmou.
+local function hasPendingChanges()
+	return saving or hasDirty()
+end
+
+-- Recarrega o rascunho a partir do perfil (Profile.Settings com valores padrão) e
+-- põe por cima o que o jogador mexeu e ainda não foi confirmado (dirty). Assim o
+-- perfil novo nunca apaga uma mudança em andamento, e a mudança nunca apaga o resto.
 local function loadDraft()
-	draft = StateController.GetSettings()
-	if type(draft.Keybinds) ~= "table" then
-		draft.Keybinds = {}
+	local fresh = StateController.GetSettings()
+	if type(fresh.Keybinds) ~= "table" then
+		fresh.Keybinds = {}
 	end
+
+	-- Valores já confirmados pelo servidor: se o perfil ainda não mostra o valor novo
+	-- (chegou um perfil "velho"), o confirmado vale. Quando o perfil alcança (ou o tempo
+	-- passa), esquecemos a confirmação.
+	local now = os.clock()
+	for key, entry in pairs(confirmed) do
+		if fresh[key] == entry.Value or now - entry.At > CONFIRM_WAIT then
+			confirmed[key] = nil
+		else
+			fresh[key] = entry.Value
+		end
+	end
+	for actionId, entry in pairs(confirmedKeys) do
+		if (fresh.Keybinds[actionId] or false) == entry.Value or now - entry.At > CONFIRM_WAIT then
+			confirmedKeys[actionId] = nil
+		else
+			fresh.Keybinds[actionId] = entry.Value or nil
+		end
+	end
+
+	-- Por cima de tudo, o que o jogador mexeu e ainda não foi confirmado.
+	if draft then
+		for key in pairs(dirty) do
+			fresh[key] = draft[key]
+		end
+		for actionId in pairs(dirtyKeys) do
+			-- nil no rascunho = tecla padrão (fica nil também no novo).
+			fresh.Keybinds[actionId] = draft.Keybinds[actionId]
+		end
+	end
+	draft = fresh
 end
 
 -------------------------------------------------------------------------------
@@ -350,7 +420,10 @@ local function refreshStatus()
 	if not ui.Status then
 		return
 	end
-	if saveFailed and not saving then
+	if not isProfileReady() then
+		ui.Status.Text = "Carregando..."
+		ui.Status.TextColor3 = Theme.Warning
+	elseif saveFailed and not saving then
 		ui.Status.Text = "Não deu para salvar"
 		ui.Status.TextColor3 = Theme.Danger
 	elseif hasPendingChanges() then
@@ -369,35 +442,61 @@ local function cancelSaveTimer()
 	end
 end
 
--- O que vai para o servidor: todas as configurações do rascunho.
+-- O que vai para o servidor: SÓ as configurações que o jogador mexeu (dirty).
+-- As teclas vão só se alguma ação de tecla foi trocada; nesse caso vai o mapa inteiro
+-- (o servidor troca o mapa todo), montado a partir do perfil + as trocas do jogador.
+-- Devolve (payload, sentKeys): sentKeys guarda o valor enviado de cada ação de tecla
+-- (false = padrão), para conferir depois o que o servidor confirmou.
 local function buildPayload()
-	return {
-		Sensitivity = draft.Sensitivity,
-		InvertY = draft.InvertY,
-		FOV = draft.FOV,
-		ToggleSprint = draft.ToggleSprint,
-		MusicVolume = draft.MusicVolume,
-		SfxVolume = draft.SfxVolume,
-		DamageNumbers = draft.DamageNumbers,
-		Keybinds = table.clone(draft.Keybinds),
-	}
+	local payload = {}
+	for key in pairs(dirty) do
+		payload[key] = draft[key]
+	end
+
+	local sentKeys = nil
+	if next(dirtyKeys) ~= nil then
+		payload.Keybinds = table.clone(draft.Keybinds)
+		sentKeys = {}
+		for actionId in pairs(dirtyKeys) do
+			sentKeys[actionId] = draft.Keybinds[actionId] or false
+		end
+	end
+	return payload, sentKeys
 end
 
 local scheduleSave -- declarada aqui, definida logo abaixo
 
 -- Manda as configurações agora (se houver algo novo).
+-- Nunca salva antes de o perfil chegar (o rascunho ainda teria só os valores padrão).
 local function saveNow()
-	if saving or changeSerial == savedSerial or not draft then
+	if saving or not draft or not hasDirty() or not isProfileReady() then
 		return
 	end
 	saving = true
-	local serial = changeSerial
 	refreshStatus()
 
-	local ok, result = Net.Request("SaveSettings", buildPayload())
+	local payload, sentKeys = buildPayload()
+	local ok, result = Net.Request("SaveSettings", payload)
 	saving = false
 	if ok then
-		savedSerial = math.max(savedSerial, serial)
+		-- O servidor confirmou: tira do "dirty" o que foi enviado, MENOS o que o jogador
+		-- mudou de novo enquanto o pedido viajava (esse vai no próximo salvamento).
+		-- O que saiu do "dirty" fica em "confirmed" até o perfil novo chegar.
+		local now = os.clock()
+		for key, sentValue in pairs(payload) do
+			if key ~= "Keybinds" and draft[key] == sentValue then
+				dirty[key] = nil
+				confirmed[key] = { Value = sentValue, At = now }
+			end
+		end
+		if sentKeys then
+			for actionId, sentValue in pairs(sentKeys) do
+				if (draft.Keybinds[actionId] or false) == sentValue then
+					dirtyKeys[actionId] = nil
+					confirmedKeys[actionId] = { Value = sentValue, At = now }
+				end
+			end
+		end
 		saveFailed = false
 		failures = 0
 	else
@@ -409,7 +508,7 @@ local function saveNow()
 	end
 
 	-- Mudou algo enquanto salvava (ou deu erro): agenda outro salvamento.
-	if changeSerial ~= savedSerial then
+	if hasDirty() then
 		if ok then
 			scheduleSave(SAVE_DEBOUNCE)
 		elseif failures <= MAX_SAVE_RETRIES then
@@ -434,9 +533,8 @@ local function flushSave()
 	task.spawn(saveNow)
 end
 
--- Marca que o jogador mudou algo: salva 1 s depois da ÚLTIMA mudança.
+-- Depois de marcar o que mudou (dirty/dirtyKeys): salva 1 s depois da ÚLTIMA mudança.
 local function markChanged()
-	changeSerial += 1
 	failures = 0
 	scheduleSave(SAVE_DEBOUNCE)
 	refreshStatus()
@@ -471,8 +569,33 @@ local function refreshKeyRows()
 	end
 end
 
+-- Mostra ou esconde a capa "Carregando suas configurações..." (fica por cima da
+-- lista e não deixa mexer em nada até o perfil chegar).
+local function refreshLoading()
+	if ui.LoadingCover then
+		ui.LoadingCover.Visible = not isProfileReady()
+	end
+end
+
+-- Descrição de uma linha. No lobby, as linhas que só valem na partida ganham um aviso.
+local function describe(item)
+	local text = item.Description or ""
+	if item.MatchOnly and workspace:GetAttribute("Role") == "Lobby" then
+		text ..= " (vale na partida)"
+	end
+	return text
+end
+
+-- Atualiza as descrições (o papel do servidor pode mudar: lobby <-> partida).
+local function refreshDescriptions()
+	for _, entry in ipairs(descriptionLabels) do
+		entry.Label.Text = describe(entry.Item)
+	end
+end
+
 -- Atualiza todos os controles com o rascunho.
 local function refreshAllControls()
+	refreshLoading()
 	if not draft then
 		return
 	end
@@ -485,10 +608,11 @@ end
 
 -- Muda uma configuração (vinda de uma barrinha ou de um interruptor).
 local function changeSetting(key, value)
-	if not draft or draft[key] == value then
+	if not draft or not isProfileReady() or draft[key] == value then
 		return
 	end
 	draft[key] = value
+	dirty[key] = true
 	local control = controls[key]
 	if control then
 		control.Set(value)
@@ -502,6 +626,9 @@ end
 
 -- Começa (ou cancela) a espera pela tecla nova de uma ação.
 local function toggleCapture(actionId)
+	if not isProfileReady() then
+		return
+	end
 	if capturingAction == actionId then
 		capturingAction = nil
 	else
@@ -518,7 +645,7 @@ end
 local function assignKey(actionId, keyCode)
 	local action = Keybinds.ById[actionId]
 	capturingAction = nil
-	if not action then
+	if not action or not draft or not isProfileReady() then
 		refreshKeyRows()
 		return
 	end
@@ -535,7 +662,7 @@ local function assignKey(actionId, keyCode)
 				)
 			end
 		end
-		setKey(actionId, keyCode)
+		setKey(actionId, keyCode) -- setKey marca a ação (e a trocada) em dirtyKeys
 		markChanged()
 	end
 
@@ -549,6 +676,10 @@ end
 -- Recebe as teclas apertadas enquanto uma ação espera a tecla nova.
 local function onCaptureInput(input)
 	if not capturingAction or not (window and window.IsOpen()) then
+		return
+	end
+	-- Digitando numa caixa de texto (chat, painel de testes...): não é troca de tecla.
+	if UserInputService:GetFocusedTextBox() then
 		return
 	end
 	if input.UserInputType ~= Enum.UserInputType.Keyboard then
@@ -572,12 +703,16 @@ end
 
 -- "Restaurar padrão": todas as teclas voltam para as de Config.Keybinds.
 local function restoreDefaultKeys()
-	if not draft then
+	if not draft or not isProfileReady() then
 		return
 	end
 	capturingAction = nil
 	if hasCustomKeys() then
 		draft.Keybinds = {}
+		-- Todas as ações contam como mexidas (todas voltam ao padrão no servidor).
+		for _, action in ipairs(Keybinds.Actions) do
+			dirtyKeys[action.Id] = true
+		end
 		markChanged()
 		NotifyController.Show("As teclas voltaram ao padrão.", "success", 3)
 	end
@@ -772,6 +907,9 @@ local function buildSlider(control, item, color)
 		if inputType ~= Enum.UserInputType.MouseButton1 and inputType ~= Enum.UserInputType.Touch then
 			return
 		end
+		if not isProfileReady() then
+			return
+		end
 		activeDrag = { SetFromX = setFromX, Input = input }
 		-- Enquanto arrasta, a lista não rola junto (importante no celular).
 		if window then
@@ -943,7 +1081,8 @@ local function ensureWindow()
 	for _, section in ipairs(SECTIONS) do
 		makeSectionHeader(holder, section.Title, section.Color, nextOrder())
 		for _, item in ipairs(section.Items) do
-			local _, control = makeRow(holder, item.Name, item.Description, nextOrder())
+			local _, control, descriptionLabel = makeRow(holder, item.Name, describe(item), nextOrder())
+			table.insert(descriptionLabels, { Item = item, Label = descriptionLabel })
 			if item.Kind == "Slider" then
 				buildSlider(control, item, section.Color)
 			else
@@ -956,6 +1095,38 @@ local function ensureWindow()
 	if UserInputService.KeyboardEnabled then
 		buildKeybindSection(holder, nextOrder)
 	end
+
+	-- Capa "Carregando suas configurações...": cobre a lista (mesma posição e tamanho do
+	-- Content) até o perfil chegar. É um botão sem texto, para "engolir" cliques e toques.
+	local cover = UIKit.New("TextButton", {
+		Name = "LoadingCover",
+		Text = "",
+		AutoButtonColor = false,
+		Selectable = false,
+		Position = window.Content.Position,
+		Size = window.Content.Size,
+		BackgroundColor3 = Theme.PanelDark,
+		BackgroundTransparency = 0.15,
+		ZIndex = 5,
+		Visible = false,
+		Parent = window.Frame,
+	})
+	UIKit.Corner(cover, 14)
+	UIKit.Label({
+		Name = "Text",
+		Text = "Carregando suas configurações...",
+		Title = true,
+		TextSize = 24,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.new(1, -40, 0, 40),
+		Color = Theme.Text,
+		Parent = cover,
+	})
+	ui.LoadingCover = cover
+
+	-- O papel do servidor (lobby/partida) pode mudar: atualiza o aviso "(vale na partida)".
+	windowTrove:Connect(workspace:GetAttributeChangedSignal("Role"), refreshDescriptions)
 
 	-- Arrastar a barrinha: acompanha o mouse/dedo até soltar.
 	windowTrove:Connect(UserInputService.InputChanged, function(input)
@@ -1000,10 +1171,8 @@ end
 
 function SettingsWindow.Open()
 	ensureWindow()
-	-- Sem mudanças pendentes: mostra o que está salvo no perfil.
-	if not hasPendingChanges() then
-		loadDraft()
-	end
+	-- Mostra o que está salvo no perfil, com as mudanças ainda não confirmadas por cima.
+	loadDraft()
 	capturingAction = nil
 	refreshAllControls()
 	window.Content.CanvasPosition = Vector2.zero
@@ -1039,15 +1208,17 @@ end
 function SettingsWindow.Start()
 	loadDraft()
 
-	-- O perfil mudou (por exemplo, depois de salvar): se o jogador não está no meio
-	-- de uma mudança, a janela passa a mostrar o que ficou salvo.
+	-- O perfil chegou ou mudou (por exemplo, depois de salvar): o rascunho vira
+	-- "o que está salvo" + "o que o jogador mexeu e ainda não foi confirmado".
+	-- Assim nada que o jogador mudou se perde, e nada salvo é apagado.
 	lifeTrove:Add(StateController.OnChanged("Profile", function()
-		if hasPendingChanges() or capturingAction or activeDrag then
-			return
-		end
 		loadDraft()
 		if window then
 			refreshAllControls()
+		end
+		-- Sobrou mudança sem salvar (e nada agendado): agenda agora que o perfil existe.
+		if hasDirty() and not saving and not saveTimer then
+			scheduleSave(SAVE_DEBOUNCE)
 		end
 	end))
 end

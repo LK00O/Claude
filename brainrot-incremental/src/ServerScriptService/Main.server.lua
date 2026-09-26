@@ -11,6 +11,9 @@
 --      MatchService.Start() (começa a aceitar jogadores).
 --   6. Cada Init/Start roda protegido: se um serviço quebrar, o erro aparece no Output
 --      com o nome dele e os outros continuam funcionando.
+--   7. Cada Init/Start roda no máximo UMA vez por servidor (tabela phaseDone): um serviço
+--      que aparece em duas listas (MonetizationService) ou uma fase chamada de novo
+--      nunca registra handlers ou conexões em dobro.
 
 local PhysicsService = game:GetService("PhysicsService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -112,8 +115,20 @@ local function loadService(name)
 	return result
 end
 
+-- Fases que já rodaram: ["NomeDoServiço.Init"] = true. Chamar a mesma fase de novo
+-- não faz nada (ex.: o MonetizationService está na lista do lobby E na da partida).
+local phaseDone = {}
+
 -- Chama service[method]() protegido. Um erro vira um aviso com o nome do serviço.
+-- Cada fase roda uma vez só: a marca vem ANTES de rodar, então nem uma fase que deu
+-- erro é repetida (um Init pela metade rodando de novo duplicaria conexões).
 local function callPhase(name, method)
+	local key = name .. "." .. method
+	if phaseDone[key] then
+		return
+	end
+	phaseDone[key] = true
+
 	local service = loadService(name)
 	if not service then
 		return
@@ -161,8 +176,14 @@ local function setupCollisionGroups()
 end
 
 -- Modo de teste ligado? (mesma regra do DebugService)
+-- O atributo "DebugMode" do Workspace só vale no Studio: se ele ficar salvo no place
+-- publicado, é ignorado. Fora do Studio, só o Config.Game.DebugMode liga o modo (e,
+-- mesmo assim, o DebugService só aceita comandos de administradores).
 local function isDebugEnabled()
-	return RunService:IsStudio() or GameConfig.DebugMode == true or workspace:GetAttribute("DebugMode") == true
+	if RunService:IsStudio() then
+		return true
+	end
+	return GameConfig.DebugMode == true
 end
 
 -------------------------------------------------------------------------------

@@ -7,12 +7,23 @@
 --   CoinPopup(amount, pos)  número "+1,2K" subindo quando você pega moedas
 --
 -- Tudo fica na pasta local workspace.ClientEffects (criada por este script; o servidor
--- nem sabe que ela existe). Para não pesar, TODAS as peças são recicladas (pool) e há um
--- limite de efeitos ao mesmo tempo: quando passa do limite, o mais antigo some na hora.
+-- nem sabe que ela existe). Para não pesar, TODAS as peças são recicladas (pool, uma
+-- lista por formato de peça) e há um limite de efeitos ao mesmo tempo: quando passa do
+-- limite, o mais antigo some na hora.
+--
+-- Limites de desempenho (seção 5.2 do plano):
+--   * no máximo 140 balas desenhadas; 40 vagas ficam reservadas para os tiros do próprio
+--     jogador (tiros dos outros e das torretas nunca apagam uma bala sua);
+--   * tiros dos outros: no máximo 1 tiro a cada 0,1 s por jogador e 3 balas por tiro (a
+--     primeira, a última e a do meio: as duas pontas e o centro do leque); sem faísca de
+--     impacto a mais de 60 studs da câmera;
+--   * faíscas de impacto: no máximo 30 por segundo;
+--   * números de dano: juntam no mesmo alvo (até 0,15 s e 3 studs, ou o mesmo Id), no
+--     máximo 15 números novos por segundo e 30 na tela.
 --
 -- API pública:
 --   EffectsController.Tracer(from, to, color, width?, speed?, impact?)   bala desenhada voando
---   EffectsController.DamageNumber(position, amount, crit)             número de dano flutuante
+--   EffectsController.DamageNumber(position, amount, crit, id?)        número de dano flutuante
 --   EffectsController.Burst(position, color, size)                     explosão de partículas
 --   EffectsController.Spark(position, color?)                          faísca pequena (impacto)
 --   EffectsController.CoinPopup(amount, position)                      "+1,2K" dourado subindo
@@ -43,19 +54,46 @@ local HIDDEN_CFRAME = CFrame.new(0, -10000, 0) -- onde as peças "guardadas" fic
 
 -- Limites de efeitos ao mesmo tempo.
 local MAX_TRACERS = 140
+local LOCAL_TRACER_RESERVE = 40 -- vagas só para os tiros do próprio jogador
+local MAX_REMOTE_TRACERS = MAX_TRACERS - LOCAL_TRACER_RESERVE -- outros jogadores + torretas
 local MAX_DEBRIS = 180
 local MAX_SHAPES = 32
-local MAX_DAMAGE_NUMBERS = 40
+local MAX_DAMAGE_NUMBERS = 30
 local MAX_COIN_POPUPS = 14
-local PART_POOL_LIMIT = 400 -- peças guardadas para reciclar
-local SPARKLE_EMITTERS = 16
+local PART_POOL_LIMIT = 400 -- peças guardadas para reciclar (somando todos os formatos)
+local SPARKLE_EMITTERS = 16 -- emissores das explosões de brilho (morte, compra, portal...)
 local SMOKE_EMITTERS = 8
-local MAX_ENDPOINTS_PER_SHOT = 20 -- RemoteShot: no máximo 20 tracers por tiro
+local IMPACT_EMITTERS = 12 -- emissores das faíscas de impacto (um por cor)
 local MAX_TURRET_SHOTS_PER_BATCH = 40
+
+-- Tiros dos outros jogadores (RemoteShot).
+-- No máximo 1 tiro desenhado a cada 0,05 s por jogador. O servidor já manda no máximo 1
+-- RemoteShot a cada 0,1 s por atirador; a janela menor aqui só segura rajadas e absorve a
+-- variação da rede (tiros mandados a 0,1 s chegam às vezes a 0,08 s um do outro).
+local REMOTE_SHOT_MIN_INTERVAL = 0.05
+local REMOTE_SHOT_MAX_ENDPOINTS = 3 -- no máximo 3 balas por tiro (pontas e centro do leque)
+
+-- Faíscas de impacto (token bucket: 30 por segundo; as 10 últimas fichas ficam para os
+-- tiros do próprio jogador).
+local IMPACT_EMITS_PER_SECOND = 30
+local IMPACT_BURST = 30
+local IMPACT_LOCAL_RESERVE = 10
+
+-- Emissor ocupado: ainda tem partículas vivas (vida máxima + uma folga). Emissor ocupado
+-- nunca troca de cor/tamanho (isso mudaria as partículas que ainda estão no ar).
+local SPARKLE_BUSY_TIME = 0.8 -- brilho vive até 0,75 s
+local SMOKE_BUSY_TIME = 1.3 -- fumaça vive até 1,2 s
+
+-- Números de dano.
+local DAMAGE_MERGE_WINDOW = 0.15 -- segundos: só junta num número criado há menos que isso
+local DAMAGE_MERGE_DISTANCE = 3 -- studs entre os pontos atingidos para juntar
+local DAMAGE_NEW_PER_SECOND = 15 -- números NOVOS por segundo (o resto só soma nos que existem)
 
 -- Distâncias (studs) a partir da câmera.
 local MAX_EFFECT_DISTANCE = 500 -- mais longe que isso, nem desenha
 local SOUND_DISTANCE = 160 -- sons só de coisas perto
+local REMOTE_IMPACT_DISTANCE = 60 -- faíscas de tiros dos outros/torretas só até aqui
+local COIN_POPUP_MIN_DISTANCE = 6 -- "+1,2K" colado na câmera não aparece (tapava a tela)
 
 -- Balas desenhadas.
 local DEFAULT_TRACER_SPEED = 650
@@ -108,14 +146,22 @@ local folder = nil
 local mainTrove = Trove.new()
 local started = false
 
-local partPool = {} -- peças livres para reciclar
+local partPools = {} -- [Enum.PartType] = peças livres daquele formato, para reciclar
+local pooledPartCount = 0 -- quantas peças estão guardadas somando todos os formatos
 local tracers = {} -- balas voando
+local remoteTracerCount = 0 -- quantas das balas em "tracers" são dos outros/torretas
 local debris = {} -- pedaços com física simples
 local shapes = {} -- esferas/discos/orbes que crescem e somem
 local texts = {} -- números flutuantes (dano e moedas)
 local anchorPool = {} -- âncoras com BillboardGui livres
-local sparkleEmitters = {}
+local sparkleEmitters = {} -- emissores das explosões de brilho (cor muda a cada uso)
 local smokeEmitters = {}
+local impactEmitters = {} -- [chave da cor] = emissor de faísca de impacto (cor fixa)
+local impactTokens = IMPACT_BURST -- fichas do limite de faíscas de impacto
+local impactTokensAt = os.clock()
+local damageTokens = DAMAGE_NEW_PER_SECOND -- fichas do limite de números de dano novos
+local damageTokensAt = os.clock()
+local remoteShotLast = {} -- [UserId] = os.clock() do último tiro desenhado desse jogador
 local soundLastPlayed = {} -- [chave do som] = último horário
 local floorParams = RaycastParams.new()
 floorParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -270,13 +316,26 @@ local function makePart()
 end
 
 -- Pega uma peça livre (ou cria) já configurada.
+-- Cada formato (bloco, bola, cilindro) tem a sua lista: trocar o Shape de uma peça é
+-- caro (o Roblox refaz a geometria dela), então uma peça reciclada nunca muda de formato.
 local function acquirePart(shape, material, color, size, transparency)
-	local part = table.remove(partPool)
-	while part and part.Parent == nil do
-		part = table.remove(partPool)
+	shape = shape or Enum.PartType.Block
+	local pool = partPools[shape]
+	local part = nil
+	if pool then
+		part = table.remove(pool)
+		while part do
+			pooledPartCount -= 1
+			if part.Parent ~= nil then
+				break
+			end
+			part = table.remove(pool) -- peça destruída por fora: joga fora e tenta a próxima
+		end
 	end
-	part = part or makePart()
-	part.Shape = shape or Enum.PartType.Block
+	if not part then
+		part = makePart()
+		part.Shape = shape
+	end
 	part.Material = material or Enum.Material.Neon
 	part.Color = color or WHITE
 	part.Size = size or Vector3.one
@@ -284,15 +343,22 @@ local function acquirePart(shape, material, color, size, transparency)
 	return part
 end
 
--- Devolve a peça para o pool (escondida).
+-- Devolve a peça para a lista do formato dela (escondida).
 local function releasePart(part)
 	if not part or part.Parent == nil then
 		return
 	end
 	part.Transparency = 1
 	part.CFrame = HIDDEN_CFRAME
-	if #partPool < PART_POOL_LIMIT then
-		table.insert(partPool, part)
+	if pooledPartCount < PART_POOL_LIMIT then
+		local shape = part.Shape
+		local pool = partPools[shape]
+		if not pool then
+			pool = {}
+			partPools[shape] = pool
+		end
+		table.insert(pool, part)
+		pooledPartCount += 1
 	else
 		part:Destroy()
 	end
@@ -339,27 +405,35 @@ local function makeEmitter(kind)
 	return { Part = holder, Emitter = emitter, LastUsed = 0 }
 end
 
--- Escolhe o emissor usado há mais tempo (trocar a cor de um emissor muda as
--- partículas vivas dele, então usamos o que já "terminou" há mais tempo).
-local function pickEmitter(pool, kind, maxCount)
+-- Escolhe um emissor LIVRE (sem partículas vivas) da lista; se todos estiverem ocupados,
+-- cria mais um (até maxCount). Lista cheia e todos ocupados = devolve nil e o efeito é
+-- pulado: trocar a cor/tamanho de um emissor ocupado mudaria as partículas que ainda
+-- estão no ar (antes as faíscas "trocavam de cor" no meio do voo).
+local function pickEmitter(pool, kind, maxCount, busyTime)
+	local t = os.clock()
 	local best = nil
 	for _, entry in ipairs(pool) do
 		if entry.Part.Parent and (best == nil or entry.LastUsed < best.LastUsed) then
 			best = entry
 		end
 	end
-	if (best == nil or os.clock() - best.LastUsed < 1.3) and #pool < maxCount then
+	if best == nil or t - best.LastUsed < busyTime then
+		if #pool >= maxCount then
+			return nil
+		end
 		best = makeEmitter(kind)
 		table.insert(pool, best)
 	end
 	return best
 end
 
+-- Explosão de brilho (morte, compra, portal, ingrediente, explosão, gelo...): usa a lista
+-- de emissores de "explosão", com cor e tamanho escolhidos a cada uso.
 local function emitSparkles(position, color, size, count)
 	if not isNear(position) then
 		return
 	end
-	local entry = pickEmitter(sparkleEmitters, "Sparkle", SPARKLE_EMITTERS)
+	local entry = pickEmitter(sparkleEmitters, "Sparkle", SPARKLE_EMITTERS, SPARKLE_BUSY_TIME)
 	if not entry then
 		return
 	end
@@ -376,11 +450,81 @@ local function emitSparkles(position, color, size, count)
 	emitter:Emit(count)
 end
 
+-- Chave da cor para os emissores de impacto: cada canal arredondado em 16 níveis
+-- (cores quase iguais, como as da skin arco-íris, dividem o mesmo emissor).
+local function impactColorKey(color)
+	return string.format(
+		"%d_%d_%d",
+		math.floor(color.R * 15 + 0.5),
+		math.floor(color.G * 15 + 0.5),
+		math.floor(color.B * 15 + 0.5)
+	)
+end
+
+-- Limite de faíscas de impacto (30 por segundo). As últimas fichas ficam para os tiros do
+-- próprio jogador: tiros dos outros e torretas param antes.
+local function takeImpactToken(isRemote)
+	local t = os.clock()
+	impactTokens = math.min(IMPACT_BURST, impactTokens + (t - impactTokensAt) * IMPACT_EMITS_PER_SECOND)
+	impactTokensAt = t
+	local needed = if isRemote then 1 + IMPACT_LOCAL_RESERVE else 1
+	if impactTokens < needed then
+		return false
+	end
+	impactTokens -= 1
+	return true
+end
+
+-- Faísca de impacto: um emissor por cor (a cor, o tamanho e a velocidade são escolhidos
+-- UMA vez, quando o emissor é criado). Só o lugar muda a cada uso, e mover o emissor não
+-- mexe nas partículas que já saíram. Uma cor nova reaproveita o emissor de cor usado há
+-- mais tempo, mas só se ele já estiver livre; senão a faísca é pulada.
+local function emitImpact(position, color, count)
+	local key = impactColorKey(color)
+	local t = os.clock()
+	local entry = impactEmitters[key]
+	if entry and entry.Part.Parent == nil then
+		impactEmitters[key] = nil
+		entry = nil
+	end
+	if not entry then
+		local emitterCount = 0
+		local oldestKey, oldest = nil, nil
+		for otherKey, other in pairs(impactEmitters) do
+			emitterCount += 1
+			if oldest == nil or other.LastUsed < oldest.LastUsed then
+				oldestKey, oldest = otherKey, other
+			end
+		end
+		if emitterCount < IMPACT_EMITTERS then
+			entry = makeEmitter("Sparkle")
+		elseif oldest and oldest.Part.Parent and t - oldest.LastUsed >= SPARKLE_BUSY_TIME then
+			impactEmitters[oldestKey] = nil -- livre: pode trocar de cor sem estragar nada
+			entry = oldest
+		else
+			return -- todos ocupados: pula esta faísca
+		end
+		-- Mesmo visual de antes (emitSparkles com size 0,4), definido uma vez só.
+		local size = 0.4
+		local particleSize = math.clamp(0.35 + size * 0.22, 0.3, 3)
+		entry.Emitter.Color = ColorSequence.new(color, color:Lerp(WHITE, 0.5))
+		entry.Emitter.Size = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, particleSize),
+			NumberSequenceKeypoint.new(1, 0),
+		})
+		entry.Emitter.Speed = NumberRange.new(4 + size * 4, 10 + size * 10)
+		impactEmitters[key] = entry
+	end
+	entry.LastUsed = t
+	entry.Part.CFrame = CFrame.new(position)
+	entry.Emitter:Emit(count)
+end
+
 local function emitSmoke(position, color, size, count)
 	if not isNear(position) then
 		return
 	end
-	local entry = pickEmitter(smokeEmitters, "Smoke", SMOKE_EMITTERS)
+	local entry = pickEmitter(smokeEmitters, "Smoke", SMOKE_EMITTERS, SMOKE_BUSY_TIME)
 	if not entry then
 		return
 	end
@@ -400,12 +544,51 @@ end
 -------------------------------------------------------------------------------
 -- Tracers (balas voando)
 -------------------------------------------------------------------------------
+-- Faísca de impacto (definida mais abaixo, junto com a API de faíscas).
+local sparkAt
+
 local function finishTracer(tracer)
+	if tracer.Remote then
+		remoteTracerCount -= 1
+	end
 	releasePart(tracer.Part)
 end
 
--- Desenha uma bala saindo de "from" e indo até "to".
-function EffectsController.Tracer(from, to, color, width, speed, impact)
+-- Apaga a bala mais antiga. remoteOnly = true: só procura balas dos outros/torretas.
+-- Devolve false se não achou nenhuma.
+local function evictOldestTracer(remoteOnly)
+	for index, tracer in ipairs(tracers) do
+		if tracer.Remote or not remoteOnly then
+			table.remove(tracers, index)
+			finishTracer(tracer)
+			return true
+		end
+	end
+	return false
+end
+
+-- Abre espaço para uma bala nova (limite de 140, com 40 vagas só para as suas).
+--   * bala dos outros/torretas: no máximo 100 ao mesmo tempo; passou disso, apaga a mais
+--     antiga dos outros. Nunca apaga uma bala sua: se não der, a bala nova não é desenhada.
+--   * bala sua: se está tudo cheio, apaga primeiro uma dos outros; só apaga uma sua se
+--     todas as 140 forem suas.
+-- Devolve false quando a bala nova não deve ser desenhada.
+local function makeRoomForTracer(isRemote)
+	if isRemote then
+		if remoteTracerCount >= MAX_REMOTE_TRACERS or #tracers >= MAX_TRACERS then
+			return evictOldestTracer(true)
+		end
+		return true
+	end
+	if #tracers >= MAX_TRACERS and not evictOldestTracer(true) then
+		evictOldestTracer(false)
+	end
+	return true
+end
+
+-- Desenha uma bala saindo de "from" e indo até "to" (isRemote = tiro de outro jogador
+-- ou de torreta, que usa só as vagas não reservadas).
+local function spawnTracer(from, to, color, width, speed, impact, isRemote)
 	if typeof(from) ~= "Vector3" or typeof(to) ~= "Vector3" then
 		return
 	end
@@ -418,9 +601,9 @@ function EffectsController.Tracer(from, to, color, width, speed, impact)
 		return
 	end
 
-	-- Limite: recicla a bala mais antiga.
-	if #tracers >= MAX_TRACERS then
-		finishTracer(table.remove(tracers, 1))
+	-- Limite: recicla a bala mais antiga (as suas ficam com 40 vagas garantidas).
+	if not makeRoomForTracer(isRemote) then
+		return
 	end
 
 	width = math.clamp(asNumber(width, DEFAULT_TRACER_WIDTH), 0.03, 3)
@@ -457,8 +640,17 @@ function EffectsController.Tracer(from, to, color, width, speed, impact)
 		Impact = impact == true,
 		Color = color,
 		To = to,
+		Remote = isRemote,
 	})
+	if isRemote then
+		remoteTracerCount += 1
+	end
 	part.CFrame = CFrame.new(startCenter) * rotation
+end
+
+-- Desenha uma bala do próprio jogador saindo de "from" e indo até "to".
+function EffectsController.Tracer(from, to, color, width, speed, impact)
+	spawnTracer(from, to, color, width, speed, impact, false)
 end
 
 local function updateTracers(dt, moveParts, moveCFrames)
@@ -475,7 +667,7 @@ local function updateTracers(dt, moveParts, moveCFrames)
 			if alpha >= 1 then
 				tracer.Arrived = true
 				if tracer.Impact then
-					EffectsController.Spark(tracer.To, tracer.Color)
+					sparkAt(tracer.To, tracer.Color, tracer.Remote)
 				end
 			end
 		else
@@ -801,27 +993,95 @@ end
 -- API pública: números, partículas e faíscas
 -------------------------------------------------------------------------------
 
+-- Texto do número de dano ("1,2K", ou "1,2K!" no crítico).
+local function damageText(amount, crit)
+	return NumberFormat.Abbrev(amount) .. (if crit then "!" else "")
+end
+
+-- Soma "amount" num número de dano que já está na tela e faz ele "pular" de novo.
+local function addToDamageNumber(entry, amount)
+	entry.Amount += amount
+	entry.Anchor.Label.Text = damageText(entry.Amount, entry.Crit)
+	entry.Age = 0
+	entry.PopScale = if entry.Crit then 1.6 else 1.3
+	entry.Life = math.max(entry.Life, entry.MaxLife * 0.8)
+	entry.Anchor.Label.TextTransparency = 0
+	entry.Anchor.Stroke.Transparency = 0
+end
+
+-- Limite de números de dano NOVOS (token bucket: 15 por segundo).
+local function takeDamageToken()
+	local t = os.clock()
+	damageTokens = math.min(DAMAGE_NEW_PER_SECOND, damageTokens + (t - damageTokensAt) * DAMAGE_NEW_PER_SECOND)
+	damageTokensAt = t
+	if damageTokens < 1 then
+		return false
+	end
+	damageTokens -= 1
+	return true
+end
+
 -- Número de dano flutuante. Crítico: maior, vermelho-alaranjado e com "!".
-function EffectsController.DamageNumber(position, amount, crit)
+-- id (opcional) = BrainrotId do alvo (vem no HitConfirm).
+--   1. Junta num número do mesmo tipo (normal com normal, crítico com crítico) criado há
+--      menos de 0,15 s no mesmo alvo (mesmo id, ou pontos a até 3 studs): soma o dano,
+--      troca o texto e faz o número "pular" de novo.
+--   2. No máximo 15 números NOVOS por segundo: passou disso, o dano só é somado no número
+--      mais parecido que já está na tela (mesmo alvo ou o mais perto, até 12 studs).
+--   3. No máximo 30 números na tela (o mais antigo some).
+function EffectsController.DamageNumber(position, amount, crit, id)
 	if not isNear(position, 250) then
 		return
 	end
 	amount = asNumber(amount, 0)
 	crit = crit == true
+	local targetId = if type(id) == "string" then id else nil
+	local t = os.clock()
+
+	local fallback = nil
+	local fallbackScore = math.huge
+	for index = #texts, 1, -1 do
+		local entry = texts[index]
+		if entry.Kind == "Damage" and entry.Crit == crit then
+			local sameId = targetId ~= nil and entry.TargetId == targetId
+			local distance = (entry.HitPosition - position).Magnitude
+			if (sameId or distance <= DAMAGE_MERGE_DISTANCE) and t - entry.Created < DAMAGE_MERGE_WINDOW then
+				addToDamageNumber(entry, amount)
+				return
+			end
+			-- Candidato para o caso de passar do limite de números novos.
+			local score = if sameId then -1 else distance
+			if score < fallbackScore and score <= 12 then
+				fallback = entry
+				fallbackScore = score
+			end
+		end
+	end
+
+	if not takeDamageToken() then
+		if fallback then
+			addToDamageNumber(fallback, amount)
+		end
+		return
+	end
+
 	enforceTextLimit("Damage", MAX_DAMAGE_NUMBERS)
 	local jitter = Vector3.new(rng:NextNumber(-1.2, 1.2), rng:NextNumber(0.5, 1.5), rng:NextNumber(-1.2, 1.2))
 	local velocity = Vector3.new(rng:NextNumber(-2, 2), rng:NextNumber(6, 9), rng:NextNumber(-2, 2))
-	local text = NumberFormat.Abbrev(amount) .. (if crit then "!" else "")
 	local pixelSize = if crit then Vector2.new(200, 60) else Vector2.new(150, 44)
 	local entry = spawnText(
 		"Damage",
 		position + jitter,
-		text,
+		damageText(amount, crit),
 		if crit then CRIT_COLOR else DAMAGE_COLOR,
 		pixelSize,
 		velocity,
 		if crit then 1.2 else 0.9
 	)
+	entry.Amount = amount
+	entry.Crit = crit
+	entry.TargetId = targetId
+	entry.HitPosition = position -- ponto atingido (o texto sobe; a junção compara este ponto)
 	if crit then
 		entry.PopScale = 1.8
 	end
@@ -835,6 +1095,11 @@ function EffectsController.CoinPopup(amount, position)
 	end
 	playSound("Coin", nil, 0.06)
 	if not isNear(position, 300) then
+		return
+	end
+	-- Colado na câmera (moeda pega aos pés do jogador, em primeira pessoa): o número
+	-- nasceria dentro da tela e tapava a mira. Só o som toca; o HUD mostra as moedas.
+	if (position - cameraPosition()).Magnitude < COIN_POPUP_MIN_DISTANCE then
 		return
 	end
 
@@ -882,14 +1147,22 @@ function EffectsController.Burst(position, color, size)
 	emitSparkles(position, color, size, count)
 end
 
--- Faísca pequena de impacto (bala acertando algo).
-function EffectsController.Spark(position, color)
+-- Faísca pequena de impacto (bala acertando algo). isRemote = tiro de outro jogador ou
+-- de torreta (fica sem as últimas fichas do limite de 30 faíscas por segundo).
+function sparkAt(position, color, isRemote)
 	if typeof(position) ~= "Vector3" or not isNear(position, 250) then
 		return
 	end
+	if not takeImpactToken(isRemote == true) then
+		return -- passou de 30 faíscas por segundo: pula
+	end
 	color = asColor(color, EXPLOSION_YELLOW)
-	emitSparkles(position, color, 0.4, 5)
+	emitImpact(position, color, 5)
 	addShape("Sphere", position, color:Lerp(WHITE, 0.5), 0.3, 1.1, 0.1, 0.1)
+end
+
+function EffectsController.Spark(position, color)
+	sparkAt(position, color, false)
 end
 
 -------------------------------------------------------------------------------
@@ -1069,18 +1342,43 @@ end
 -------------------------------------------------------------------------------
 -- Tiros dos outros jogadores e das torretas
 -------------------------------------------------------------------------------
+-- Desenha uma bala de outro jogador; sem faísca de impacto longe da câmera.
+local function drawRemoteEndpoint(origin, endpoint, color, cameraAt)
+	if typeof(endpoint) ~= "Vector3" then
+		return
+	end
+	local impact = (endpoint - cameraAt).Magnitude <= REMOTE_IMPACT_DISTANCE
+	spawnTracer(origin, endpoint, color, 0.1, DEFAULT_TRACER_SPEED, impact, true)
+end
+
+-- Tiro de outro jogador. Para não pesar com 8 jogadores atirando juntos:
+--   * no máximo 1 tiro desenhado a cada 0,05 s por jogador (o servidor já limita a 1 a
+--     cada 0,1 s; a folga é para a variação da rede não jogar tiros fora);
+--   * no máximo 3 balas por tiro: a primeira e a última (as duas pontas do leque, que o
+--     servidor manda em ordem) e a do meio.
 local function onRemoteShot(userId, origin, endpoints, tracerColor)
 	if userId == player.UserId or typeof(origin) ~= "Vector3" or type(endpoints) ~= "table" then
 		return
 	end
+	local key = tonumber(userId) or 0
+	local t = os.clock()
+	local last = remoteShotLast[key]
+	if last and t - last < REMOTE_SHOT_MIN_INTERVAL then
+		return
+	end
+	remoteShotLast[key] = t
+
 	local color = asColor(tracerColor, EXPLOSION_YELLOW)
-	for index, endpoint in ipairs(endpoints) do
-		if index > MAX_ENDPOINTS_PER_SHOT then
-			break
+	local cameraAt = cameraPosition()
+	local count = #endpoints
+	if count <= REMOTE_SHOT_MAX_ENDPOINTS then
+		for index = 1, count do
+			drawRemoteEndpoint(origin, endpoints[index], color, cameraAt)
 		end
-		if typeof(endpoint) == "Vector3" then
-			EffectsController.Tracer(origin, endpoint, color, 0.1, DEFAULT_TRACER_SPEED, true)
-		end
+	else
+		drawRemoteEndpoint(origin, endpoints[1], color, cameraAt)
+		drawRemoteEndpoint(origin, endpoints[count], color, cameraAt)
+		drawRemoteEndpoint(origin, endpoints[math.ceil(count / 2)], color, cameraAt)
 	end
 end
 
@@ -1088,15 +1386,21 @@ local function onTurretShots(shots)
 	if type(shots) ~= "table" then
 		return
 	end
+	local cameraAt = cameraPosition()
 	local closest = math.huge
 	for index, shot in ipairs(shots) do
 		if index > MAX_TURRET_SHOTS_PER_BATCH then
 			break
 		end
 		if type(shot) == "table" and typeof(shot.From) == "Vector3" and typeof(shot.To) == "Vector3" then
-			EffectsController.Tracer(shot.From, shot.To, TURRET_TRACER_COLOR, 0.14, 520, shot.Hit == true)
-			emitSparkles(shot.From, TURRET_TRACER_COLOR, 0.3, 3)
-			closest = math.min(closest, (shot.From - cameraPosition()).Magnitude)
+			local distance = (shot.From - cameraAt).Magnitude
+			local impact = shot.Hit == true and (shot.To - cameraAt).Magnitude <= REMOTE_IMPACT_DISTANCE
+			spawnTracer(shot.From, shot.To, TURRET_TRACER_COLOR, 0.14, 520, impact, true)
+			-- Brilho no cano da torreta só perto da câmera (e dentro do limite de faíscas).
+			if distance <= REMOTE_IMPACT_DISTANCE and takeImpactToken(true) then
+				emitImpact(shot.From, TURRET_TRACER_COLOR, 3)
+			end
+			closest = math.min(closest, distance)
 		end
 	end
 	if closest <= SOUND_DISTANCE * 0.75 then
@@ -1134,6 +1438,9 @@ function EffectsController.Init()
 		EffectsController.Play(kind, data)
 	end))
 	mainTrove:Add(Net.On("RemoteShot", onRemoteShot))
+	mainTrove:Connect(Players.PlayerRemoving, function(other)
+		remoteShotLast[other.UserId] = nil
+	end)
 	mainTrove:Add(Net.On("TurretShots", onTurretShots))
 	mainTrove:Add(Net.On("CoinPopup", function(amount, position)
 		EffectsController.CoinPopup(amount, position)
@@ -1154,6 +1461,7 @@ function EffectsController.Start()
 			end
 			table.clear(list)
 		end
+		remoteTracerCount = 0
 		for _, entry in ipairs(texts) do
 			releaseAnchor(entry.Anchor)
 		end

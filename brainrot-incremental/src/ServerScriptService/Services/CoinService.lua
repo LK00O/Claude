@@ -7,6 +7,11 @@
 --       (ctx.CoinDropPoint); com "OnDeath", onde o brainrot morreu.
 --       opts = {AtPosition = true, Scatter = studs?}: cai em "position" mesmo no modo
 --       "Crate" (usado pela chuva de moedas do admin, ":coinrain").
+--   CoinService.CreditDirect(player, amount, position, source) -> number
+--       Moedas direto na carteira (sem moeda física), ex.: abate de torreta. Chama
+--       MatchService.AddCoins e, se entrou algo, mostra o "+moedas" (CoinPopup) em
+--       "position" para esse jogador. Devolve quanto entrou (0 = nada; aí quem chamou
+--       decide, por exemplo soltando as moedas no chão com SpawnCoins).
 --
 -- Um laço de 10 Hz cuida de:
 --   * ancorar as moedas depois que param de quicar (SettleTime);
@@ -68,6 +73,9 @@ local SETTLE_MAX_EXTRA = 2 -- se ainda estiver rolando/caindo, espera no máximo
 -- Usado para medir o alcance do ímã até o jogador (e não até o centro do tronco).
 local BODY_BELOW_ROOT = 3.5
 local BODY_ABOVE_ROOT = 2
+-- CreditDirect: no máximo um CoinPopup por jogador a cada 0,1 s. Créditos que chegam
+-- mais rápido que isso (várias torretas matando juntas) viram um número só.
+local DIRECT_POPUP_INTERVAL = 0.1
 
 -------------------------------------------------------------------------------
 -- Estado
@@ -84,6 +92,10 @@ local lastTeamStats = nil
 
 local rng = Random.new()
 local trove = Trove.new()
+
+-- CoinPopups do CreditDirect por jogador:
+-- [player] = {LastSent = os.clock(), Pending = moedas esperando, Position, Scheduled}
+local directPopups = {}
 
 -- Tiers em ordem crescente de valor (cópia ordenada, por segurança).
 local tiers = table.clone(CoinsConfig.Tiers)
@@ -359,6 +371,99 @@ function CoinService.SpawnCoins(totalValue, position, opts)
 	end
 end
 
+-- Posição do "+moedas": a posição dada ou, se ela não servir, um pouco acima do
+-- jogador. nil = não dá para mostrar (o cliente precisa de um Vector3).
+local function popupPositionFor(player, position)
+	if
+		typeof(position) == "Vector3"
+		and isFiniteNumber(position.X)
+		and isFiniteNumber(position.Y)
+		and isFiniteNumber(position.Z)
+	then
+		return position
+	end
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then
+		return root.Position + Vector3.new(0, POPUP_HEIGHT, 0)
+	end
+	return nil
+end
+
+-- Manda o CoinPopup do CreditDirect. Se o último foi há menos de 0,1 s, soma este
+-- valor num "pendente" e manda tudo junto (um número só) quando a janela fechar.
+local function sendDirectPopup(player, amount, position)
+	local state = directPopups[player]
+	if not state then
+		state = { LastSent = -math.huge, Pending = 0, Position = nil, Scheduled = false }
+		directPopups[player] = state
+	end
+	local t = os.clock()
+	if not state.Scheduled and t - state.LastSent >= DIRECT_POPUP_INTERVAL then
+		state.LastSent = t
+		Net.FireClient(player, "CoinPopup", amount, position)
+		return
+	end
+	state.Pending += amount
+	state.Position = position -- o número aparece onde foi o crédito mais recente
+	if state.Scheduled then
+		return
+	end
+	state.Scheduled = true
+	task.delay(math.max(0, state.LastSent + DIRECT_POPUP_INTERVAL - t), function()
+		state.Scheduled = false
+		local total, where = state.Pending, state.Position
+		state.Pending = 0
+		state.Position = nil
+		-- O jogador saiu (a entrada foi apagada) ou não sobrou nada para mostrar.
+		if directPopups[player] ~= state or total <= 0 or not where or player.Parent ~= Players then
+			return
+		end
+		state.LastSent = os.clock()
+		local ok, err = pcall(Net.FireClient, player, "CoinPopup", total, where)
+		if not ok then
+			warn("[CoinService] Erro ao mostrar o CoinPopup: " .. tostring(err))
+		end
+	end)
+end
+
+-- CoinService.CreditDirect(player, amount, position, source) -> number
+-- Moedas direto na carteira (ex.: abate de torreta): MatchService.AddCoins(player,
+-- amount, source) e, se entrou algo, o "+moedas" (CoinPopup, o mesmo da coleta) em
+-- "position" para esse jogador. Devolve o valor creditado de verdade (já com os
+-- bônus de game pass/evento); 0 se não entrou nada (jogador sem run, fora do
+-- servidor, valor inválido ou erro).
+function CoinService.CreditDirect(player, amount, position, source)
+	if typeof(player) ~= "Instance" or not player:IsA("Player") then
+		return 0
+	end
+	if not isFiniteNumber(amount) or amount <= 0 then
+		return 0
+	end
+	local ok, credited = pcall(function()
+		return Svc("MatchService").AddCoins(player, amount, source)
+	end)
+	if not ok then
+		warn("[CoinService] Erro ao creditar moedas direto: " .. tostring(credited))
+		return 0
+	end
+	if not isFiniteNumber(credited) or credited <= 0 then
+		return 0
+	end
+	-- As moedas já entraram: um erro ao mostrar o número não pode virar "0 creditado"
+	-- (quem chamou soltaria as moedas no chão de novo).
+	local okPopup, err = pcall(function()
+		local where = popupPositionFor(player, position)
+		if where then
+			sendDirectPopup(player, credited, where)
+		end
+	end)
+	if not okPopup then
+		warn("[CoinService] Erro ao mostrar o CoinPopup: " .. tostring(err))
+	end
+	return credited
+end
+
 -------------------------------------------------------------------------------
 -- Laço de 10 Hz
 -------------------------------------------------------------------------------
@@ -559,6 +664,11 @@ end
 
 function CoinService.Init()
 	ensureFolder()
+
+	-- Quem sai não deixa um CoinPopup pendente para trás.
+	trove:Connect(Players.PlayerRemoving, function(player)
+		directPopups[player] = nil
+	end)
 end
 
 function CoinService.Start()

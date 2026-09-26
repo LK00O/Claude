@@ -14,6 +14,20 @@
 --   BrainrotFactory.AttachBillboard(model, displayName, tierColor, enchantName?, enchantColor?) -> {Gui, Fill}
 --   BrainrotFactory.ApplyEnchantVisual(model, enchantDef) -> {Particles, Light, Aura?}
 --   BrainrotFactory.AddIceBlock(model) -> Part
+--   BrainrotFactory.SanitizeTemplate(model) -> {[className] = quantidade removida}
+--       Limpa um modelo importado (scripts, sons, SpawnLocation, assentos, prompts...).
+--   BrainrotFactory.Prewarm(def, supreme?) -> boolean
+--       Monta (uma vez) o molde do brainrot sem devolver cópia (pré-aquecimento).
+--
+-- Cache de moldes: o primeiro Build(def) monta o modelo UMA vez e guarda o "molde"
+-- (sem pai, fora do workspace). Os próximos Build(def) só devolvem molde:Clone(),
+-- que é bem mais barato do que montar tudo de novo a cada brainrot que nasce.
+-- Quem chama continua recebendo um modelo novo, só dele (pode mexer à vontade).
+--
+-- Segurança: modelos de ServerStorage.BrainrotModels passam por SanitizeTemplate logo
+-- depois do Clone(), ANTES de medir, escalar ou mudar de pai. Assim um modelo pego da
+-- internet nunca roda código (Script/LocalScript/ModuleScript) nem cria SpawnLocation,
+-- assento, prompt etc. no mapa.
 --
 -- Módulo de World: NÃO dá require em nenhum serviço.
 -- O atributo "BrainrotId" do modelo é gravado pelo BrainrotService, não aqui.
@@ -35,6 +49,39 @@ local BILLBOARD_OFFSET = Vector3.new(0, 1.2, 0) -- acima da cabeça (studs, espa
 local BILLBOARD_WIDTH = 190
 
 local ICE_PADDING = 0.5 -- folga do bloco de gelo em volta do modelo
+
+-- Partes com Transparency a partir disto contam como "invisíveis": não entram na medida
+-- do tamanho (caixas de colisão, HumanoidRootPart) e não bloqueiam tiros (CanQuery false).
+-- Exceção: parte transparente com Decal/Texture visível (imagem 2D) conta como visível.
+local INVISIBLE_TRANSPARENCY = 0.98
+
+-- Limpeza de modelos importados (SanitizeTemplate).
+-- Classes que SEMPRE saem (IsA: "LuaSourceContainer" pega Script, LocalScript e
+-- ModuleScript; "ClickDetector" pega também o DragDetector; "LayerCollector" pega
+-- BillboardGui, SurfaceGui e ScreenGui; "BackpackItem" pega Tool).
+local SANITIZE_DESTROY = {
+	"LuaSourceContainer", -- código: nunca roda nada vindo de um modelo
+	"Sound", -- barulho em cada brainrot que nasce
+	"AudioPlayer", -- a versão nova do Sound (tem AutoPlay)
+	"SpawnLocation", -- viraria ponto de nascimento de jogador
+	"Seat", -- jogador sentaria no brainrot
+	"VehicleSeat",
+	"ProximityPrompt", -- prompts estranhos no meio do campo
+	"ClickDetector",
+	"Dialog",
+	"Tool", -- ferramenta que dá para pegar
+	"BackpackItem",
+	"Explosion", -- explode quando entra no workspace
+	"ForceField",
+	"BillboardGui", -- o nosso BillboardGui é o único que aparece
+	"SurfaceGui",
+	"LayerCollector",
+	"Highlight", -- limite de 31 por cliente: 60 brainrots com Highlight estourariam
+}
+-- Efeitos que podem ficar, mas no máximo SANITIZE_MAX_EACH de cada grupo
+-- (o "Light" junta PointLight, SpotLight e SurfaceLight num grupo só).
+local SANITIZE_CAPPED = { "ParticleEmitter", "Fire", "Smoke", "Sparkles", "Light" }
+local SANITIZE_MAX_EACH = 2
 
 -- Nomes de partes que não recebem a "tinta" do encantamento (olhos, boca, efeitos).
 local NO_TINT = {
@@ -97,13 +144,38 @@ local function configurePart(part, canQuery)
 	end)
 end
 
+-- A parte tem um Decal/Texture visível (Texture herda de Decal)? Uma parte transparente
+-- com uma imagem (o meme em 2D) é o que o jogador vê: continua contando como visível.
+local function hasVisibleDecal(part)
+	if not part:FindFirstChildWhichIsA("Decal") then
+		return false
+	end
+	for _, child in ipairs(part:GetChildren()) do
+		if child:IsA("Decal") and child.Transparency < INVISIBLE_TRANSPARENCY then
+			return true
+		end
+	end
+	return false
+end
+
+-- A parte é praticamente invisível (Transparency >= 0,98 e sem Decal/Texture visível)?
+local function isInvisible(part)
+	return part.Transparency >= INVISIBLE_TRANSPARENCY and not hasVisibleDecal(part)
+end
+
 -- Caixa alinhada ao mundo que envolve todas as partes do modelo.
 -- Devolve (mínimo, máximo) como Vector3, ou nil se não houver partes.
 -- "skip" = nomes de partes ignoradas (efeitos).
-local function worldBounds(model, skip)
+-- "visibleOnly" = true: ignora as partes invisíveis (caixas de colisão, HumanoidRootPart),
+-- para medir só o que o jogador vê.
+local function worldBounds(model, skip, visibleOnly)
 	local minV, maxV = nil, nil
 	for _, descendant in ipairs(model:GetDescendants()) do
-		if descendant:IsA("BasePart") and not (skip and skip[descendant.Name]) then
+		if
+			descendant:IsA("BasePart")
+			and not (skip and skip[descendant.Name])
+			and not (visibleOnly and isInvisible(descendant))
+		then
 			local cf = descendant.CFrame
 			local half = descendant.Size / 2
 			local right, up, look = cf.RightVector, cf.UpVector, cf.LookVector
@@ -122,7 +194,18 @@ local function worldBounds(model, skip)
 	return minV, maxV
 end
 
--- Parte principal de um modelo: PrimaryPart, depois "Body", depois a maior parte.
+-- Caixa das partes VISÍVEIS (sem as de efeito). Se o modelo não tiver nenhuma parte
+-- visível, mede todas (melhor uma medida aproximada do que nenhuma).
+local function visibleBounds(model)
+	local minV, maxV = worldBounds(model, FX_PARTS, true)
+	if not minV then
+		minV, maxV = worldBounds(model, FX_PARTS, false)
+	end
+	return minV, maxV
+end
+
+-- Parte principal de um modelo: PrimaryPart, depois "Body", depois a maior parte
+-- (de preferência uma visível: uma caixa de colisão invisível não serve de "corpo").
 local function getBody(model)
 	if model.PrimaryPart then
 		return model.PrimaryPart
@@ -131,13 +214,15 @@ local function getBody(model)
 	if body and body:IsA("BasePart") then
 		return body
 	end
-	local best, bestVolume = nil, -1
+	local best, bestVolume, bestVisible = nil, -1, false
 	for _, descendant in ipairs(model:GetDescendants()) do
 		if descendant:IsA("BasePart") and not FX_PARTS[descendant.Name] then
 			local size = descendant.Size
 			local volume = size.X * size.Y * size.Z
-			if volume > bestVolume then
-				best, bestVolume = descendant, volume
+			local visible = not isInvisible(descendant)
+			-- Visível sempre ganha de invisível; entre iguais, ganha a maior.
+			if (visible and not bestVisible) or (visible == bestVisible and volume > bestVolume) then
+				best, bestVolume, bestVisible = descendant, volume, visible
 			end
 		end
 	end
@@ -176,8 +261,10 @@ end
 --   * volume invisível para efeitos;
 --   * atributo "BaseHeight" com a altura em escala 1;
 --   * modelo movido para a origem.
+-- As medidas usam só as partes visíveis (uma caixa de colisão invisível maior que o
+-- boneco deixaria o pivô, a barra de vida e o BaseHeight no lugar errado).
 local function finalizeModel(model, primary)
-	local minV, maxV = worldBounds(model, FX_PARTS)
+	local minV, maxV = visibleBounds(model)
 	if not minV then
 		return model
 	end
@@ -224,10 +311,129 @@ local function findCustomTemplate(modelName)
 	return nil
 end
 
+-- A instância é de uma das classes da lista (IsA, então subclasses contam)?
+local function isAnyOf(instance, classNames)
+	for _, className in ipairs(classNames) do
+		if instance:IsA(className) then
+			return className
+		end
+	end
+	return nil
+end
+
+-- Limpa um modelo importado (a CÓPIA, nunca o original de ServerStorage).
+-- Chame logo depois do Clone(), ANTES de medir, escalar ou colocar num pai:
+--   * destrói scripts, sons, SpawnLocation, assentos, prompts, ferramentas, explosões,
+--     ForceField, BillboardGui/SurfaceGui e Highlight (lista SANITIZE_DESTROY);
+--   * deixa no máximo 2 de cada efeito (ParticleEmitter, Fire, Smoke, Sparkles, luzes);
+--   * mantém Humanoid (sem a "máquina de estados", que gastaria CPU à toa),
+--     roupas (Shirt/Pants), acessórios e juntas (Weld/Motor6D).
+-- Devolve {[ClassName] = quantidade removida} (vazio se não tirou nada).
+local function sanitizeTemplate(model)
+	local removed = {}
+	if typeof(model) ~= "Instance" then
+		return removed
+	end
+	local kept = {} -- [grupo] = quantos efeitos desse grupo já ficaram
+	-- GetDescendants devolve uma lista pronta: destruir durante o laço não atrapalha.
+	for _, descendant in ipairs(model:GetDescendants()) do
+		-- Já saiu junto com um "pai" destruído antes (ex.: Script dentro de uma Tool).
+		if descendant.Parent == nil then
+			continue
+		end
+		local destroy = isAnyOf(descendant, SANITIZE_DESTROY) ~= nil
+		if not destroy then
+			local group = isAnyOf(descendant, SANITIZE_CAPPED)
+			if group then
+				local count = (kept[group] or 0) + 1
+				kept[group] = count
+				destroy = count > SANITIZE_MAX_EACH
+			end
+		end
+		if destroy then
+			local className = descendant.ClassName
+			removed[className] = (removed[className] or 0) + 1
+			pcall(function()
+				descendant:Destroy()
+			end)
+		elseif descendant:IsA("Humanoid") then
+			-- O brainrot é ancorado e não anda sozinho: o Humanoid só "enfeita" o modelo.
+			pcall(function()
+				descendant.EvaluateStateMachine = false
+			end)
+		end
+	end
+	return removed
+end
+
+-- Texto curto com o que foi removido: "Script x1, Sound x2".
+local function describeRemoved(removed)
+	local names = {}
+	for className in pairs(removed) do
+		table.insert(names, className)
+	end
+	table.sort(names)
+	local pieces = {}
+	for _, className in ipairs(names) do
+		table.insert(pieces, ("%s x%d"):format(className, removed[className]))
+	end
+	return table.concat(pieces, ", ")
+end
+
+-- Nomes de modelos que já geraram o aviso de limpeza (um aviso por modelo, não por brainrot).
+local sanitizeWarned = {}
+
 -- Clona o modelo final e o deixa no padrão do jogo (ancorado, sem colisão,
 -- grupo "Brainrots", ~targetHeight studs, pivô no centro da base, escala 1).
 local function buildFromTemplate(template, name, targetHeight, canQuery)
 	local source = template:Clone()
+	if not source then
+		-- Clone() devolve nil quando o modelo está com Archivable desligado.
+		warn("[BrainrotFactory] O modelo '" .. template.Name .. "' não pode ser copiado (Archivable desligado); usando o provisório.")
+		return nil
+	end
+
+	-- 1. Segurança primeiro: a cópia ainda está sem pai (nada dentro dela roda), e a
+	--    limpeza acontece antes de qualquer medida, escala ou troca de pai.
+	local removed = sanitizeTemplate(source)
+
+	-- A própria raiz também pode ser de uma classe proibida.
+	local rootClass = isAnyOf(source, SANITIZE_DESTROY)
+	if rootClass then
+		removed[source.ClassName] = (removed[source.ClassName] or 0) + 1
+		if source:IsA("BasePart") then
+			-- SpawnLocation/Seat/VehicleSeat soltos: não sobra geometria segura.
+			source:Destroy()
+			warn(
+				("[BrainrotFactory] O modelo '%s' é um %s (proibido em brainrots); usando o provisório."):format(
+					template.Name,
+					rootClass
+				)
+			)
+			return nil
+		end
+		-- Tool (é um tipo de Model): passa os filhos para um Model comum.
+		local plain = Instance.new("Model")
+		plain.Name = source.Name
+		for key, value in pairs(source:GetAttributes()) do
+			plain:SetAttribute(key, value)
+		end
+		for _, child in ipairs(source:GetChildren()) do
+			child.Parent = plain
+		end
+		source:Destroy()
+		source = plain
+	end
+
+	if next(removed) ~= nil and not sanitizeWarned[template.Name] then
+		sanitizeWarned[template.Name] = true
+		warn(
+			("[BrainrotFactory] Modelo '%s' limpo por segurança (removidos: %s). Scripts, sons e itens interativos de modelos importados nunca vão para o jogo."):format(
+				template.Name,
+				describeRemoved(removed)
+			)
+		)
+	end
 
 	-- Se o dono colocou uma Part solta em vez de um Model, embrulha num Model.
 	if source:IsA("BasePart") then
@@ -237,18 +443,27 @@ local function buildFromTemplate(template, name, targetHeight, canQuery)
 		source = wrapper
 	end
 
-	local partCount = 0
+	-- 2. Partes: conta as visíveis primeiro. Partes invisíveis (Transparency >= 0,98) não
+	--    bloqueiam tiros; mas se o modelo NÃO tiver nenhuma parte visível, todas continuam
+	--    atingíveis (senão ninguém conseguiria acertar o brainrot).
+	local parts = {}
+	local visibleCount = 0
 	for _, descendant in ipairs(source:GetDescendants()) do
 		if descendant:IsA("BasePart") then
-			configurePart(descendant, canQuery)
-			partCount += 1
+			table.insert(parts, descendant)
+			if not isInvisible(descendant) then
+				visibleCount += 1
+			end
 		elseif descendant:IsA("Humanoid") then
 			-- Humanoid mostraria nome e vida padrão do Roblox por cima do nosso BillboardGui.
 			descendant.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 			descendant.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
 		end
 	end
-	if partCount == 0 then
+	for _, part in ipairs(parts) do
+		configurePart(part, canQuery and (visibleCount == 0 or not isInvisible(part)))
+	end
+	if #parts == 0 then
 		source:Destroy()
 		warn("[BrainrotFactory] O modelo '" .. template.Name .. "' não tem partes; usando o provisório.")
 		return nil
@@ -257,8 +472,8 @@ local function buildFromTemplate(template, name, targetHeight, canQuery)
 	local primary = getBody(source)
 	source.PrimaryPart = primary
 
-	-- Ajusta a escala para a altura padrão.
-	local minV, maxV = worldBounds(source)
+	-- 3. Ajusta a escala para a altura padrão (medindo só o que aparece).
+	local minV, maxV = visibleBounds(source)
 	local height = maxV.Y - minV.Y
 	if height > 1e-3 and math.abs(height - targetHeight) > 1e-3 then
 		local ok, err = pcall(function()
@@ -1023,35 +1238,129 @@ local function buildSupremePlaceholder(def)
 end
 
 -------------------------------------------------------------------------------
+-- Cache de moldes
+-------------------------------------------------------------------------------
+-- templateCache[chave] = {Model = molde, Source = modelo de ServerStorage usado (ou false)}
+--   chave  = def.Id (brainrot comum) ou "Supreme:" .. def.Id (Brainrot Supremo);
+--   Model  = o modelo pronto (escala 1, sem pai, na origem). NUNCA vai para o workspace:
+--            quem pede recebe um Clone() dele;
+--   Source = de onde ele veio. Se o dono trocar/colocar/tirar o modelo em
+--            ServerStorage.BrainrotModels com o jogo rodando, a fonte muda e o molde é
+--            montado de novo na próxima vez (dá para testar no Studio sem reiniciar).
+local templateCache = {}
+
+-- Chave do cache (nil = definição sem Id: monta sempre, sem guardar).
+local function cacheKey(def, supreme)
+	local id = def.Id
+	if type(id) ~= "string" and type(id) ~= "number" then
+		id = nil
+	end
+	if supreme then
+		return "Supreme:" .. tostring(id or def.ModelName or "Default")
+	end
+	return if id ~= nil then tostring(id) else nil
+end
+
+-- Molde de um brainrot: do cache, ou montado agora (e guardado).
+-- Devolve (modelo, guardado): "guardado" = true quando o modelo é o molde do cache
+-- (quem chama tem que clonar); false quando foi montado só para esta chamada.
+local function getTemplate(def, supreme)
+	local custom = findCustomTemplate(def.ModelName)
+	local source = custom or false
+	local key = cacheKey(def, supreme)
+	local entry = if key then templateCache[key] else nil
+	if entry and entry.Source == source then
+		return entry.Model, true
+	end
+
+	-- Primeira vez (ou a fonte mudou): monta o modelo.
+	local model = nil
+	if custom then
+		-- Brainrot comum: atingível pelos tiros. Supremo: CanQuery false (não vira "parede").
+		-- Um modelo do dono com problema nunca impede os brainrots de nascer: usa o provisório.
+		local ok, result = pcall(buildFromTemplate, custom, tostring(def.Id or def.ModelName), TARGET_HEIGHT, not supreme)
+		if ok then
+			model = result
+		else
+			warn(
+				("[BrainrotFactory] Erro ao preparar o modelo '%s': %s; usando o provisório."):format(
+					custom.Name,
+					tostring(result)
+				)
+			)
+		end
+	end
+	if not model then
+		model = if supreme then buildSupremePlaceholder(def) else buildPlaceholder(def)
+	end
+
+	if not key then
+		return model, false
+	end
+	if entry and entry.Model ~= model then
+		entry.Model:Destroy() -- molde antigo (a fonte mudou)
+	end
+	-- Se o modelo de ServerStorage falhou, o provisório fica guardado com a mesma fonte:
+	-- não tentamos (nem avisamos) de novo a cada brainrot.
+	templateCache[key] = { Model = model, Source = source }
+	return model, true
+end
+
+-- Cópia nova de um molde (ou o próprio modelo, se ele não ficou no cache).
+local function instantiate(def, supreme)
+	local model, cached = getTemplate(def, supreme)
+	if not cached then
+		return model
+	end
+	local copy = model:Clone()
+	if copy then
+		return copy
+	end
+	-- Não deveria acontecer (os moldes são Archivable), mas por segurança monta de novo.
+	local key = cacheKey(def, supreme)
+	if key then
+		templateCache[key] = nil
+	end
+	return (getTemplate(def, supreme)):Clone()
+end
+
+-------------------------------------------------------------------------------
 -- API pública
 -------------------------------------------------------------------------------
 
+-- BrainrotFactory.SanitizeTemplate(model) -> {[ClassName] = quantidade removida}
+-- Mesma limpeza que os modelos de ServerStorage.BrainrotModels recebem (ver sanitizeTemplate).
+-- Use numa CÓPIA ainda sem pai, antes de colocá-la no jogo.
+function BrainrotFactory.SanitizeTemplate(model)
+	return sanitizeTemplate(model)
+end
+
 -- BrainrotFactory.Build(def) -> Model (escala 1, sem pai)
+-- Cada chamada devolve um modelo novo (clone do molde guardado no cache).
 function BrainrotFactory.Build(def)
 	assert(type(def) == "table", "[BrainrotFactory] Build precisa da definição do brainrot")
-
-	local template = findCustomTemplate(def.ModelName)
-	if template then
-		local model = buildFromTemplate(template, tostring(def.Id or def.ModelName), TARGET_HEIGHT, true)
-		if model then
-			return model
-		end
-	end
-	return buildPlaceholder(def)
+	return instantiate(def, false)
 end
 
 -- BrainrotFactory.BuildSupreme(def) -> Model (escala 1 = ~5 studs, sem pai)
 function BrainrotFactory.BuildSupreme(def)
 	def = if type(def) == "table" then def else {}
+	return instantiate(def, true)
+end
 
-	local template = findCustomTemplate(def.ModelName)
-	if template then
-		local model = buildFromTemplate(template, tostring(def.Id or def.ModelName), TARGET_HEIGHT, false)
-		if model then
-			return model
-		end
+-- BrainrotFactory.Prewarm(def, supreme?) -> boolean
+-- Monta o molde agora (sem devolver cópia), para o primeiro brainrot da leva não pagar
+-- o custo de montar o modelo. Devolve true se o molde ficou guardado no cache.
+function BrainrotFactory.Prewarm(def, supreme)
+	if type(def) ~= "table" then
+		return false
 	end
-	return buildSupremePlaceholder(def)
+	local model, cached = getTemplate(def, supreme == true)
+	if not cached then
+		model:Destroy() -- sem Id não há cache: o modelo montado não serve para nada
+		return false
+	end
+	return true
 end
 
 -- BrainrotFactory.AttachBillboard(model, displayName, tierColor, enchantName?, enchantColor?) -> {Gui, Fill}
@@ -1065,7 +1374,7 @@ function BrainrotFactory.AttachBillboard(model, displayName, tierColor, enchantN
 	-- Ponto de apoio: o attachment no topo da cabeça (sobe junto quando o modelo cresce).
 	local anchor = model:FindFirstChild("BillboardAttachment", true)
 	if not anchor then
-		local minV, maxV = worldBounds(model, FX_PARTS)
+		local minV, maxV = visibleBounds(model)
 		local top = if minV then Vector3.new((minV.X + maxV.X) / 2, maxV.Y, (minV.Z + maxV.Z) / 2) else body.Position
 		anchor = attachmentAt(body, "BillboardAttachment", top)
 	end
@@ -1270,7 +1579,7 @@ function BrainrotFactory.ApplyEnchantVisual(model, enchantDef)
 
 	-- 4. Aura (Arco-íris e Galáctico): esfera ForceField em volta do brainrot.
 	local aura = nil
-	local minV, maxV = worldBounds(model, FX_PARTS)
+	local minV, maxV = visibleBounds(model)
 	if style.Aura and minV then
 		local size = maxV - minV
 		local diameter = math.max(size.X, size.Y, size.Z) * 1.02
@@ -1331,7 +1640,7 @@ function BrainrotFactory.AddIceBlock(model)
 		old:Destroy()
 	end
 
-	local minV, maxV = worldBounds(model, FX_PARTS)
+	local minV, maxV = visibleBounds(model)
 	if not minV then
 		local pivot = model:GetPivot()
 		minV = pivot.Position - Vector3.new(1.5, 0, 1.5)

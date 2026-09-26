@@ -15,6 +15,8 @@
 --   StateController.GetSettings()             -> configurações do jogador com valores padrão
 --   StateController.GetKeybind(actionId)      -> Enum.KeyCode da ação (Config.Keybinds)
 --   StateController.GetStatExtras()           -> "extras" (game passes + evento global) para Formulas.ComputeStats
+--   StateController.GetEffectsQuality()       -> 1 (baixa), 2 (média) ou 3 (alta): quanto efeito visual mostrar
+--   StateController.QualityChanged            -> Signal(level) quando a qualidade dos efeitos muda
 --
 -- IMPORTANTE: as tabelas devolvidas por Get/GetStats são as mesmas guardadas aqui.
 -- Leia à vontade, mas não altere (a próxima mensagem do servidor sobrescreve tudo).
@@ -37,6 +39,9 @@ local StateController = {}
 StateController.Changed = Signal.new()
 -- Dispara (stats) quando os stats calculados da partida mudam.
 StateController.StatsChanged = Signal.new()
+-- Dispara (level) quando a qualidade dos efeitos (1, 2 ou 3) muda: o jogador trocou a
+-- opção "Qualidade dos efeitos" ou, no modo automático, o gráfico do Roblox.
+StateController.QualityChanged = Signal.new()
 
 -------------------------------------------------------------------------------
 -- Constantes
@@ -67,7 +72,19 @@ local DEFAULT_SETTINGS = {
 	SfxVolume = 0.7,
 	DamageNumbers = true,
 	Keybinds = {},
+	-- Novas na 2.0 (os módulos que usam cada uma chegam nas próximas etapas):
+	CameraShake = 1, -- força do tremor da câmera (0 a 1)
+	ViewBob = true, -- balanço da câmera ao andar
+	EffectsQuality = 0, -- 0 = automática, 1 = baixa, 2 = média, 3 = alta
+	UIScale = 1, -- tamanho da interface (0,85 a 1,25)
+	AmbientVolume = 0.6, -- volume dos sons de ambiente (0 a 1)
+	AimAssist = true, -- mira assistida (toque e controle)
+	AutoFire = true, -- tiro automático no celular
 }
+
+-- De quanto em quanto tempo (segundos) conferimos o gráfico escolhido no menu do Roblox
+-- (usado quando a qualidade dos efeitos está no automático).
+local QUALITY_POLL_INTERVAL = 2
 
 -------------------------------------------------------------------------------
 -- Estado interno
@@ -83,6 +100,12 @@ local touchedWhileFetching = {} -- chaves que chegaram pelo evento durante o ped
 local statsDirty = true -- true = precisa recalcular os stats
 local cachedStats = nil -- último resultado de Formulas.ComputeStats
 local statsFirePending = false -- true = já tem um StatsChanged agendado
+
+local userGameSettings = nil -- UserGameSettings (configurações do Roblox do jogador), pego uma vez
+local autoQuality = nil -- qualidade (1-3) calculada do gráfico do Roblox; nil = ainda não lida
+local lastQuality = nil -- última qualidade avisada pelo QualityChanged
+local qualityWatchStarted = false
+local refreshQuality -- função definida mais abaixo (declarada aqui para o setValue poder chamar)
 
 -------------------------------------------------------------------------------
 -- Funções internas
@@ -169,6 +192,64 @@ local function setValue(key, value)
 	if signal then
 		signal:Fire(value)
 	end
+
+	-- O perfil traz a opção "Qualidade dos efeitos": confere se o nível mudou.
+	if key == "Profile" then
+		refreshQuality()
+	end
+end
+
+-- Lê o gráfico escolhido no menu do Roblox e converte para a nossa escala 1-3:
+--   Automático -> 2 (média);  níveis 1-3 -> 1 (baixa);  4-7 -> 2 (média);  8-10 -> 3 (alta).
+-- Tudo dentro de pcall: se o Roblox não deixar ler, ficamos na média.
+local function readAutoQuality()
+	local ok, level = pcall(function()
+		if not userGameSettings then
+			userGameSettings = UserSettings():GetService("UserGameSettings")
+		end
+		return userGameSettings.SavedQualityLevel
+	end)
+	if not ok or typeof(level) ~= "EnumItem" then
+		return 2
+	end
+	local number = level.Value -- Automatic = 0, QualityLevel1 = 1 ... QualityLevel10 = 10
+	if number <= 0 then
+		return 2
+	elseif number <= 3 then
+		return 1
+	elseif number <= 7 then
+		return 2
+	end
+	return 3
+end
+
+-- Começa a acompanhar o gráfico do Roblox: um evento (quando o Roblox avisa) e uma
+-- conferência a cada QUALITY_POLL_INTERVAL segundos (por garantia; ler uma
+-- propriedade a cada 2 s não pesa nada).
+local function startQualityWatch()
+	if qualityWatchStarted then
+		return
+	end
+	qualityWatchStarted = true
+
+	local function recheck()
+		autoQuality = readAutoQuality()
+		refreshQuality()
+	end
+
+	pcall(function()
+		if not userGameSettings then
+			userGameSettings = UserSettings():GetService("UserGameSettings")
+		end
+		userGameSettings:GetPropertyChangedSignal("SavedQualityLevel"):Connect(recheck)
+	end)
+
+	task.spawn(function()
+		while true do
+			task.wait(QUALITY_POLL_INTERVAL)
+			recheck()
+		end
+	end)
 end
 
 -- Chamado quando o servidor manda uma chave pelo evento "State".
@@ -308,6 +389,43 @@ function StateController.GetSettings()
 	return merged
 end
 
+-- Qualidade dos efeitos visuais que o jogador quer: 1 (baixa), 2 (média) ou 3 (alta).
+-- Vem da configuração "EffectsQuality" do perfil (1 a 3). Com 0 (automático, o padrão),
+-- segue o gráfico escolhido no menu do Roblox. Barato: pode chamar sempre que for criar
+-- um efeito (não cria tabelas).
+function StateController.GetEffectsQuality()
+	local profile = values.Profile
+	local settings = type(profile) == "table" and profile.Settings or nil
+	local chosen = type(settings) == "table" and settings.EffectsQuality or nil
+	-- Número de verdade (não NaN): arredonda e usa se for 1, 2 ou 3.
+	if type(chosen) == "number" and chosen == chosen then
+		local rounded = math.floor(chosen + 0.5)
+		if rounded >= 1 then
+			return math.min(rounded, 3)
+		end
+	end
+	if autoQuality == nil then
+		autoQuality = readAutoQuality()
+	end
+	return autoQuality
+end
+
+-- Recalcula a qualidade dos efeitos e dispara QualityChanged se ela mudou.
+-- (Uso interno: chamada quando o perfil muda e quando o gráfico do Roblox muda.)
+refreshQuality = function()
+	local level = StateController.GetEffectsQuality()
+	if lastQuality == nil then
+		-- Primeira leitura: só guarda (ninguém precisa ser avisado do valor inicial;
+		-- quem se importa chama GetEffectsQuality() ao iniciar).
+		lastQuality = level
+		return
+	end
+	if level ~= lastQuality then
+		lastQuality = level
+		StateController.QualityChanged:Fire(level)
+	end
+end
+
 -- Tecla atual de uma ação de Config.Keybinds (ex.: "Interact" -> Enum.KeyCode.E).
 -- Usa a tecla escolhida pelo jogador, se for válida; senão, a padrão.
 function StateController.GetKeybind(actionId)
@@ -362,6 +480,10 @@ function StateController.Init()
 		warn("[StateController] Seguindo sem o estado completo; ele vai chegando pelo evento State.")
 	end
 	table.clear(touchedWhileFetching)
+
+	-- 3. Qualidade dos efeitos: guarda o nível inicial e passa a acompanhar o gráfico do Roblox.
+	refreshQuality()
+	startQualityWatch()
 end
 
 function StateController.Start() end

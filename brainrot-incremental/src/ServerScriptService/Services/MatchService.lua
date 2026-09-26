@@ -8,6 +8,11 @@
 --     posiciona o personagem no spawn, salva tudo de tempos em tempos e mantém a lista do time.
 --   * Carteira: AddCoins / SpendCoins / GetCoins (individual ou cofre do time, se SharedWallet).
 --   * CompleteAct: dá as recompensas do ato e leva o grupo para o próximo mapa (ou para o lobby).
+--     GrantActRewards(player) dá a recompensa de UM jogador (uma vez só) e FinalizeAct()
+--     encerra o ato (para de salvar e apaga o save do time se alguém foi recompensado).
+--     O SupremeService usa as duas no começo da cena final, para ninguém perder nada.
+--   * GetJoinOrder(): userIds na ordem de entrada (cópia).
+--   * SaveAll também renova o handoff no MemoryStore (a cada 10 min, no máximo).
 --
 -- Estado público (seção 8.2 da especificação):
 --   MatchService.MapId, .MapDef, .Act, .Context (ctx do mapa), .Handoff
@@ -49,8 +54,55 @@ local DataService = require(Services:WaitForChild("DataService"))
 local StateService = require(Services:WaitForChild("StateService"))
 
 -- Outros serviços: só dentro de funções (evita require circular).
+-- Guardamos cada módulo numa tabela depois do primeiro require: o AddCoins roda a cada
+-- moeda e não precisa procurar o ModuleScript (WaitForChild) toda vez.
+local serviceCache = {} -- [nome] = tabela do serviço
 local function Svc(name)
-	return require(Services:WaitForChild(name))
+	local service = serviceCache[name]
+	if service == nil then
+		service = require(Services:WaitForChild(name))
+		serviceCache[name] = service
+	end
+	return service
+end
+
+-- AdminService é OPCIONAL (fica fora do escopo do jogo; o dono pode apagá-lo).
+-- Padrão "serviço opcional": procuramos o ModuleScript UMA vez (FindFirstChild, sem
+-- esperar), guardamos a tabela e, se ele não existir ou der erro, seguimos "sem evento".
+-- Assim o AddCoins (caminho quente: roda a cada moeda) nunca fica esperando nada.
+local adminService = nil -- tabela do AdminService (nil = não existe ou deu erro)
+local adminLookupDone = false -- já procuramos? (procura uma vez só)
+
+local function getAdminService()
+	if adminLookupDone then
+		return adminService
+	end
+	adminLookupDone = true
+	local moduleScript = Services:FindFirstChild("AdminService")
+	if moduleScript and moduleScript:IsA("ModuleScript") then
+		local ok, result = pcall(require, moduleScript)
+		if ok and type(result) == "table" then
+			adminService = result
+		elseif not ok then
+			warn("[MatchService] AdminService deu erro ao carregar; seguindo sem eventos globais: " .. tostring(result))
+		end
+	end
+	return adminService
+end
+
+-- Efeitos do evento global ligado por um admin (":event"), ou nil (sem evento, sem
+-- AdminService ou se ele der erro: melhor pagar sem bônus do que quebrar a moeda).
+local function getEventEffects()
+	local admin = getAdminService()
+	local fn = admin and admin.GetEventEffects
+	if type(fn) ~= "function" then
+		return nil
+	end
+	local ok, effects = pcall(fn)
+	if ok and type(effects) == "table" then
+		return effects
+	end
+	return nil
 end
 
 -------------------------------------------------------------------------------
@@ -71,6 +123,11 @@ local INCOME_WINDOW = 10 -- janela (s) da média móvel da renda por segundo (a 
 -- Com 120 s (o tempo que uma moeda fica no chão), nem o maior monte possível passa de ~1,4x.
 local INCOME_SLOW_WINDOW = 120
 local TEAM_LIST_INTERVAL = 1 -- TeamList a 1 Hz
+-- Renovação do handoff no MemoryStore (ver refreshHandoff): no máximo a cada 10 min.
+-- O handoff vive LobbyConfig.HandoffExpiration segundos (3 h); renovando enquanto há
+-- jogadores, uma partida longa (ou um "Reconectar" logo depois) nunca perde o handoff.
+local HANDOFF_REFRESH_INTERVAL = 600
+local DEFAULT_HANDOFF_EXPIRATION = 10800 -- usado se o Config não tiver um número válido
 local BOUNCE_KICK_DELAY = 25 -- se o teleporte de volta não acontecer, expulsa depois disso
 local MAX_SAVED_TURRETS = 64 -- trava de segurança ao carregar torretas salvas
 local PLAYERS_GROUP = "Players" -- grupo de colisão dos personagens
@@ -141,7 +198,13 @@ local friendCache = {} -- ["menorId:maiorId"] = boolean
 local rewardedUserIds = {} -- [userId] = true (já recebeu a recompensa do ato)
 local savedPlayersSnapshot = {} -- ["userId"] = parte de cada jogador guardada no save do time
 local actCompleting = false -- CompleteAct em andamento (evita chamar duas vezes)
-local actCompleted = false -- ato concluído: para de salvar o run (ele foi apagado)
+-- Ato concluído (MatchService.FinalizeAct): para de salvar o run deste mapa (ele é apagado).
+local actCompleted = false
+local runDeleteStarted = false -- o DeleteRun do save do time já foi disparado (uma vez só)
+-- Handoff do MemoryStore: cópia do valor lido no Init (nil = não veio do MemoryStore, por
+-- exemplo no Studio). O SaveAll grava de volta o MESMO valor para renovar o prazo dele.
+local storedHandoff = nil
+local lastHandoffRefresh = 0 -- os.clock() da última leitura/renovação do handoff
 -- true = este servidor reservado foi aberto DE NOVO (ele fechou quando todos saíram e alguém
 -- voltou pelo "Reconectar") e achamos o save gravado por esta mesma partida: os runs são
 -- restaurados como no "continuar partida", em vez de começar do zero.
@@ -163,6 +226,19 @@ end
 -- Confere se é um Player que ainda está no jogo.
 local function isPlayerInGame(player)
 	return typeof(player) == "Instance" and player:IsA("Player") and player.Parent == Players
+end
+
+-- O perfil do jogador já foi liberado para um teleporte (DataService.ReleaseForTeleport)?
+-- Depois disso o perfil não é mais salvo por este servidor (o próximo servidor manda nele):
+-- não adianta escrever nele. O que ele ganhar aqui continua no run e no save do time.
+-- (DataService.IsReleased é nova; se ainda não existir, consideramos "não liberado".)
+local function isProfileReleased(player)
+	local fn = DataService.IsReleased
+	if type(fn) ~= "function" then
+		return false
+	end
+	local ok, released = pcall(fn, player)
+	return ok and released == true
 end
 
 -- Mapa válido = existe em Config.Maps e tem Act (Maps.Order não conta).
@@ -442,6 +518,11 @@ local function readHandoffFromMemoryStore(privateServerId)
 			local handoff = sanitizeHandoff(value)
 			if not handoff then
 				warn("[MatchService] Handoff inválido no MemoryStore; ignorando.")
+			else
+				-- Guarda uma cópia do valor ORIGINAL (o que o lobby gravou) para o SaveAll
+				-- renovar o prazo dele gravando exatamente a mesma coisa (refreshHandoff).
+				storedHandoff = Tables.DeepCopy(value)
+				lastHandoffRefresh = os.clock()
 			end
 			return handoff
 		elseif not ok then
@@ -660,8 +741,17 @@ local function syncRunToProfile(player)
 	if actCompleted or bounceEveryone then
 		return
 	end
+	-- Já recebeu a recompensa do ato: o RunData deste mapa foi apagado de propósito
+	-- (GrantActRewards) e não pode voltar.
+	if rewardedUserIds[player.UserId] then
+		return
+	end
 	local run = MatchService.Runs[player.UserId]
 	if not run then
+		return
+	end
+	-- Perfil liberado para teleporte: não escreve nele (o save do time guarda o run).
+	if isProfileReleased(player) then
 		return
 	end
 	local profile = DataService.GetProfile(player)
@@ -892,7 +982,8 @@ end
 -- Amigos (conquista "PlayWithFriends")
 -------------------------------------------------------------------------------
 
--- true se os dois jogadores são amigos (com cache; IsFriendsWith é chamada web).
+-- true se os dois jogadores são amigos (com cache; IsFriendsWithAsync é chamada web).
+-- (IsFriendsWithAsync substitui a antiga IsFriendsWith, que o Roblox descontinuou.)
 local function areFriends(a, b)
 	local low = math.min(a.UserId, b.UserId)
 	local high = math.max(a.UserId, b.UserId)
@@ -902,7 +993,7 @@ local function areFriends(a, b)
 		return cached
 	end
 	local ok, result = pcall(function()
-		return a:IsFriendsWith(b.UserId)
+		return a:IsFriendsWithAsync(b.UserId)
 	end)
 	if not ok then
 		return false -- não guarda no cache: tenta de novo numa próxima vez
@@ -912,7 +1003,7 @@ local function areFriends(a, b)
 end
 
 -- Lista (cópia) dos outros jogadores aceitos e presentes. Usamos uma cópia porque
--- IsFriendsWith espera a web, e a tabela "accepted" pode mudar enquanto isso.
+-- IsFriendsWithAsync espera a web, e a tabela "accepted" pode mudar enquanto isso.
 local function otherAcceptedPlayers(player)
 	local list = {}
 	for other in pairs(accepted) do
@@ -998,7 +1089,7 @@ local function setupPlayerRun(player, profile)
 	sendPlayerState(player, run)
 	MatchService.RunReady:Fire(player, run)
 
-	-- Conquista de jogar com amigos (IsFriendsWith espera a web: roda separado).
+	-- Conquista de jogar com amigos (IsFriendsWithAsync espera a web: roda separado).
 	task.spawn(firePlayWithFriends, player)
 end
 
@@ -1194,6 +1285,14 @@ function MatchService.GetPlayerCount()
 	return countAccepted()
 end
 
+-- MatchService.GetJoinOrder() -> {userId}
+-- UserIds dos jogadores aceitos, na ordem em que entraram pela PRIMEIRA vez (sem repetir;
+-- quem saiu continua na lista). Devolve uma cópia: quem recebe pode mexer à vontade.
+-- Usado, por exemplo, para escolher quem decide o portal quando o dono sai.
+function MatchService.GetJoinOrder()
+	return table.clone(joinOrder)
+end
+
 -- Dá moedas ao jogador. source: "Pickup", "Quest", "Turret", "Debug" ou "Refund".
 -- Devolve o valor realmente creditado (0 se não deu).
 function MatchService.AddCoins(player, amount, source)
@@ -1216,11 +1315,11 @@ function MatchService.AddCoins(player, amount, source)
 	if not noBonus then
 		local okDouble, hasDouble = callService("MonetizationService", "HasPass", player, "DoubleCoins")
 		local okVip, hasVip = callService("MonetizationService", "HasPass", player, "VIP")
-		local okEvent, eventEffects = callService("AdminService", "GetEventEffects")
 		amount *= Formulas.PassCoinMult({
 			DoubleCoins = okDouble and hasDouble == true,
 			VIP = okVip and hasVip == true,
-			Event = if okEvent and type(eventEffects) == "table" then eventEffects else nil,
+			-- Evento global: AdminService opcional, sem esperar (nil = sem evento).
+			Event = getEventEffects(),
 		})
 	end
 
@@ -1235,8 +1334,12 @@ function MatchService.AddCoins(player, amount, source)
 	end
 
 	-- Estatística permanente de moedas totais.
-	if not noBonus then
-		DataService.IncrementStat(player, "TotalCoins", amount)
+	--   * quiet = true (4º argumento): moedas chegam várias vezes por segundo; o DataService
+	--     só marca o perfil como "sujo" e manda o Profile ao cliente em lote (até 5 s).
+	--   * Perfil já liberado para teleporte: não escreve nele (não seria salvo). As moedas
+	--     continuam no run acima, e o run vai no save do time.
+	if not noBonus and not isProfileReleased(player) then
+		DataService.IncrementStat(player, "TotalCoins", amount, true)
 	end
 
 	-- Renda por segundo (a média é atualizada no loop de 1 Hz).
@@ -1287,8 +1390,48 @@ function MatchService.GetCoins(player)
 	return run and run.Coins or 0
 end
 
+-- Renova o handoff desta partida no MemoryStore (mesmo valor, mesmo prazo), no máximo a
+-- cada HANDOFF_REFRESH_INTERVAL (10 min) e só enquanto há jogadores aqui.
+-- Por quê: o handoff vive LobbyConfig.HandoffExpiration (3 h). Uma partida mais longa que
+-- isso perderia o handoff, e aí quem caísse e usasse o "Reconectar" (ou um amigo entrando
+-- depois) seria mandado de volta ao lobby. Só roda num servidor reservado de verdade (fora
+-- do Studio) e quando o handoff veio do MemoryStore. Roda em segundo plano (não atrasa o
+-- save) e falhas só geram um aviso: o próximo autosave tenta de novo.
+local function refreshHandoff()
+	if storedHandoff == nil or game.PrivateServerId == "" or PlaceRole.IsStudio() then
+		return
+	end
+	if countAccepted() == 0 then
+		return
+	end
+	local nowClock = os.clock()
+	if nowClock - lastHandoffRefresh < HANDOFF_REFRESH_INTERVAL then
+		return
+	end
+	local previousRefresh = lastHandoffRefresh
+	lastHandoffRefresh = nowClock -- marca já, para dois saves seguidos não renovarem duas vezes
+
+	local expiration = tonumber(LobbyConfig.HandoffExpiration)
+	if not isFiniteNumber(expiration) or expiration <= 0 then
+		expiration = DEFAULT_HANDOFF_EXPIRATION
+	end
+	local key = game.PrivateServerId
+	local value = storedHandoff
+	task.spawn(function()
+		local ok, err = pcall(function()
+			MemoryStoreService:GetHashMap(LobbyConfig.HandoffMapName):SetAsync(key, value, expiration)
+		end)
+		if not ok then
+			-- Volta a marca antiga: o próximo autosave (daqui a ~1 min) tenta de novo.
+			lastHandoffRefresh = previousRefresh
+			warn("[MatchService] Não foi possível renovar o handoff no MemoryStore: " .. tostring(err))
+		end
+	end)
+end
+
 -- Salva o time (DataService.SaveRun), copia os runs para os perfis e marca
 -- RunSaves[mapa] no perfil do dono (para o lobby oferecer "Continuar").
+-- Também renova o handoff no MemoryStore (refreshHandoff, no máximo a cada 10 min).
 function MatchService.SaveAll()
 	if actCompleted or bounceEveryone then
 		return false
@@ -1298,14 +1441,18 @@ function MatchService.SaveAll()
 		return false -- ninguém jogou ainda: nada para salvar
 	end
 
+	refreshHandoff()
+
 	for player in pairs(accepted) do
 		if player.Parent == Players then
 			syncRunToProfile(player)
 		end
 	end
 
-	local hostPlayer = Players:GetPlayerByUserId(MatchService.GetHostUserId())
-	if hostPlayer then
+	local hostUserId = MatchService.GetHostUserId()
+	local hostPlayer = hostUserId and Players:GetPlayerByUserId(hostUserId) or nil
+	-- (dono que já recebeu a recompensa do ato ou que está sendo teleportado: não mexe no perfil)
+	if hostPlayer and not rewardedUserIds[hostPlayer.UserId] and not isProfileReleased(hostPlayer) then
 		local profile = DataService.GetProfile(hostPlayer)
 		if profile then
 			if type(profile.RunSaves) ~= "table" then
@@ -1344,21 +1491,148 @@ local function grantGameCompletedSkin(player, profile)
 	)
 end
 
--- Conclui o ato: recompensas no perfil de cada jogador presente e viagem para o
--- próximo mapa (ou para o lobby, no último ato). Devolve ok, mensagemDeErro.
+-- Apaga a partida salva do time (em segundo plano), UMA vez só, e só se alguém recebeu a
+-- recompensa do ato. Se ninguém recebeu (ex.: todos saíram antes), o save fica: o grupo
+-- pode "Continuar" depois e concluir de novo, sem perder nada.
+local function deleteRunIfRewarded()
+	if runDeleteStarted or next(rewardedUserIds) == nil then
+		return
+	end
+	local runKey = getRunKey()
+	if not runKey then
+		return
+	end
+	runDeleteStarted = true
+	task.spawn(function()
+		local ok, err = pcall(DataService.DeleteRun, runKey)
+		if not ok then
+			warn("[MatchService] Falha ao apagar a partida salva: " .. tostring(err))
+		end
+	end)
+end
+
+-- MatchService.GrantActRewards(player) -> boolean
+-- Dá ao jogador as recompensas do ato deste mapa, direto no perfil:
+--   CompletedMaps[mapa]; próximo mapa liberado (UnlockedMaps) OU, no último ato,
+--   GameCompleted + skin de "Jogo concluído"; Brainrot Tokens (MapDef.TokensReward);
+--   apaga RunData/RunSaves deste mapa e o LastMatch; Stats.ActsCompleted + 1;
+--   evento "CompleteMap" das conquistas; aviso na tela.
+-- Uma vez só por jogador nesta partida (rewardedUserIds), mesmo que seja chamada de novo
+-- (CompleteAct repetido, cena final do Supremo, quem entra no meio da cena final...).
+-- Devolve true só quando deu a recompensa AGORA. Devolve false se o jogador já recebeu,
+-- não está na partida (aceito, com run e perfil carregado) ou se o perfil dele já foi
+-- liberado para um teleporte (não seria salvo; ele recebe se voltar pelo "Reconectar").
+function MatchService.GrantActRewards(player)
+	if not isPlayerInGame(player) or not accepted[player] then
+		return false
+	end
+	local userId = player.UserId
+	if rewardedUserIds[userId] or not MatchService.Runs[userId] then
+		return false
+	end
+	local mapId = MatchService.MapId
+	local mapDef = MatchService.MapDef
+	if type(mapDef) ~= "table" or mapId == nil then
+		return false
+	end
+	local profile = DataService.GetProfile(player)
+	if not profile or isProfileReleased(player) then
+		return false
+	end
+
+	-- Marca ANTES de mexer no perfil: nunca dá duas vezes.
+	rewardedUserIds[userId] = true
+
+	local nextMapId = mapDef.Next
+	if type(profile.CompletedMaps) ~= "table" then
+		profile.CompletedMaps = {}
+	end
+	profile.CompletedMaps[mapId] = true
+	if nextMapId then
+		if type(profile.UnlockedMaps) ~= "table" then
+			profile.UnlockedMaps = {}
+		end
+		profile.UnlockedMaps[nextMapId] = true
+	else
+		profile.GameCompleted = true
+		-- "Jogo concluído" libera cosméticos (seção 8.4 do prompt): ganha a skin especial.
+		grantGameCompletedSkin(player, profile)
+	end
+	local reward = mapDef.TokensReward or 0
+	profile.Tokens = (tonumber(profile.Tokens) or 0) + reward
+
+	-- O save deste mapa acabou.
+	if type(profile.RunData) == "table" then
+		profile.RunData[mapId] = nil
+	end
+	if type(profile.RunSaves) == "table" then
+		profile.RunSaves[mapId] = nil
+	end
+	-- A partida acabou: não faz sentido "Reconectar" nela.
+	profile.LastMatch = nil
+
+	DataService.IncrementStat(player, "ActsCompleted", 1)
+	callService("AchievementService", "FireEvent", player, "CompleteMap", { Map = mapId })
+	DataService.SyncProfile(player)
+
+	if reward > 0 then
+		StateService.Notify(player, ("Ato concluído! +%d Brainrot Tokens"):format(reward), "success", 6)
+	end
+
+	-- Recompensa dada DEPOIS do FinalizeAct (ex.: alguém que entrou durante a cena final):
+	-- garante o DeleteRun (roda uma vez só). Se ninguém tinha recebido antes, o FinalizeAct
+	-- não encerrou o ato; quem deu esta recompensa chama o FinalizeAct de novo.
+	if actCompleted then
+		deleteRunIfRewarded()
+	end
+	return true
+end
+
+-- MatchService.FinalizeAct()
+-- Encerra o ato neste servidor: para de salvar o run deste mapa (SaveAll e
+-- syncRunToProfile não recolocam mais RunSaves/RunData) e apaga a partida salva do time,
+-- mas só se pelo menos um jogador recebeu a recompensa. Pode ser chamada várias vezes
+-- (CompleteAct repetido, SupremeService): o DeleteRun roda uma vez só.
+-- Sem ninguém recompensado (ex.: o único jogador estava com o perfil liberado para um
+-- teleporte), não faz nada: o autosave continua e nenhum progresso se perde. Quem chama
+-- de novo depois de uma recompensa (ex.: alguém que entrou na cena final) encerra o ato.
+function MatchService.FinalizeAct()
+	if next(rewardedUserIds) == nil then
+		return
+	end
+	actCompleted = true
+	deleteRunIfRewarded()
+end
+
+-- Dono do próximo ato quando o dono atual não está aqui: o jogador que entrou primeiro
+-- nesta partida (joinOrder) entre os que vão viajar.
+local function pickNextHostUserId(travelers)
+	local hostUserId = MatchService.GetHostUserId()
+	if hostUserId and Players:GetPlayerByUserId(hostUserId) then
+		return hostUserId
+	end
+	local travelerIds = {}
+	for _, player in ipairs(travelers) do
+		travelerIds[player.UserId] = true
+	end
+	for _, userId in ipairs(joinOrder) do
+		if travelerIds[userId] then
+			return userId
+		end
+	end
+	return travelers[1].UserId
+end
+
+-- Conclui o ato: recompensas no perfil de cada jogador presente (GrantActRewards) e
+-- viagem para o próximo mapa (ou para o lobby, no último ato). Devolve ok, mensagemDeErro.
 function MatchService.CompleteAct()
 	if actCompleting then
 		return false, "A viagem já está em andamento."
 	end
 	actCompleting = true
 
-	local mapId = MatchService.MapId
 	local mapDef = MatchService.MapDef
 	local nextMapId = mapDef.Next
-	local runKey = getRunKey()
-
-	-- A partir daqui o run deste mapa não é mais salvo (ele foi concluído).
-	actCompleted = true
 
 	local travelers = {}
 	for _, player in ipairs(Players:GetPlayers()) do
@@ -1366,56 +1640,21 @@ function MatchService.CompleteAct()
 		if profile then
 			table.insert(travelers, player)
 
-			-- Recompensas (só uma vez por jogador, mesmo se a viagem falhar e for repetida).
-			if not rewardedUserIds[player.UserId] then
-				rewardedUserIds[player.UserId] = true
-
-				if type(profile.CompletedMaps) ~= "table" then
-					profile.CompletedMaps = {}
-				end
-				profile.CompletedMaps[mapId] = true
-				if nextMapId then
-					if type(profile.UnlockedMaps) ~= "table" then
-						profile.UnlockedMaps = {}
-					end
-					profile.UnlockedMaps[nextMapId] = true
-				else
-					profile.GameCompleted = true
-					-- "Jogo concluído" libera cosméticos (seção 8.4 do prompt): ganha a skin especial.
-					grantGameCompletedSkin(player, profile)
-				end
-				profile.Tokens = (tonumber(profile.Tokens) or 0) + (mapDef.TokensReward or 0)
-
-				-- O save deste mapa acabou.
-				if type(profile.RunData) == "table" then
-					profile.RunData[mapId] = nil
-				end
-				if type(profile.RunSaves) == "table" then
-					profile.RunSaves[mapId] = nil
-				end
-				-- A partida acabou: não faz sentido "Reconectar" nela.
-				profile.LastMatch = nil
-
-				DataService.IncrementStat(player, "ActsCompleted", 1)
-				callService("AchievementService", "FireEvent", player, "CompleteMap", { Map = mapId })
-				DataService.SyncProfile(player)
-
-				local reward = mapDef.TokensReward or 0
-				if reward > 0 then
-					StateService.Notify(player, ("Ato concluído! +%d Brainrot Tokens"):format(reward), "success", 6)
-				end
+			-- Recompensas (só uma vez por jogador, mesmo se a viagem falhar e for repetida, e
+			-- quem já recebeu na cena final do Supremo é pulado). Protegido: um erro na
+			-- recompensa de um jogador não pode travar a viagem de todos.
+			local okReward, rewardErr = pcall(MatchService.GrantActRewards, player)
+			if not okReward then
+				warn("[MatchService] Erro ao dar a recompensa do ato: " .. tostring(rewardErr))
 			end
 		end
 	end
 
-	-- Apaga a partida salva do time (em segundo plano).
-	if runKey then
-		task.spawn(function()
-			local ok, err = pcall(DataService.DeleteRun, runKey)
-			if not ok then
-				warn("[MatchService] Falha ao apagar a partida salva: " .. tostring(err))
-			end
-		end)
+	-- Ato encerrado (para de salvar e apaga a partida salva do time), mas só se alguém
+	-- recebeu a recompensa. Sem ninguém (ex.: todos saíram), o save do time continua
+	-- intacto e o autosave segue funcionando: nada se perde.
+	if next(rewardedUserIds) ~= nil then
+		MatchService.FinalizeAct()
 	end
 
 	if #travelers == 0 then
@@ -1435,11 +1674,8 @@ function MatchService.CompleteAct()
 	end
 
 	-- Próximo ato: novo servidor reservado com o próximo mapa.
-	-- Dono = o dono atual, se estiver aqui; senão o primeiro jogador da lista.
-	local hostUserId = MatchService.GetHostUserId()
-	if not hostUserId or not Players:GetPlayerByUserId(hostUserId) then
-		hostUserId = travelers[1].UserId
-	end
+	-- Dono = o dono atual, se estiver aqui; senão quem entrou primeiro entre os viajantes.
+	local hostUserId = pickNextHostUserId(travelers)
 	local handoff = MatchService.Handoff
 	StateService.NotifyAll(("Viajando para %s..."):format(Maps[nextMapId].DisplayName), "success", 6)
 

@@ -39,6 +39,10 @@ local MSG_STUDIO_LOBBY =
 local MSG_STUDIO_RECONNECT = "A reconexão só funciona no jogo publicado."
 local MSG_NO_MATCH_PLACE = "O place da partida ainda não foi configurado (Config.Game.MatchPlaceId)."
 local MSG_NO_LOBBY_PLACE = "O place do lobby ainda não foi configurado (Config.Game.LobbyPlaceId)."
+local MSG_ALREADY_LOBBY_PLACE =
+	"Este servidor já está no place do lobby (Config.Game.LobbyPlaceId). O teleporte foi cancelado para não entrar em loop."
+local MSG_SAME_PLACE_IDS =
+	"Config.Game.LobbyPlaceId e MatchPlaceId estão iguais. Corrija os PlaceIds para as partidas funcionarem."
 local MSG_NO_PLAYERS = "Nenhum jogador para teleportar."
 local MSG_BAD_MAP = "Mapa inválido."
 local MSG_RESERVE_FAILED = "Não foi possível criar o servidor da partida. Tente de novo."
@@ -75,6 +79,13 @@ local initialized = false
 
 local function isStudio()
 	return RunService:IsStudio()
+end
+
+-- Config errado: lobby e partida com o mesmo PlaceId (0 = ainda não configurado).
+-- O PlaceRole trata esse servidor como lobby, então teleportar "para a partida"
+-- só levaria o grupo para outro lobby. Recusamos o teleporte com um aviso claro.
+local function hasSamePlaceIds()
+	return GameConfig.LobbyPlaceId ~= 0 and GameConfig.LobbyPlaceId == GameConfig.MatchPlaceId
 end
 
 -- Filtra a lista recebida: só jogadores válidos que ainda estão no servidor, sem repetidos.
@@ -277,6 +288,10 @@ function TravelService.SendToNewMatch(players, handoff)
 	if GameConfig.MatchPlaceId == 0 then
 		return false, MSG_NO_MATCH_PLACE
 	end
+	if hasSamePlaceIds() then
+		warn("[TravelService] " .. MSG_SAME_PLACE_IDS)
+		return false, MSG_SAME_PLACE_IDS
+	end
 
 	-- Quem já está sendo teleportado fica de fora.
 	local list = {}
@@ -393,6 +408,11 @@ end
 
 -- TravelService.SendToLobby(players) -> ok, err
 -- Salva, libera e teleporta para o lobby. No Studio, expulsa com uma mensagem explicando.
+-- Fora do Studio devolve false (sem teleportar) quando o lobby não está configurado
+-- (LobbyPlaceId = 0) ou quando ESTE servidor já é o place do lobby (LobbyPlaceId igual
+-- ao game.PlaceId): teleportar para o próprio place faria o jogador voltar para cá sem
+-- fim. Quando recebe false, o MatchService expulsa (Kick) quem ele estava mandando de
+-- volta ao lobby (sendBackToLobby) ou avisa o jogador que pediu para voltar.
 function TravelService.SendToLobby(players)
 	TravelService.Init()
 
@@ -416,6 +436,10 @@ function TravelService.SendToLobby(players)
 
 	if GameConfig.LobbyPlaceId == 0 then
 		return false, MSG_NO_LOBBY_PLACE
+	end
+	if GameConfig.LobbyPlaceId == game.PlaceId then
+		warn("[TravelService] " .. MSG_ALREADY_LOBBY_PLACE)
+		return false, MSG_ALREADY_LOBBY_PLACE
 	end
 
 	local options = makeOptions(nil, nil)
@@ -454,6 +478,9 @@ function TravelService.Reconnect(player)
 	end
 	if GameConfig.MatchPlaceId == 0 then
 		return false, MSG_NO_MATCH_PLACE
+	end
+	if hasSamePlaceIds() then
+		return false, MSG_SAME_PLACE_IDS
 	end
 
 	local options = makeOptions(lastMatch.AccessCode, { MapId = lastMatch.MapId })

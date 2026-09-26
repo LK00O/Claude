@@ -21,6 +21,20 @@ local NUMBER_RANGES = {
 	FOV = { 60, 110 },
 	MusicVolume = { 0, 1 },
 	SfxVolume = { 0, 1 },
+	-- Força do tremor da câmera (0 = desligado, 1 = normal).
+	CameraShake = { 0, 1 },
+	-- Qualidade dos efeitos: 0 = automática (segue o gráfico do Roblox), 1 = baixa,
+	-- 2 = média, 3 = alta. Só aceita número inteiro (ver INTEGER_FIELDS).
+	EffectsQuality = { 0, 3 },
+	-- Tamanho da interface (0,85 = menor, 1 = normal, 1,25 = maior).
+	UIScale = { 0.85, 1.25 },
+	-- Volume dos sons de ambiente (vento, pássaros...).
+	AmbientVolume = { 0, 1 },
+}
+
+-- Configurações numéricas que precisam ser inteiras (arredondadas antes de limitar).
+local INTEGER_FIELDS = {
+	EffectsQuality = true,
 }
 
 -- Configurações que são verdadeiro/falso.
@@ -28,6 +42,12 @@ local BOOLEAN_FIELDS = {
 	InvertY = true,
 	ToggleSprint = true,
 	DamageNumbers = true,
+	-- Balanço da câmera ao andar.
+	ViewBob = true,
+	-- Mira assistida (só toque e controle; nunca no mouse).
+	AimAssist = true,
+	-- Tiro automático no celular: atira sozinho enquanto a mira estiver num brainrot.
+	AutoFire = true,
 }
 
 -- Limites técnicos contra pedidos exagerados (o cliente pode mandar qualquer coisa).
@@ -90,6 +110,10 @@ local function applySettings(settings, input)
 	for field, range in pairs(NUMBER_RANGES) do
 		local value = input[field]
 		if isFiniteNumber(value) then
+			-- Campos inteiros: arredonda para o inteiro mais próximo (2,6 vira 3).
+			if INTEGER_FIELDS[field] then
+				value = math.floor(value + 0.5)
+			end
 			settings[field] = math.clamp(value, range[1], range[2])
 			changed += 1
 		end

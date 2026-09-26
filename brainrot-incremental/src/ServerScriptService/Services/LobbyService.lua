@@ -19,6 +19,18 @@
 --
 -- No Studio sem acesso às APIs, o OrderedDataStore falha: nesse caso o placar mostra
 -- só os jogadores que passaram por este servidor (guardados em memória).
+--
+-- No Studio COM acesso às APIs (DataService.UsesStudioStores() = true), o placar público
+-- NUNCA é gravado: as pontuações do teste ficam só na memória. O quadro lê o placar real
+-- (só leitura) e mistura as pontuações do teste na tela, para dar para conferir o visual.
+--
+-- Leituras (orçamento do DataStore): um placar por vez, em rodízio, com pelo menos
+-- MIN_READ_SPACING segundos entre dois GetSortedAsync deste servidor. Com
+-- LeaderboardRefresh = 60 e 3 placares, cada placar é relido a cada ~60 s.
+--
+-- Memória: quem sai do servidor é esquecido nos mapas dos placares (Memory, LastWritten)
+-- depois da gravação final, a não ser que esteja aparecendo no quadro; o cache de nomes
+-- guarda só quem aparece nos quadros e quem está no servidor.
 
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
@@ -51,10 +63,12 @@ local SCORE_SCALE = 1e6
 -- Constantes técnicas do placar.
 local NAME_FETCH_TIMEOUT = 8 -- tempo máximo esperando os nomes (s)
 local NAME_RETRY_AFTER = 120 -- nome que falhou: tenta buscar de novo depois disso (s)
-local SOON_REFRESH_DELAY = 5 -- depois que alguém entra, atualiza o quadro em ~5 s
--- Intervalo mínimo entre duas leituras do placar (s). Cada leitura lê os 3 placares
--- (3 GetSortedAsync), e o limite da Roblox é 5 + 2 por jogador por minuto.
-local MIN_READ_SPACING = 30
+-- Intervalo mínimo entre duas leituras do placar (s). Cada leitura é UM GetSortedAsync
+-- (um placar por vez, em rodízio). O limite da Roblox é 5 + 2 por jogador por minuto;
+-- com 20 s ficamos em no máximo 3 leituras por minuto, mesmo com o servidor vazio.
+local MIN_READ_SPACING = 20
+-- Espera mínima entre duas voltas do laço do rodízio (s), para ele nunca girar sem parar.
+local MIN_LOOP_WAIT = 1
 local ROW_GAP = 4 -- espaço entre as linhas do quadro (pixels)
 local ROW_ATTRIBUTE = "LeaderboardRow" -- marca as linhas criadas por este serviço
 local MODULE_WAIT_TIMEOUT = 10 -- espera máxima pelo módulo MapBuilder (s)
@@ -78,7 +92,10 @@ local RANK_COLORS = {
 -- Mensagens (português do Brasil).
 local MSG_EMPTY_BOARD = "Ninguém no placar ainda. Seja o primeiro!"
 local MSG_UNAVAILABLE = "Placar indisponível no momento."
+local MSG_LOADING = "Carregando placar..."
 local MSG_UNKNOWN_PLAYER = "Jogador %d"
+local MSG_STUDIO_NO_WRITE =
+	"[LobbyService] Studio: o placar público não é gravado nos testes (pontuações só na memória deste servidor)."
 
 -------------------------------------------------------------------------------
 -- Estado
@@ -87,12 +104,15 @@ local MSG_UNKNOWN_PLAYER = "Jogador %d"
 local trove = Trove.new() -- conexões do serviço
 local ctx = nil -- contexto do mapa do lobby (MapBuilder.Build("Lobby"))
 local storeWarned = false -- já avisamos no Output que o placar falhou?
+local studioWarned = false -- já avisamos no Output que o Studio não grava o placar?
 
+-- Cache de nomes. Fica limitado a quem aparece nos quadros + quem está no servidor
+-- (pruneNameCache limpa o resto depois de cada leitura e quando alguém sai).
 local nameCache = {} -- [userId] = nome do jogador
 local nameFailedAt = {} -- [userId] = os.clock() da última falha ao buscar o nome
-local lastReadAt = -math.huge -- os.clock() da última leitura do placar
+local lastReadAt = -math.huge -- os.clock() da última leitura (GetSortedAsync) do placar
 local refreshRunning = false -- evita duas atualizações do quadro ao mesmo tempo
-local soonScheduled = false -- já tem uma atualização "em breve" marcada?
+local nextBoardIndex = 1 -- próximo placar do rodízio (índice em BOARDS)
 
 -------------------------------------------------------------------------------
 -- Ajudantes gerais
@@ -110,6 +130,21 @@ local function warnStoreOnce(err)
 	end
 	storeWarned = true
 	warn("[LobbyService] Placar de líderes indisponível (usando só os jogadores deste servidor): " .. tostring(err))
+end
+
+-- Teste no Studio usando as lojas "_Studio"? Então o placar público não pode ser gravado.
+-- (Com Config.Game.StudioLiveData = true, o Studio grava como o jogo publicado.)
+local function leaderboardWritesBlocked()
+	return DataService.UsesStudioStores()
+end
+
+-- Avisa no Output uma vez só que o Studio não grava o placar.
+local function warnStudioOnce()
+	if studioWarned then
+		return
+	end
+	studioWarned = true
+	print(MSG_STUDIO_NO_WRITE)
 end
 
 -- Pontuação a partir das moedas totais: floor(log10(moedas + 1) * 1e6).
@@ -141,6 +176,7 @@ end
 --   LastWritten = [userId] = última pontuação gravada por este servidor
 --   Memory      = [userId] = pontuação (reserva em memória quando o DataStore falha)
 --   HasRendered = já desenhamos o painel pelo menos uma vez com dados reais?
+--   Shown       = [userId] = true para quem aparece AGORA no painel (última lista desenhada)
 -- Id é a chave do painel em ctx.Leaderboards (o builder do lobby usa os mesmos ids).
 local function newBoard(id, storeName, getScore, formatScore, scoreColor)
 	return {
@@ -153,6 +189,7 @@ local function newBoard(id, storeName, getScore, formatScore, scoreColor)
 		LastWritten = {},
 		Memory = {},
 		HasRendered = false,
+		Shown = {},
 	}
 end
 
@@ -305,8 +342,10 @@ local function rowSize()
 	return UDim2.new(1, 0, 1 / count, -ROW_GAP)
 end
 
--- Mostra uma mensagem única no painel (vazio ou indisponível).
+-- Mostra uma mensagem única no painel (vazio, carregando ou indisponível).
 local function renderMessage(board, text)
+	-- Ninguém aparece no painel agora.
+	board.Shown = {}
 	local list = getListFrame(board)
 	if not list then
 		return
@@ -326,12 +365,20 @@ end
 
 -- Desenha as linhas de um placar: {{UserId, Score}} já em ordem (maior primeiro).
 local function renderEntries(board, entries)
-	local list = getListFrame(board)
-	if not list then
-		return
-	end
 	if #entries == 0 then
 		renderMessage(board, MSG_EMPTY_BOARD)
+		return
+	end
+
+	-- Lembra quem aparece no painel (para a limpeza de memória e do cache de nomes).
+	local shown = {}
+	for _, entry in ipairs(entries) do
+		shown[entry.UserId] = true
+	end
+	board.Shown = shown
+
+	local list = getListFrame(board)
+	if not list then
 		return
 	end
 
@@ -417,6 +464,31 @@ local function resolveNames(entries)
 	end
 end
 
+-- Limpa o cache de nomes: fica só quem aparece em algum quadro agora + quem está no
+-- servidor. Sem isso, o cache cresceria para sempre num lobby que roda por dias.
+local function pruneNameCache()
+	local keep = {}
+	for _, board in ipairs(BOARDS) do
+		for userId in pairs(board.Shown) do
+			keep[userId] = true
+		end
+	end
+	for _, player in ipairs(Players:GetPlayers()) do
+		keep[player.UserId] = true
+	end
+	-- (Apagar chaves que já existem durante um pairs é permitido em Luau.)
+	for userId in pairs(nameCache) do
+		if not keep[userId] then
+			nameCache[userId] = nil
+		end
+	end
+	for userId in pairs(nameFailedAt) do
+		if not keep[userId] then
+			nameFailedAt[userId] = nil
+		end
+	end
+end
+
 -------------------------------------------------------------------------------
 -- OrderedDataStore (gravar e ler)
 -------------------------------------------------------------------------------
@@ -457,6 +529,14 @@ local function writeScore(board, userId, score, force)
 		return
 	end
 
+	-- Teste no Studio: nunca grava no placar público (nem SetAsync, nem UpdateAsync).
+	-- A pontuação continua na memória (board.Memory, acima) para aparecer no quadro.
+	if leaderboardWritesBlocked() then
+		warnStudioOnce()
+		board.LastWritten[userId] = score
+		return
+	end
+
 	local store = getStore(board)
 	if not store then
 		return
@@ -486,14 +566,16 @@ local function writePlayerScore(player, force)
 	end
 end
 
--- Top da reserva em memória de um placar (jogadores que passaram por este servidor).
-local function readMemoryTop(board)
-	local entries = {}
-	for userId, score in pairs(board.Memory) do
-		if score > 0 then
-			table.insert(entries, { UserId = userId, Score = score })
-		end
+-- Grava a pontuação atual de um jogador presente em UM placar (usado no rodízio).
+local function writePlayerBoardScore(board, player)
+	local stats = getPlayerStats(player)
+	if stats then
+		writeScore(board, player.UserId, board.GetScore(stats), false)
 	end
+end
+
+-- Põe uma lista {{UserId, Score}} em ordem (maior primeiro) e corta no tamanho do quadro.
+local function sortAndCap(entries)
 	table.sort(entries, function(a, b)
 		if a.Score ~= b.Score then
 			return a.Score > b.Score
@@ -505,6 +587,37 @@ local function readMemoryTop(board)
 		table.remove(entries)
 	end
 	return entries
+end
+
+-- Top da reserva em memória de um placar (jogadores que passaram por este servidor).
+local function readMemoryTop(board)
+	local entries = {}
+	for userId, score in pairs(board.Memory) do
+		if score > 0 then
+			table.insert(entries, { UserId = userId, Score = score })
+		end
+	end
+	return sortAndCap(entries)
+end
+
+-- Só no Studio (placar público não é gravado): junta o top lido do DataStore com as
+-- pontuações deste teste (board.Memory), só para mostrar na tela. Quem está nas duas
+-- listas aparece com a pontuação do teste.
+local function mergeMemoryEntries(board, entries)
+	local scores = {}
+	for _, entry in ipairs(entries) do
+		scores[entry.UserId] = entry.Score
+	end
+	for userId, score in pairs(board.Memory) do
+		if score > 0 then
+			scores[userId] = score
+		end
+	end
+	local merged = {}
+	for userId, score in pairs(scores) do
+		table.insert(merged, { UserId = userId, Score = score })
+	end
+	return sortAndCap(merged)
 end
 
 -- Lê o top do OrderedDataStore de um placar. Devolve a lista {{UserId, Score}} ou nil se falhou.
@@ -537,8 +650,14 @@ end
 
 -- Lê um placar e redesenha o painel dele.
 local function refreshOneBoard(board)
+	-- Um GetSortedAsync (ou nenhum, se o store não existe): marca a hora para o rodízio.
+	lastReadAt = os.clock()
 	local entries = readStoreTop(board)
 	if entries then
+		-- No Studio o placar público não é gravado: mostra também as pontuações do teste.
+		if leaderboardWritesBlocked() then
+			entries = mergeMemoryEntries(board, entries)
+		end
 		resolveNames(entries)
 		renderEntries(board, entries)
 		board.HasRendered = true
@@ -561,49 +680,47 @@ local function refreshOneBoard(board)
 	end
 end
 
--- Lê os três placares e redesenha os painéis (um erro num placar não para os outros).
-local function refreshBoard()
+-- Tempo entre duas leituras do rodízio: LeaderboardRefresh dividido pelos placares
+-- (cada placar é relido a cada LeaderboardRefresh s), nunca menos que MIN_READ_SPACING.
+local function readInterval()
+	local refresh = tonumber(LobbyConfig.LeaderboardRefresh) or 60
+	return math.max(MIN_READ_SPACING, refresh / math.max(1, #BOARDS))
+end
+
+-- Uma volta do rodízio: pega o próximo placar, grava nele (se mudou) a pontuação de quem
+-- está no servidor, lê o top dele (UM GetSortedAsync) e redesenha só o painel dele.
+local function refreshNextBoard()
 	if refreshRunning then
 		return
 	end
 	refreshRunning = true
-	lastReadAt = os.clock()
 
-	for _, board in ipairs(BOARDS) do
-		local ok, err = pcall(refreshOneBoard, board)
+	local board = BOARDS[nextBoardIndex]
+	nextBoardIndex = nextBoardIndex % #BOARDS + 1
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		local ok, err = pcall(writePlayerBoardScore, board, player)
 		if not ok then
-			warn("[LobbyService] Erro ao atualizar o placar " .. board.Id .. ": " .. tostring(err))
+			warn("[LobbyService] Erro ao gravar a pontuação: " .. tostring(err))
 		end
 	end
+
+	local ok, err = pcall(refreshOneBoard, board)
+	if not ok then
+		warn("[LobbyService] Erro ao atualizar o placar " .. board.Id .. ": " .. tostring(err))
+	end
+	pcall(pruneNameCache)
 
 	refreshRunning = false
 end
 
--- Marca uma atualização do quadro para daqui a pouco (junta várias entradas seguidas).
-local function scheduleSoonRefresh()
-	if soonScheduled then
-		return
-	end
-	soonScheduled = true
-	-- Respeita o intervalo mínimo entre leituras (limite do DataStore).
-	local waitTime = math.max(SOON_REFRESH_DELAY, MIN_READ_SPACING - (os.clock() - lastReadAt))
-	task.delay(waitTime, function()
-		soonScheduled = false
-		refreshBoard()
-	end)
-end
-
--- Ciclo periódico: grava a pontuação de quem está no servidor (se mudou) e redesenha.
+-- Ciclo periódico: um placar por volta, respeitando o intervalo mínimo entre leituras.
+-- A primeira volta acontece logo depois do Start; as outras a cada readInterval() s.
 local function refreshLoop()
 	while true do
-		task.wait(math.max(5, LobbyConfig.LeaderboardRefresh))
-		for _, player in ipairs(Players:GetPlayers()) do
-			local ok, err = pcall(writePlayerScore, player, false)
-			if not ok then
-				warn("[LobbyService] Erro ao gravar a pontuação: " .. tostring(err))
-			end
-		end
-		refreshBoard()
+		local waitTime = readInterval() - (os.clock() - lastReadAt)
+		task.wait(math.max(MIN_LOOP_WAIT, waitTime))
+		refreshNextBoard()
 	end
 end
 
@@ -611,29 +728,61 @@ end
 -- Entrada e saída de jogadores
 -------------------------------------------------------------------------------
 
--- Perfil carregado: grava a pontuação (sempre, na entrada) e atualiza o quadro em breve.
+-- Perfil carregado: grava a pontuação (sempre, na entrada). O quadro mostra a pontuação
+-- nova na próxima volta do rodízio de leituras (cada placar é relido a cada ~1 min).
 local function onProfileLoaded(player, _profile)
 	if typeof(player) ~= "Instance" or player.Parent ~= Players then
 		return
 	end
 	cachePlayerName(player)
 	writePlayerScore(player, true)
-	scheduleSoonRefresh()
 end
 
--- Saída: grava as pontuações finais (lidas agora, antes do perfil ser liberado).
+-- Depois da gravação final de quem saiu: esquece a pessoa nos mapas em memória dos
+-- placares (Memory e LastWritten), a não ser que ela esteja aparecendo no painel agora
+-- (aí a reserva em memória ainda é útil). Também limpa o cache de nomes.
+local function forgetLeavingUser(userId, leavingPlayer)
+	-- Entrou de novo (outro objeto Player com o mesmo UserId) enquanto gravávamos:
+	-- os valores nos mapas já são da sessão nova, então não apaga nada.
+	local present = Players:GetPlayerByUserId(userId)
+	if present and present ~= leavingPlayer then
+		return
+	end
+	for _, board in ipairs(BOARDS) do
+		if not board.Shown[userId] then
+			board.Memory[userId] = nil
+			board.LastWritten[userId] = nil
+		end
+	end
+	pruneNameCache()
+end
+
+-- Saída: grava as pontuações finais (lidas agora, antes do perfil ser liberado) e depois
+-- esquece o jogador na memória dos placares.
 local function onPlayerRemoving(player)
 	cachePlayerName(player)
+	local userId = player.UserId
 	local stats = getPlayerStats(player)
-	if stats then
-		-- Copia só os números agora: depois o perfil pode ser liberado ou mudar.
-		local snapshot = {
+	-- Copia só os números agora: depois o perfil pode ser liberado ou mudar.
+	local snapshot = if stats
+		then {
 			TotalCoins = stats.TotalCoins,
 			KillsTotal = stats.KillsTotal,
 			ActsCompleted = stats.ActsCompleted,
 		}
-		task.spawn(writeStatsScores, player.UserId, snapshot, false)
-	end
+		else nil
+	task.spawn(function()
+		if snapshot then
+			local ok, err = pcall(writeStatsScores, userId, snapshot, false)
+			if not ok then
+				warn("[LobbyService] Erro ao gravar a pontuação final: " .. tostring(err))
+			end
+		end
+		local ok, err = pcall(forgetLeavingUser, userId, player)
+		if not ok then
+			warn("[LobbyService] Erro ao limpar o placar em memória: " .. tostring(err))
+		end
+	end)
 end
 
 -------------------------------------------------------------------------------
@@ -681,8 +830,15 @@ function LobbyService.Start()
 		end
 	end
 
-	-- Primeira leitura do quadro e ciclo periódico.
-	task.spawn(refreshBoard)
+	-- Enquanto a primeira leitura de cada placar não chega (uma a cada ~20 s, em rodízio),
+	-- os painéis mostram "Carregando placar...".
+	for _, board in ipairs(BOARDS) do
+		if not board.HasRendered then
+			pcall(renderMessage, board, MSG_LOADING)
+		end
+	end
+
+	-- Ciclo periódico (a primeira volta é logo no começo).
 	trove:Add(task.spawn(refreshLoop))
 end
 

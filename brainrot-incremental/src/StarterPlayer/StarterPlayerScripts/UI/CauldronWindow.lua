@@ -49,7 +49,9 @@ local SLOT_COUNT = 3 -- espaços do caldeirão (toda receita usa 2 ou 3 ingredie
 local MIN_INGREDIENTS = 2
 local TICK_INTERVAL = 0.5 -- atualização do tempo dos efeitos ativos (s)
 local PAGE_HEIGHT = 440 -- altura da aba Caldeirão
-local INGREDIENT_CELL = UDim2.fromOffset(160, 92)
+-- Célula de cada ingrediente: metade da largura (menos metade do espaço entre elas),
+-- para caberem 2 colunas lado a lado no painel do inventário.
+local INGREDIENT_CELL = UDim2.new(0.5, -4, 0, 84)
 local SLOT_SIZE = 100
 local BUBBLE_COUNT = 10
 
@@ -74,7 +76,13 @@ local slots = {} -- [1..3] = ingredientId ou nil
 local crafting = false
 local listenTrove = Trove.new() -- conexões enquanto a janela está aberta
 local bookTrove = Trove.new() -- cartões do Livro (remontados quando o livro muda)
-local bookDirty = true
+local bookDirty = true -- true = conferir se o livro mudou (a remontagem só acontece se mudou)
+local builtBookSignature = nil -- "assinatura" do livro montado agora (nil = nada montado)
+
+-- Várias mudanças de estado no mesmo quadro viram UMA atualização (task.defer).
+local refreshQueued = false
+local pendingCauldron = false
+local pendingBook = false
 
 -------------------------------------------------------------------------------
 -- Ajudantes de estado
@@ -637,15 +645,26 @@ local function buildBookCard(recipe, known, active, order)
 	return card
 end
 
-local function refreshBook()
-	if not bookDirty then
-		return
-	end
-	bookDirty = false
-	bookTrove:Clean()
-
+-- "Assinatura" do livro: quais receitas são conhecidas, quais estão ativas e o
+-- multiplicador de custo do mapa. Se ela não mudou, os cartões montados continuam certos.
+-- (O perfil muda várias vezes por segundo por causa das moedas; sem isso o livro seria
+-- remontado inteiro toda vez.)
+local function bookSignature()
 	local known = getKnown()
 	local active = getActive()
+	local parts = table.create(#Recipes.Recipes + 1)
+	for _, recipe in ipairs(Recipes.Recipes) do
+		local knownMark = if known[recipe.Id] == true then "K" else "-"
+		local activeMark = if active[recipe.Id] == true then "A" else "-"
+		table.insert(parts, knownMark .. activeMark)
+	end
+	table.insert(parts, tostring(getCostScale()))
+	return table.concat(parts, "")
+end
+
+-- Resumo do livro (contagem e título da aba). Barato: pode rodar sempre.
+local function refreshBookSummary()
+	local known = getKnown()
 	local knownCount = 0
 	for _, recipe in ipairs(Recipes.Recipes) do
 		if known[recipe.Id] == true then
@@ -655,6 +674,26 @@ local function refreshBook()
 	ui.BookSummary.Text = ("Receitas descobertas: %d de %d"):format(knownCount, #Recipes.Recipes)
 	ui.BookBar.Set(#Recipes.Recipes > 0 and knownCount / #Recipes.Recipes or 0, nil, true)
 	ui.BookTab.Text = ("Livro de Receitas (%d/%d)"):format(knownCount, #Recipes.Recipes)
+end
+
+-- Atualiza o livro. Só remonta os cartões quando a assinatura mudou.
+-- Devolve true se remontou (a seleção do controle pode ter sumido).
+local function refreshBook()
+	if not bookDirty then
+		return false
+	end
+	bookDirty = false
+	refreshBookSummary()
+
+	local signature = bookSignature()
+	if signature == builtBookSignature then
+		return false
+	end
+	builtBookSignature = signature
+	bookTrove:Clean()
+
+	local known = getKnown()
+	local active = getActive()
 
 	-- Conhecidas primeiro (na ordem do Config), depois as "???".
 	local order = 0
@@ -667,6 +706,7 @@ local function refreshBook()
 			end
 		end
 	end
+	return true
 end
 
 -------------------------------------------------------------------------------
@@ -1234,6 +1274,7 @@ end
 
 local function build()
 	window = UIKit.Window(WINDOW_NAME, "Caldeirão Brainrot", WINDOW_SIZE)
+	builtBookSignature = nil -- janela nova: o livro ainda não foi montado nela
 	local content = window.Content
 	local layout = UIKit.List(content, 10)
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
@@ -1279,19 +1320,48 @@ end
 local function startListening()
 	listenTrove:Clean()
 
-	local function onCauldronChange()
-		if currentTab == "Cauldron" then
-			refreshCauldron()
+	-- Roda uma vez no fim do quadro, com tudo o que mudou nele.
+	local function flushRefresh()
+		refreshQueued = false
+		local doCauldron = pendingCauldron
+		local doBook = pendingBook
+		pendingCauldron = false
+		pendingBook = false
+		if not (window and window.IsOpen()) then
+			return
 		end
-	end
-	local function onBookChange()
-		bookDirty = true
+		if doBook then
+			bookDirty = true
+		end
 		if currentTab == "Book" then
-			refreshBook()
-			task.defer(fixSelection)
+			-- Só remonta se as receitas conhecidas/ativas mudaram de verdade.
+			if doBook and refreshBook() then
+				task.defer(fixSelection)
+			end
 		else
 			refreshCauldron()
+			if doBook then
+				-- O título da aba do livro mostra a contagem: atualiza já (é barato).
+				-- Os cartões ficam para quando o jogador abrir o livro (bookDirty).
+				refreshBookSummary()
+			end
 		end
+	end
+	local function queueRefresh()
+		if refreshQueued then
+			return
+		end
+		refreshQueued = true
+		task.defer(flushRefresh)
+	end
+
+	local function onCauldronChange()
+		pendingCauldron = true
+		queueRefresh()
+	end
+	local function onBookChange()
+		pendingBook = true
+		queueRefresh()
 	end
 
 	listenTrove:Add(StateController.OnChanged("Ingredients", onCauldronChange))

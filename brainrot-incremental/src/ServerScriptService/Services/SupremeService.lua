@@ -14,8 +14,10 @@
 --   MinHeight + (MaxHeight - MinHeight) × Progress^1,5
 -- e a iluminação do mapa vai escurecendo conforme ele cresce (a sombra dele cobre o sol).
 --
--- Final: quando o progresso chega a 1 (uma vez só), manda "Ending" para todos, espera a
--- cena final (30 s) e chama MatchService.CompleteAct() (o grupo volta ao lobby).
+-- Final: quando o progresso chega a 1 (uma vez só), dá a recompensa do ato a todos os
+-- presentes (MatchService.GrantActRewards + FinalizeAct), manda "Ending" para todos, espera
+-- a cena final (30 s) e chama MatchService.CompleteAct() (o grupo volta ao lobby).
+-- Quem entra durante a cena final também recebe a recompensa (RunReady).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -433,7 +435,52 @@ local function countPresentRuns()
 	return count
 end
 
+-- Dá a recompensa do ato (GameCompleted, skin, Tokens, CompletedMaps...) a um jogador.
+-- MatchService.GrantActRewards é idempotente: quem já recebeu não recebe de novo.
+-- Protegido: um erro aqui nunca pode impedir a cena final.
+local function grantActRewards(player)
+	local ok, result = pcall(function()
+		return getMatch().GrantActRewards(player)
+	end)
+	if not ok then
+		warn("[SupremeService] Erro ao dar a recompensa do ato: " .. tostring(result))
+		return false
+	end
+	return result == true
+end
+
+-- Encerra o ato (FinalizeAct: para de salvar o run e apaga o save do time). Igual ao
+-- CompleteAct: só quando alguém recebeu a recompensa agora. Se ninguém recebeu (ex.: o
+-- único jogador estava com o perfil liberado para um teleporte "Voltar ao lobby"), o
+-- autosave continua; o CompleteAct no fim da cena final tenta de novo.
+local function finalizeAct()
+	local ok, err = pcall(function()
+		getMatch().FinalizeAct()
+	end)
+	if not ok then
+		warn("[SupremeService] Erro ao encerrar o ato: " .. tostring(err))
+	end
+end
+
+-- Recompensa todos os jogadores presentes com run e encerra o ato se alguém recebeu.
+-- Roda NO COMEÇO da cena final: quem sair durante os 30 s dos créditos já levou tudo e
+-- nada fica para trás.
+local function rewardEveryoneAndFinalize()
+	local MatchService = getMatch()
+	local rewarded = 0
+	for _, player in ipairs(Players:GetPlayers()) do
+		if MatchService.GetRun(player) and grantActRewards(player) then
+			rewarded += 1
+		end
+	end
+	if rewarded > 0 then
+		finalizeAct()
+	end
+end
+
 -- Conclui o ato (volta ao lobby). Se a viagem falhar, tenta mais algumas vezes.
+-- (As recompensas já foram dadas no começo da cena final; o CompleteAct pula quem já
+-- recebeu, e o FinalizeAct é idempotente: repetir aqui nunca apaga o save de novo.)
 local function completeAct(attempt)
 	local ok, result, message = pcall(function()
 		return getMatch().CompleteAct()
@@ -477,6 +524,10 @@ local function triggerEnding()
 		Duration = ENDING_DURATION,
 		SupremeName = supremeName(),
 	}
+
+	-- Recompensas AGORA (antes eram dadas só 30 s depois, e quem saía durante os créditos
+	-- perdia GameCompleted, skin, Tokens e CompletedMaps).
+	rewardEveryoneAndFinalize()
 
 	Net.FireAll("Ending", endingPayload)
 	StateService.NotifyAll(("O %s tampou o sol! Obrigado por jogar!"):format(supremeName()), "rare", 10)
@@ -659,12 +710,16 @@ function SupremeService.Start()
 		triggerEnding()
 	end
 
-	-- Jogador pronto: final pendente, ou quem chegou no meio da cena final também a vê.
+	-- Jogador pronto: final pendente, ou quem chegou no meio da cena final também a vê
+	-- (e recebe a recompensa do ato na hora, como quem estava aqui quando o final começou).
 	local okRun, runErr = pcall(function()
 		getMatch().RunReady:Connect(function(player)
 			if endingPending and not endingTriggered then
 				triggerEnding()
 			elseif endingTriggered and endingPayload and isPlayerInGame(player) then
+				if grantActRewards(player) then
+					finalizeAct() -- idempotente; encerra o ato se ninguém tinha recebido antes
+				end
 				local remaining = ENDING_DURATION - (now() - endingStartedAt)
 				if remaining > 1 then
 					Net.FireClient(player, "Ending", {

@@ -20,8 +20,11 @@
 --
 -- Depois de qualquer mudança, cada jogador do lobby recebe o evento "PartyState" com
 -- a visão dele (grupo dele, grupos que ele pode ver e convites pendentes).
+-- Pedidos que não mudam nada (ex.: marcar "pronto" duas vezes) não geram envio, e cada
+-- jogador só recebe o PartyState quando a visão DELE mudou (comparamos com o último
+-- envio, veja lastSent).
 --
--- Amizade: player:IsFriendsWith(hostUserId) faz uma chamada web (demora). Por isso
+-- Amizade: player:IsFriendsWithAsync(hostUserId) faz uma chamada web (demora). Por isso
 -- guardamos o resultado num cache e, na hora de montar o PartyState, só usamos o que
 -- já está no cache; o que falta é buscado em segundo plano e, quando chega, mandamos
 -- o estado de novo. Assim o envio do PartyState nunca fica esperando a web.
@@ -70,12 +73,14 @@ local FRIEND_FAIL_RETRY = 30 -- se a checagem falhou, tenta de novo depois disso
 local TELEPORT_STUCK_TIMEOUT = 75 -- depois do teleporte "dar certo", quem ficou para trás volta a esperar (s)
 local JOIN_RESEND_DELAYS = { 3, 8 } -- reenvia o PartyState para quem acabou de entrar (s)
 local MIN_BROADCAST_INTERVAL = 0.25 -- tempo mínimo entre dois envios do PartyState para todos (s)
+local INVITE_NOTIFY_COOLDOWN = 30 -- o mesmo dono só avisa o mesmo jogador de um convite a cada 30 s
 
 -- Limites de frequência (pedidos por segundo e rajada) de cada Request.
 local RATE_CREATE = { Rate = 1, Burst = 3 }
 local RATE_JOIN = { Rate = 2, Burst = 5 }
 local RATE_INVITE = { Rate = 1, Burst = 4 }
 local RATE_SETTINGS = { Rate = 4, Burst = 8 }
+local RATE_READY = { Rate = 1, Burst = 3 } -- "pronto" é um clique de vez em quando
 
 -- Mensagens de erro (português do Brasil).
 local MSG_NO_PROFILE = "Seus dados ainda estão carregando. Tente de novo em instantes."
@@ -154,6 +159,15 @@ local friendPending = {} -- ["a:b"] = true enquanto a checagem está em andament
 local serviceTrove = Trove.new() -- conexões do serviço
 local broadcastScheduled = false -- já tem um envio de PartyState marcado?
 local lastBroadcastAt = -math.huge -- os.clock() do último envio para todos
+
+-- Último PartyState mandado para cada jogador, em texto JSON: [player] = string.
+-- Se o próximo sair igual, não mandamos de novo (economiza rede).
+-- "__mode = k" (chave fraca): se um jogador sair sem passar pela limpeza, a entrada
+-- some sozinha quando o Player deixar de existir.
+local lastSent = setmetatable({}, { __mode = "k" })
+
+-- Quando o dono avisou cada jogador de um convite: [hostUserId] = {[targetUserId] = os.clock()}.
+local inviteNotifiedAt = {}
 
 -------------------------------------------------------------------------------
 -- Ajudantes gerais
@@ -357,7 +371,7 @@ local function prefetchFriendship(viewer, otherUserId)
 	task.spawn(function()
 		local previous = getFriendEntry(viewerId, otherUserId)
 		local ok, result = pcall(function()
-			return viewer:IsFriendsWith(otherUserId)
+			return viewer:IsFriendsWithAsync(otherUserId)
 		end)
 		friendPending[key] = nil
 		if viewer.Parent ~= Players then
@@ -403,10 +417,10 @@ local function checkFriendshipNow(player, otherUserId)
 		return entry.Value
 	end
 	local ok, result = pcall(function()
-		return player:IsFriendsWith(otherUserId)
+		return player:IsFriendsWithAsync(otherUserId)
 	end)
 	if not ok then
-		warn("[PartyService] IsFriendsWith falhou: " .. tostring(result))
+		warn("[PartyService] IsFriendsWithAsync falhou: " .. tostring(result))
 		return nil
 	end
 	local value = result == true
@@ -544,19 +558,49 @@ local function buildAllBases()
 	return bases
 end
 
--- Manda o PartyState para um jogador só.
+-- Transforma o PartyState em texto (JSON) para comparar com o último envio.
+-- Devolve nil se não der (aí mandamos sem comparar).
+-- O MyParty é a MESMA tabela de um dos itens de Parties; para o texto não ter a mesma
+-- tabela duas vezes, guardamos só o Id dele (Parties já tem todo o conteúdo).
+local function encodePayload(payload)
+	local ok, encoded = pcall(function()
+		return HttpService:JSONEncode({
+			MyPartyId = payload.MyParty and payload.MyParty.Id or nil,
+			Parties = payload.Parties,
+			Invites = payload.Invites,
+		})
+	end)
+	if ok and type(encoded) == "string" then
+		return encoded
+	end
+	return nil
+end
+
+-- Manda o PartyState para um jogador só. Sempre manda (é usado quando o jogador
+-- acabou de entrar, e os reenvios existem justamente para o caso de a interface dele
+-- ainda não estar pronta), mas guarda o texto para o próximo broadcast comparar.
 local function sendTo(player)
 	if typeof(player) ~= "Instance" or player.Parent ~= Players then
 		return
 	end
-	Net.FireClient(player, "PartyState", buildPayload(player, buildAllBases()))
+	local payload = buildPayload(player, buildAllBases())
+	lastSent[player] = encodePayload(payload)
+	Net.FireClient(player, "PartyState", payload)
 end
 
--- Manda o PartyState para todos os jogadores do lobby.
+-- Manda o PartyState para todos os jogadores do lobby, mas só para quem a visão mudou
+-- desde o último envio (o mesmo texto JSON = nada mudou para aquele jogador).
 local function broadcastNow()
 	local bases = buildAllBases()
 	for _, player in ipairs(Players:GetPlayers()) do
-		Net.FireClient(player, "PartyState", buildPayload(player, bases))
+		if player.Parent == Players then
+			local payload = buildPayload(player, bases)
+			local encoded = encodePayload(payload)
+			if encoded == nil or encoded ~= lastSent[player] then
+				lastSent[player] = encoded
+				Net.FireClient(player, "PartyState", payload)
+			end
+		end
 	end
 end
 
@@ -1017,11 +1061,20 @@ local function onPartyReady(player, ready)
 	end
 
 	local userId = player.UserId
+	local wasReady = party.Ready[userId] == true
+	-- Um membro "não pronto" durante a contagem cancela (vale também para quem já não
+	-- estava pronto numa partida iniciada à força). O dono sempre conta como pronto;
+	-- para parar, ele usa "Cancelar".
+	local cancelsCountdown = not ready and party.State == "Countdown" and userId ~= party.HostUserId
+
+	-- Nada mudou (ex.: "pronto" duas vezes seguidas): responde ok sem mandar nada.
+	if wasReady == ready and not cancelsCountdown then
+		return true, true
+	end
+
 	party.Ready[userId] = if ready then true else nil
 
-	-- Um membro desmarcou "pronto" durante a contagem: cancela.
-	-- (O dono sempre conta como pronto; para parar, ele usa "Cancelar".)
-	if not ready and party.State == "Countdown" and userId ~= party.HostUserId then
+	if cancelsCountdown then
 		cancelCountdown(party, NOTE_CANCEL_UNREADY:format(displayNameOf(userId)))
 	end
 
@@ -1206,6 +1259,10 @@ local function onPartySetMaxPlayers(player, n)
 	if n < #party.Members then
 		return false, MSG_MAX_BELOW_MEMBERS:format(#party.Members)
 	end
+	-- Mesmo valor: nada a mandar.
+	if party.MaxPlayers == n then
+		return true, true
+	end
 
 	party.MaxPlayers = n
 	scheduleBroadcast()
@@ -1258,6 +1315,10 @@ local function onPartySetResume(player, resume)
 			return false, MSG_NO_SAVE
 		end
 	end
+	-- Mesmo valor: nada a mandar.
+	if party.Resume == resume then
+		return true, true
+	end
 
 	party.Resume = resume
 	scheduleBroadcast()
@@ -1286,10 +1347,25 @@ local function onPartyInvite(player, targetUserId)
 	if table.find(party.Members, targetUserId) then
 		return false, MSG_TARGET_ALREADY_MEMBER
 	end
+	-- Já convidado: o convite continua valendo; não avisa de novo nem manda estado.
+	if party.Invited[targetUserId] then
+		return true, true
+	end
 
 	party.Invited[targetUserId] = true
 	party.Kicked[targetUserId] = nil -- o dono convidou de propósito: perdoa a expulsão
-	StateService.Notify(target, NOTE_INVITED:format(player.DisplayName, mapDisplayName(party.MapId)), "info", 8)
+
+	-- O aviso para o convidado tem recarga por par (dono, convidado): assim, expulsar e
+	-- convidar de novo (ou criar outro grupo e convidar) não enche a tela dele de avisos.
+	-- O convite em si vale na hora; só o aviso espera.
+	local hostId = player.UserId
+	local sentAt = inviteNotifiedAt[hostId] and inviteNotifiedAt[hostId][targetUserId]
+	local nowClock = os.clock()
+	if sentAt == nil or nowClock - sentAt >= INVITE_NOTIFY_COOLDOWN then
+		inviteNotifiedAt[hostId] = inviteNotifiedAt[hostId] or {}
+		inviteNotifiedAt[hostId][targetUserId] = nowClock
+		StateService.Notify(target, NOTE_INVITED:format(player.DisplayName, mapDisplayName(party.MapId)), "info", 8)
+	end
 	scheduleBroadcast()
 	return true, true
 end
@@ -1301,7 +1377,10 @@ end
 -- Grupo para o qual o jogador que acabou de chegar foi chamado pelo convite do Roblox
 -- (SocialService:PromptGameInvite), ou nil. Lemos isso no player:GetJoinData():
 --   1. LaunchData: o cliente do dono manda o Id do grupo junto com o convite
---      (ExperienceInviteOptions.LaunchData). O Id é um GUID que só quem vê o grupo conhece.
+--      (ExperienceInviteOptions.LaunchData). O LaunchData também pode vir de um link
+--      de compartilhamento feito por qualquer pessoa que viu o Id, então ele só vale
+--      quando quem convidou (ReferredByPlayerId, preenchido pelo próprio Roblox) é o
+--      dono ou um membro desse grupo.
 --   2. ReferredByPlayerId: o próprio Roblox diz quem mandou o convite. Se essa pessoa é
 --      dona de um grupo neste servidor, vale o grupo dela (convite sem LaunchData).
 local function getRobloxInviteParty(player)
@@ -1313,21 +1392,24 @@ local function getRobloxInviteParty(player)
 		return nil
 	end
 
+	-- tonumber aceita número ou texto; qualquer outra coisa vira nil.
+	local referrerId = tonumber(joinData.ReferredByPlayerId)
+	if not isValidUserId(referrerId) then
+		return nil -- sem alguém que convidou de verdade, não há convite para aceitar
+	end
+
 	local launchData = joinData.LaunchData
 	if type(launchData) == "string" and #launchData <= MAX_ID_LENGTH then
 		local party = parties[launchData]
-		if party then
+		if party and (party.HostUserId == referrerId or table.find(party.Members, referrerId) ~= nil) then
 			return party
 		end
 	end
 
-	-- tonumber aceita número ou texto; qualquer outra coisa vira nil.
-	local referrerId = tonumber(joinData.ReferredByPlayerId)
-	if isValidUserId(referrerId) then
-		local party = getPartyOf(referrerId)
-		if party and party.HostUserId == referrerId then
-			return party
-		end
+	-- Sem LaunchData válido: vale o grupo de quem convidou, se essa pessoa é a dona.
+	local party = getPartyOf(referrerId)
+	if party and party.HostUserId == referrerId then
+		return party
 	end
 	return nil
 end
@@ -1371,7 +1453,8 @@ local function onPlayerAdded(player)
 	end
 end
 
--- Saiu do servidor: sai do grupo, perde os convites e limpa o cache de amizade.
+-- Saiu do servidor: sai do grupo, perde os convites e limpa o cache de amizade,
+-- a recarga dos avisos de convite e o último PartyState guardado.
 local function onPlayerRemoving(player)
 	local userId = player.UserId
 	rememberNames(player)
@@ -1391,6 +1474,15 @@ local function onPlayerRemoving(player)
 		cache[userId] = nil
 	end
 
+	-- Recarga dos avisos de convite (como dono e como convidado).
+	inviteNotifiedAt[userId] = nil
+	for _, sentTo in pairs(inviteNotifiedAt) do
+		sentTo[userId] = nil
+	end
+
+	-- Último PartyState mandado para ele (não serve mais para nada).
+	lastSent[player] = nil
+
 	-- Os nomes só eram necessários para os avisos acima.
 	displayNames[userId] = nil
 
@@ -1405,7 +1497,7 @@ function PartyService.Init()
 	Net.Handle("PartyCreate", onPartyCreate, RATE_CREATE)
 	Net.Handle("PartyJoin", onPartyJoin, RATE_JOIN)
 	Net.Handle("PartyLeave", onPartyLeave, RATE_SETTINGS)
-	Net.Handle("PartyReady", onPartyReady, RATE_SETTINGS)
+	Net.Handle("PartyReady", onPartyReady, RATE_READY)
 	Net.Handle("PartyStart", onPartyStart, RATE_SETTINGS)
 	Net.Handle("PartyCancelCountdown", onPartyCancelCountdown, RATE_SETTINGS)
 	Net.Handle("PartyKick", onPartyKick, RATE_SETTINGS)
