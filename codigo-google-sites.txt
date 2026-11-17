@@ -622,6 +622,92 @@
       .text-btn:active, .tab:active, .quiet-btn:active, .topic-trigger:active, .read-chip:active, .figure-btn:active,
       .read-toggle:active, .nav-link:active, .modal-close:active, .btn:active { transform: none; }
     }
+
+    /* =====================================================================
+       AULAS EM VÍDEO (lite YouTube embed)
+       ===================================================================== */
+    .videos { margin-top: 48px; }
+    .videos-head {
+      display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--ink);
+    }
+    .videos-head h3 { margin: 0; font-family: var(--serif); font-size: 1.35rem; font-weight: 500; letter-spacing: -0.01em; }
+    .videos-head p { margin: 0; font-size: 12.5px; font-weight: 600; color: var(--ink-3); }
+    .video-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 24px; margin-top: 22px; }
+    .video-card { margin: 0; min-width: 0; }
+    .video-frame {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      border-radius: 4px;
+      overflow: hidden;
+      background: #1C1917;
+    }
+    .video-poster {
+      position: absolute; inset: 0;
+      display: block; width: 100%; height: 100%;
+      padding: 0; border: 0;
+      background: #1C1917;
+      cursor: pointer;
+      transition: opacity 200ms var(--ease-out);
+    }
+    .video-poster img { width: 100%; height: 100%; object-fit: cover; transition: transform 280ms var(--ease-out); }
+    .video-poster::after {
+      content: "";
+      position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, .45));
+      pointer-events: none;
+    }
+    .video-poster.no-thumb { background: linear-gradient(135deg, #292524, #1C1917); }
+    .poster-title {
+      position: absolute; left: 18px; right: 18px; top: 16px;
+      font-family: var(--serif); font-style: italic; font-size: 1.05rem; line-height: 1.35;
+      color: #E7E5E4; text-align: left;
+    }
+    .play {
+      position: absolute; left: 50%; top: 50%; z-index: 1;
+      width: 60px; height: 60px;
+      margin: -30px 0 0 -30px;
+      display: grid; place-items: center;
+      border-radius: 50%;
+      background: rgba(250, 249, 246, .92);
+      color: var(--ink);
+      box-shadow: 0 8px 24px -6px rgba(0, 0, 0, .45);
+      transition: transform var(--t-ui) var(--ease-out), background-color var(--t-ui) ease;
+    }
+    .play svg { width: 20px; height: 20px; margin-left: 3px; fill: currentColor; }
+    .video-poster:active .play { transform: scale(0.94); }
+    .video-poster.is-leaving { opacity: 0; pointer-events: none; }
+    .video-iframe {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      border: 0;
+      opacity: 0;
+      transform: scale(0.98);
+      transition: opacity 240ms var(--ease-out), transform 280ms var(--ease-out);
+    }
+    .video-iframe.is-ready { opacity: 1; transform: scale(1); }
+    .video-meta { margin-top: 12px; }
+    .video-channel { display: block; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--c-primary); }
+    .video-title { margin: 4px 0 8px; font-family: var(--serif); font-size: 1.12rem; font-weight: 500; line-height: 1.35; color: var(--ink); text-wrap: pretty; }
+    .video-links { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+    .video-note { display: none; margin: 0 0 6px; font-size: 12.5px; color: #9A3412; }
+    .video-card.thumb-missing .video-note { display: block; }
+    .video-search { display: none; }
+    .video-card.thumb-missing .video-search { display: inline; }
+
+    @media (hover: hover) and (pointer: fine) {
+      .video-poster:hover img { transform: scale(1.02); }
+      .video-poster:hover .play { transform: scale(1.06); background: #FFFFFF; }
+    }
+    @media (max-width: 640px) {
+      .video-grid { grid-template-columns: 1fr; gap: 26px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .video-poster img, .video-poster:hover img { transform: none; transition: none; }
+      .play, .video-poster:hover .play, .video-poster:active .play { transform: none; }
+      .video-iframe, .video-iframe.is-ready { transform: none; }
+    }
   </style>
 </head>
 <body>
@@ -699,7 +785,8 @@
       expand: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px"><path d="M7 9l5-5 5 5M7 15l5 5 5-5"/></svg>',
       collapse: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px"><path d="M7 4l5 5 5-5M7 20l5-5 5 5"/></svg>',
       note: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px"><path d="M5 4h10l4 4v12H5z"/><path d="M9 11h6M9 15h6"/></svg>',
-      copy: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h9"/></svg>'
+      copy: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h9"/></svg>',
+      play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z"/></svg>'
     };
 
     /* =====================================================================
@@ -1430,6 +1517,27 @@
 
 
     /* =====================================================================
+       VIDEOAULAS COMPLEMENTARES (IDs fornecidos pela curadoria)
+       ===================================================================== */
+    var VIDEOS = {
+      c11: [
+        { channel: "Débora Aladim", title: "Era Napoleônica: Resumo Completo (Consulado, Império e Bloqueio Continental)", id: "2E5xM3_5k0M" },
+        { channel: "Toda Matéria / Parabólica", title: "Período Joanino: A Vinda da Família Real Portuguesa ao Brasil (1808)", id: "P8y-n8Z_5tM" }
+      ],
+      c12: [
+        { channel: "Débora Aladim", title: "Independência dos Estados Unidos (Treze Colônias e Constituição)", id: "9B8g4a1p8tY" },
+        { channel: "Parabólica / História Online", title: "Revolução Haitiana: A Primeira República Negra da América", id: "v2gL5w5i0yU" }
+      ],
+      c13: [
+        { channel: "Toda Matéria / Revisão História", title: "Independência da América Espanhola e o Processo Mexicano (Hidalgo, Morelos e Iturbide)", id: "J5x8nK9p1qA" }
+      ],
+      c14: [
+        { channel: "Débora Aladim", title: "Primeiro Reinado (1822–1831): Constituição de 1824, Confederação do Equador e Abdicação", id: "q2p9k8m1v4E" },
+        { channel: "Toda Matéria", title: "Todas as Constituições do Brasil: De 1824 à Constituição Cidadã de 1988", id: "r7y3w9n2x6L" }
+      ]
+    };
+
+    /* =====================================================================
        ESTADO E PERSISTÊNCIA (localStorage protegido para iframes)
        ===================================================================== */
     var STORAGE_KEY = "planoHistoria_2s_cap11a14_leitura_v2";
@@ -1691,6 +1799,78 @@
     };
 
     /* =====================================================================
+       VIDEOAULAS — capa leve; o iframe só é criado no clique
+       ===================================================================== */
+    function renderVideos(ch) {
+      var list = VIDEOS[ch.id] || [];
+      if (!list.length) return "";
+      return '' +
+        '<section class="videos reveal" style="--i:14" aria-labelledby="videos-' + ch.id + '">' +
+          '<div class="videos-head"><h3 id="videos-' + ch.id + '">Aulas em vídeo para aprofundar</h3><p class="num">' + list.length + (list.length > 1 ? " videoaulas" : " videoaula") + '</p></div>' +
+          '<div class="video-grid">' +
+            list.map(function (v) {
+              var search = "https://www.youtube.com/results?search_query=" + encodeURIComponent(v.title + " " + v.channel.split(" / ")[0]);
+              return '' +
+                '<figure class="video-card" data-video="' + esc(v.id) + '" data-title="' + esc(v.title) + '">' +
+                  '<div class="video-frame">' +
+                    '<button class="video-poster" type="button" data-play aria-label="Assistir: ' + esc(v.title) + '">' +
+                      '<img src="https://i.ytimg.com/vi/' + esc(v.id) + '/hqdefault.jpg" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="thumbFallback(this)">' +
+                      '<span class="play">' + I.play + '</span>' +
+                    '</button>' +
+                  '</div>' +
+                  '<figcaption class="video-meta">' +
+                    '<span class="video-channel">' + v.channel + '</span>' +
+                    '<p class="video-title">' + v.title + '</p>' +
+                    '<p class="video-note">A capa deste vídeo não foi encontrada: o link pode ter mudado ou a rede pode estar bloqueando o YouTube.</p>' +
+                    '<span class="video-links">' +
+                      '<a class="placard-link" href="https://www.youtube.com/watch?v=' + esc(v.id) + '" target="_blank" rel="noopener noreferrer">Abrir no YouTube ↗</a>' +
+                      '<a class="placard-link video-search" href="' + esc(search) + '" target="_blank" rel="noopener noreferrer">Buscar esta aula ↗</a>' +
+                    '</span>' +
+                  '</figcaption>' +
+                '</figure>';
+            }).join("") +
+          '</div>' +
+        '</section>';
+    }
+
+    /* Capa indisponível: mantém o card com o título e libera a busca */
+    window.thumbFallback = function (img) {
+      try {
+        var card = img.closest(".video-card");
+        var poster = img.closest(".video-poster");
+        if (!card || !poster) return;
+        card.classList.add("thumb-missing");
+        poster.classList.add("no-thumb");
+        var t = document.createElement("span");
+        t.className = "poster-title";
+        t.textContent = card.getAttribute("data-title") || "";
+        poster.replaceChild(t, img);
+      } catch (e) { /* silencioso */ }
+    };
+
+    function playVideo(card) {
+      if (!card || card.querySelector("iframe")) return;
+      var id = card.getAttribute("data-video");
+      var frame = card.querySelector(".video-frame");
+      var poster = card.querySelector(".video-poster");
+      var ifr = document.createElement("iframe");
+      ifr.className = "video-iframe";
+      ifr.src = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(id) + "?autoplay=1&rel=0";
+      ifr.title = card.getAttribute("data-title") || "Videoaula";
+      ifr.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share");
+      ifr.setAttribute("allowfullscreen", "");
+      /* O YouTube exige o referenciador para incorporações; sem ele o player falha */
+      ifr.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+      frame.appendChild(ifr);
+      void ifr.offsetWidth;
+      window.requestAnimationFrame(function () {
+        ifr.classList.add("is-ready");
+        if (poster) poster.classList.add("is-leaving");
+      });
+      setTimeout(function () { if (poster && poster.parentNode) poster.parentNode.removeChild(poster); try { ifr.focus(); } catch (e) {} }, 300);
+    }
+
+    /* =====================================================================
        CAPÍTULO
        ===================================================================== */
     function renderChapter(stagger) {
@@ -1737,6 +1917,8 @@
           '</div>' +
 
           '<ol class="toc">' + ch.topics.map(function (t, i) { return renderTopic(ch, t, i); }).join("") + '</ol>' +
+
+          renderVideos(ch) +
 
           '<nav class="chapter-nav reveal" style="--i:14" aria-label="Navegação entre capítulos">' +
             (prev ? '<button class="nav-link" type="button" data-goto="' + prev.id + '"><small>← Anterior</small><span>Cap. ' + prev.num + ' · ' + prev.short + '</span></button>' : '') +
@@ -1888,6 +2070,9 @@
       view.addEventListener("click", function (e) {
         var trig = e.target.closest(".topic-trigger");
         if (trig) { var li = trig.closest(".topic"); setTopic(li, !li.classList.contains("is-open")); return; }
+
+        var play = e.target.closest("[data-play]");
+        if (play) { playVideo(play.closest(".video-card")); return; }
 
         var zoom = e.target.closest("[data-zoom]");
         if (zoom) { var img = zoom.querySelector("img"); if (img) openLightbox(img.getAttribute("src"), img.getAttribute("data-caption")); return; }
