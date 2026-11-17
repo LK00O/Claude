@@ -659,6 +659,13 @@
       pointer-events: none;
     }
     .video-poster.no-thumb { background: linear-gradient(135deg, #292524, #1C1917); }
+    a.video-poster { text-decoration: none; }
+    .is-search .video-poster { background: radial-gradient(120% 100% at 100% 100%, color-mix(in srgb, var(--c-primary) 55%, #1C1917), #1C1917 70%); }
+    .poster-channel {
+      position: absolute; left: 18px; bottom: 16px;
+      font-size: 10.5px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase;
+      color: rgba(231, 229, 228, .72);
+    }
     .poster-title {
       position: absolute; left: 18px; right: 18px; top: 16px;
       font-family: var(--serif); font-style: italic; font-size: 1.05rem; line-height: 1.35;
@@ -1519,21 +1526,24 @@
     /* =====================================================================
        VIDEOAULAS COMPLEMENTARES (IDs fornecidos pela curadoria)
        ===================================================================== */
+    /* Para tocar um vídeo DENTRO da página, preencha "id" com o código real
+       do vídeo (o trecho depois de "watch?v=" no link do YouTube). Sem "id",
+       o card abre as aulas correspondentes no YouTube. */
     var VIDEOS = {
       c11: [
-        { channel: "Débora Aladim", title: "Era Napoleônica: Resumo Completo (Consulado, Império e Bloqueio Continental)", id: "2E5xM3_5k0M" },
-        { channel: "Toda Matéria / Parabólica", title: "Período Joanino: A Vinda da Família Real Portuguesa ao Brasil (1808)", id: "P8y-n8Z_5tM" }
+        { channel: "Débora Aladim", title: "Era Napoleônica", query: "Debora Aladim Era Napoleonica", id: "" },
+        { channel: "Toda Matéria / Parabólica", title: "Período Joanino: a vinda da Família Real ao Brasil", query: "Periodo Joanino Vinda da Familia Real ao Brasil", id: "" }
       ],
       c12: [
-        { channel: "Débora Aladim", title: "Independência dos Estados Unidos (Treze Colônias e Constituição)", id: "9B8g4a1p8tY" },
-        { channel: "Parabólica / História Online", title: "Revolução Haitiana: A Primeira República Negra da América", id: "v2gL5w5i0yU" }
+        { channel: "Débora Aladim", title: "Independência dos Estados Unidos", query: "Debora Aladim Independencia dos Estados Unidos", id: "" },
+        { channel: "Parabólica", title: "Revolução Haitiana e a Independência do Haiti", query: "Parabolica Revolucao Haitiana Independencia do Haiti", id: "" }
       ],
       c13: [
-        { channel: "Toda Matéria / Revisão História", title: "Independência da América Espanhola e o Processo Mexicano (Hidalgo, Morelos e Iturbide)", id: "J5x8nK9p1qA" }
+        { channel: "Toda Matéria / História", title: "Independência do México: Hidalgo e Morelos", query: "Independencia do Mexico Hidalgo Morelos", id: "" }
       ],
       c14: [
-        { channel: "Débora Aladim", title: "Primeiro Reinado (1822–1831): Constituição de 1824, Confederação do Equador e Abdicação", id: "q2p9k8m1v4E" },
-        { channel: "Toda Matéria", title: "Todas as Constituições do Brasil: De 1824 à Constituição Cidadã de 1988", id: "r7y3w9n2x6L" }
+        { channel: "Débora Aladim", title: "Primeiro Reinado", query: "Debora Aladim Primeiro Reinado", id: "" },
+        { channel: "Toda Matéria", title: "Todas as Constituições do Brasil: de 1824 a 1988", query: "Todas as Constituicoes do Brasil 1824 1988", id: "" }
       ]
     };
 
@@ -1779,13 +1789,28 @@
         '</li>';
     }
 
-    /* Placa museológica quando a imagem não carrega */
+    /* Nome do arquivo na Commons a partir da URL (inclusive miniaturas /thumb/) */
+    function commonsFile(url) {
+      var parts = String(url).split("?")[0].split("/");
+      var t = parts.indexOf("thumb");
+      return t > -1 ? parts[t + 3] : parts[parts.length - 1];
+    }
+
+    /* 1ª falha: tenta de novo pelo nome do arquivo (Special:FilePath resolve o
+       caminho correto no acervo). 2ª falha: placa museológica. */
     window.imgFallback = function (img) {
       try {
         var btn = img.closest(".figure-btn");
         if (!btn) return;
+        var original = img.getAttribute("data-original") || img.getAttribute("src") || "";
+        if (!img.getAttribute("data-retried") && original.indexOf("upload.wikimedia.org") > -1) {
+          img.setAttribute("data-retried", "1");
+          img.setAttribute("data-original", original);
+          img.src = "https://commons.wikimedia.org/wiki/Special:FilePath/" + commonsFile(original) + "?width=1200";
+          return;
+        }
         var cap = img.getAttribute("data-caption") || "Obra histórica";
-        var src = img.getAttribute("src") || "";
+        var src = original;
         var fig = btn.parentNode;
         var plate = document.createElement("div");
         plate.className = "placard";
@@ -1809,7 +1834,24 @@
           '<div class="videos-head"><h3 id="videos-' + ch.id + '">Aulas em vídeo para aprofundar</h3><p class="num">' + list.length + (list.length > 1 ? " videoaulas" : " videoaula") + '</p></div>' +
           '<div class="video-grid">' +
             list.map(function (v) {
-              var search = "https://www.youtube.com/results?search_query=" + encodeURIComponent(v.title + " " + v.channel.split(" / ")[0]);
+              var search = "https://www.youtube.com/results?search_query=" + encodeURIComponent(v.query || (v.title + " " + v.channel));
+              if (!v.id) {
+                return '' +
+                  '<figure class="video-card is-search">' +
+                    '<div class="video-frame">' +
+                      '<a class="video-poster no-thumb" href="' + esc(search) + '" target="_blank" rel="noopener noreferrer" aria-label="Assistir no YouTube: ' + esc(v.title) + '">' +
+                        '<span class="poster-channel">' + v.channel + '</span>' +
+                        '<span class="poster-title">' + v.title + '</span>' +
+                        '<span class="play">' + I.play + '</span>' +
+                      '</a>' +
+                    '</div>' +
+                    '<figcaption class="video-meta">' +
+                      '<span class="video-channel">' + v.channel + '</span>' +
+                      '<p class="video-title">' + v.title + '</p>' +
+                      '<span class="video-links"><a class="placard-link" href="' + esc(search) + '" target="_blank" rel="noopener noreferrer">Abrir no YouTube ↗</a></span>' +
+                    '</figcaption>' +
+                  '</figure>';
+              }
               return '' +
                 '<figure class="video-card" data-video="' + esc(v.id) + '" data-title="' + esc(v.title) + '">' +
                   '<div class="video-frame">' +
@@ -2075,7 +2117,7 @@
         if (play) { playVideo(play.closest(".video-card")); return; }
 
         var zoom = e.target.closest("[data-zoom]");
-        if (zoom) { var img = zoom.querySelector("img"); if (img) openLightbox(img.getAttribute("src"), img.getAttribute("data-caption")); return; }
+        if (zoom) { var img = zoom.querySelector("img"); if (img) openLightbox(img.currentSrc || img.getAttribute("src"), img.getAttribute("data-caption")); return; }
 
         var rd = e.target.closest("[data-read]");
         if (rd) { toggleRead(rd.getAttribute("data-read")); return; }
