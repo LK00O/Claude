@@ -1,0 +1,2000 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Plano de Estudos de História</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    /* =====================================================================
+       CORES DO CAPÍTULO (registradas para transição suave entre abas)
+       ===================================================================== */
+    @property --c-primary { syntax: "<color>"; inherits: true; initial-value: #1B365D; }
+    @property --c-accent  { syntax: "<color>"; inherits: true; initial-value: #C68B2C; }
+    @property --c-soft    { syntax: "<color>"; inherits: true; initial-value: #F0F4F8; }
+
+    :root {
+      --paper: #FAF9F6;
+      --card: #FFFFFF;
+      --rule: #E5E2DC;
+      --line: #E6E4DD;
+      --ink: #18181B;
+      --ink-2: #52525B;
+      --ink-3: #78716C;
+
+      --c-primary: #1B365D;
+      --c-accent: #C68B2C;
+      --c-soft: #F0F4F8;
+
+      --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+      --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+      --t-press: 160ms;
+      --t-ui: 200ms;
+      --t-move: 240ms;
+
+      --sans: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      --serif: "Newsreader", "Merriweather", Georgia, "Times New Roman", serif;
+
+      --shadow-lg: 0 2px 4px rgba(24, 24, 27, .05), 0 16px 40px -12px rgba(24, 24, 27, .28), 0 40px 80px -24px rgba(24, 24, 27, .30);
+
+      transition:
+        --c-primary var(--t-move) var(--ease-out),
+        --c-accent var(--t-move) var(--ease-out),
+        --c-soft var(--t-move) var(--ease-out);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.65;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    img { display: block; max-width: 100%; }
+    button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    a { color: inherit; }
+    :focus-visible { outline: 2px solid var(--c-primary); outline-offset: 3px; border-radius: 4px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+    .num { font-variant-numeric: tabular-nums; }
+    svg.ic { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+    .app { max-width: 880px; margin: 0 auto; padding: 0 20px 56px; }
+
+    /* =====================================================================
+       CABEÇALHO TIPOGRÁFICO (integrado ao papel)
+       ===================================================================== */
+    .masthead {
+      border-top: 4px solid var(--c-primary);
+      padding: 22px 0 26px;
+    }
+    .mast-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .seal {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 4px 10px 4px 8px;
+      border: 1px solid var(--c-primary);
+      border-radius: 999px;
+      color: var(--c-primary);
+      font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+    }
+    .seal::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--c-accent); }
+    .text-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 2px;
+      border: 0; background: transparent;
+      color: var(--ink-3);
+      font-size: 13px; font-weight: 600;
+      text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 4px;
+      transition: color var(--t-ui) ease, text-decoration-color var(--t-ui) ease, transform var(--t-press) var(--ease-out);
+    }
+    .text-btn:active { transform: scale(0.98); }
+    .masthead h1 {
+      margin: 22px 0 10px;
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: clamp(2.1rem, 6vw, 3.4rem);
+      line-height: 1.02;
+      letter-spacing: -0.025em;
+      color: var(--ink);
+      text-wrap: balance;
+    }
+    .masthead h1 em { font-style: italic; color: var(--ink-2); }
+    .lede {
+      margin: 0;
+      max-width: 54ch;
+      font-family: var(--serif);
+      font-size: 1.15rem;
+      line-height: 1.5;
+      color: var(--ink-2);
+    }
+    .overall { margin-top: 26px; max-width: 420px; }
+    .overall-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+    .overall-pct { font-size: 1.05rem; font-weight: 800; color: var(--ink); }
+    .overall-label { font-size: 13px; color: var(--ink-2); }
+    .overall-meta { margin-left: auto; font-size: 12.5px; color: var(--ink-3); }
+
+    .track { position: relative; height: 2px; background: var(--rule); border-radius: 2px; }
+    .fill {
+      position: absolute; inset: 0;
+      background: var(--c-primary);
+      border-radius: inherit;
+      transform-origin: left center;
+      transform: scaleX(0);
+      transition: transform 420ms var(--ease-out);
+    }
+    .track::after {
+      content: "";
+      position: absolute; left: 0; right: 0; top: -3px; bottom: -3px;
+      border-radius: 4px;
+      background: var(--c-accent);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .track.pulse::after { animation: pulse 520ms var(--ease-out); }
+    @keyframes pulse {
+      0%   { opacity: 0;   transform: scaleY(0.4); }
+      30%  { opacity: .28; transform: scaleY(1); }
+      100% { opacity: 0;   transform: scaleY(1); }
+    }
+    .storage-warn { display: none; margin: 14px 0 0; font-size: 13px; color: #9A3412; }
+    .storage-warn.show { display: block; }
+
+    /* =====================================================================
+       ABAS COM INDICADOR DESLIZANTE
+       ===================================================================== */
+    .nav-wrap {
+      position: sticky; top: 0; z-index: 40;
+      margin: 0 -20px;
+      padding: 8px 20px 0;
+      background: rgba(250, 249, 246, .9);
+      -webkit-backdrop-filter: saturate(160%) blur(10px);
+      backdrop-filter: saturate(160%) blur(10px);
+    }
+    .tabs {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      border-top: 1px solid var(--rule);
+      border-bottom: 1px solid var(--rule);
+    }
+    .tab-indicator {
+      position: absolute; left: 0; top: 6px; bottom: 6px;
+      width: 0;
+      border-radius: 10px;
+      background: var(--c-soft);
+      transform: translateX(0);
+      transition: transform 300ms var(--ease-in-out);
+      pointer-events: none;
+    }
+    .tab-indicator::after {
+      content: "";
+      position: absolute; left: 14px; right: 14px; bottom: -7px;
+      height: 2px; border-radius: 2px;
+      background: var(--c-primary);
+    }
+    .tabs.no-anim .tab-indicator { transition: none; }
+    .tab {
+      position: relative; z-index: 1;
+      display: flex; flex-direction: column; gap: 1px;
+      min-width: 0;
+      margin: 6px 0;
+      padding: 9px 14px;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      text-align: left;
+      transition: transform var(--t-press) var(--ease-out);
+    }
+    .tab:active { transform: scale(0.98); }
+    .tab-top { display: flex; align-items: baseline; gap: 8px; }
+    .tab-num { font-family: var(--serif); font-size: 1.1rem; font-weight: 500; color: var(--ink-3); transition: color var(--t-ui) ease; }
+    .tab-count { margin-left: auto; font-size: 11.5px; font-weight: 600; color: var(--ink-3); }
+    .tab-name {
+      font-size: 12.5px; font-weight: 600; color: var(--ink-2);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      transition: color var(--t-ui) ease;
+    }
+    .tab[aria-selected="true"] .tab-num { color: var(--c-primary); }
+    .tab[aria-selected="true"] .tab-name { color: var(--ink); }
+
+    /* =====================================================================
+       ENTRADA COREOGRAFADA EM CASCATA
+       ===================================================================== */
+    .chapter.stagger .reveal {
+      animation: reveal 300ms var(--ease-out) both;
+      animation-delay: calc(var(--i, 0) * 35ms);
+    }
+    @keyframes reveal {
+      from { opacity: 0; transform: translateY(12px); filter: blur(4px); }
+      to   { opacity: 1; transform: none; filter: none; }
+    }
+
+    /* =====================================================================
+       CABEÇALHO DO CAPÍTULO
+       ===================================================================== */
+    .chap-head { padding: 36px 0 0; }
+    .chap-kicker { font-size: 11.5px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--c-primary); }
+    .chap-head h2 {
+      margin: 10px 0 10px;
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: clamp(1.75rem, 4.4vw, 2.5rem);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      text-wrap: balance;
+    }
+    .chap-sub { margin: 0; max-width: 58ch; font-family: var(--serif); font-style: italic; font-size: 1.1rem; line-height: 1.5; color: var(--ink-2); }
+    .chap-progress { margin-top: 22px; max-width: 420px; }
+    .chap-progress-row { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; font-size: 13px; color: var(--ink-2); }
+    .chap-progress-row strong { color: var(--ink); font-weight: 700; }
+
+    .objectives { margin-top: 30px; padding: 18px 0 4px; border-top: 1px solid var(--rule); }
+    .label {
+      margin: 0 0 12px;
+      font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3);
+    }
+    .objectives ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+    .objectives li { display: grid; grid-template-columns: 34px 1fr; gap: 6px; font-size: 15.5px; line-height: 1.55; color: var(--ink); }
+    .obj-n { font-family: var(--serif); font-size: 1rem; color: var(--c-primary); }
+
+    /* Ferramentas do índice */
+    .toc-tools {
+      display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+      margin-top: 30px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--ink);
+    }
+    .toc-tools h3 { margin: 0 auto 0 0; font-family: var(--serif); font-size: 1.35rem; font-weight: 500; letter-spacing: -0.01em; }
+    .toc-tools h3 span { font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: var(--ink-3); margin-left: 6px; letter-spacing: 0; }
+    .quiet-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      height: 32px; padding: 0 10px;
+      border: 0; border-radius: 8px;
+      background: transparent;
+      color: var(--ink-2);
+      font-size: 13px; font-weight: 600;
+      transition: background-color var(--t-ui) ease, color var(--t-ui) ease, transform var(--t-press) var(--ease-out);
+    }
+    .quiet-btn:active { transform: scale(0.98); }
+    .quiet-btn[aria-expanded="true"] { background: var(--c-soft); color: var(--c-primary); }
+    .quiet-btn .chev { width: 15px; height: 15px; transition: transform var(--t-move) var(--ease-in-out); }
+    .quiet-btn[aria-expanded="true"] .chev { transform: rotate(180deg); }
+
+    /* =====================================================================
+       COLAPSÁVEL (grid-template-rows 0fr -> 1fr)
+       ===================================================================== */
+    .collapse {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows var(--t-move) var(--ease-in-out);
+    }
+    .is-open > .collapse, .collapse.is-open { grid-template-rows: 1fr; }
+    .collapse-inner { min-height: 0; overflow: hidden; visibility: hidden; transition: visibility 0s linear var(--t-move); }
+    .is-open > .collapse > .collapse-inner, .collapse.is-open > .collapse-inner { visibility: visible; transition-delay: 0s; }
+
+    /* Gaveta de anotações */
+    .notes-drawer .notes-card {
+      padding: 18px 0 20px;
+      border-bottom: 1px solid var(--rule);
+      opacity: 0; transform: translateY(-4px);
+      transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out);
+    }
+    .notes-drawer.is-open .notes-card { opacity: 1; transform: none; transition-duration: var(--t-ui); transition-delay: 40ms; }
+    .notes-card header { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+    .notes-card h4 { margin: 0; font-family: var(--serif); font-size: 1.1rem; font-weight: 500; }
+    .notes-hint { margin: 0; font-size: 12.5px; color: var(--ink-3); }
+    .notes-card textarea {
+      display: block; width: 100%;
+      min-height: 160px; max-height: 50vh; resize: vertical;
+      padding: 14px 16px;
+      border: 1px solid var(--rule);
+      border-radius: 10px;
+      background: #FFFFFF;
+      color: var(--ink);
+      font: 400 16px/1.65 var(--serif);
+      transition: border-color var(--t-ui) ease, box-shadow var(--t-ui) ease;
+    }
+    .notes-card textarea:focus { outline: none; border-color: var(--c-primary); box-shadow: 0 0 0 3px var(--c-soft); }
+    .notes-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; font-size: 12.5px; color: var(--ink-3); }
+    .notes-actions { display: flex; gap: 2px; flex-wrap: wrap; }
+    .save-state { display: inline-flex; align-items: center; gap: 6px; }
+    .save-state .dot { width: 6px; height: 6px; border-radius: 50%; background: #A8A29E; transition: background-color var(--t-ui) ease; }
+    .save-state.saved .dot { background: #3F6212; }
+
+    /* =====================================================================
+       ÍNDICE EDITORIAL DE TÓPICOS
+       ===================================================================== */
+    .toc { list-style: none; margin: 0; padding: 0; }
+    .topic { border-bottom: 1px solid var(--rule); }
+    .topic-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; }
+    .topic-h { margin: 0; }
+    .topic-trigger {
+      display: grid;
+      grid-template-columns: 44px 1fr 22px;
+      gap: 12px;
+      align-items: start;
+      width: 100%;
+      padding: 20px 0;
+      border: 0;
+      background: transparent;
+      text-align: left;
+      transition: transform var(--t-press) var(--ease-out);
+    }
+    .topic-trigger:active { transform: scale(0.995); }
+    .topic-num {
+      padding-top: 2px;
+      font-family: var(--serif); font-size: 1.15rem; font-weight: 500;
+      color: var(--ink-3);
+      transition: color var(--t-ui) ease;
+    }
+    .topic.is-read .topic-num, .topic.is-open .topic-num { color: var(--c-primary); }
+    .topic-title {
+      display: block;
+      font-family: var(--serif); font-size: 1.24rem; font-weight: 500; line-height: 1.3; letter-spacing: -0.01em;
+      color: var(--ink);
+      text-wrap: pretty;
+      transition: color var(--t-ui) ease;
+    }
+    .topic-status { display: block; margin-top: 4px; font-size: 12px; font-weight: 600; letter-spacing: .02em; color: var(--ink-3); }
+    .topic.is-read .topic-status { color: var(--c-primary); }
+    .chev-wrap { padding-top: 5px; color: var(--ink-3); }
+    .chev-wrap .chev { transition: transform var(--t-move) var(--ease-in-out); }
+    .topic.is-open .chev-wrap .chev { transform: rotate(180deg); }
+
+    /* Botão de leitura discreto (à direita) */
+    .read-chip {
+      width: 34px; height: 34px;
+      display: grid; place-items: center;
+      padding: 0;
+      border: 1.5px solid #D6D3CD;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--ink-3);
+      transition: background-color var(--t-ui) var(--ease-out), border-color var(--t-ui) var(--ease-out), color var(--t-ui) ease, transform var(--t-press) var(--ease-out);
+    }
+    .read-chip:active { transform: scale(0.94); }
+    .read-chip[aria-pressed="true"] { background: var(--c-primary); border-color: var(--c-primary); color: #FFFFFF; }
+
+    /* Check em SVG desenhado por stroke-dashoffset */
+    .check-svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .check-svg path { stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 220ms var(--ease-out); }
+    [aria-pressed="true"] .check-svg path { stroke-dashoffset: 0; transition-delay: 60ms; }
+
+    /* Conteúdo do tópico + coreografia interna */
+    .topic-body { padding: 0 0 30px 56px; }
+    .figure { margin: 0 0 6px; opacity: 0; transition: opacity 160ms var(--ease-out); }
+    .topic.is-open .figure { opacity: 1; transition-duration: var(--t-ui); transition-delay: 40ms; }
+    .figure-btn {
+      position: relative; display: block; width: 100%;
+      padding: 0; border: 0;
+      border-radius: 4px;
+      overflow: hidden;
+      background: #EFECE6;
+      cursor: zoom-in;
+      transition: transform var(--t-press) var(--ease-out);
+    }
+    .figure-btn:active { transform: scale(0.99); }
+    .figure-btn img {
+      width: 100%; height: auto; max-height: 460px; min-height: 120px;
+      object-fit: contain; background: #EFECE6;
+      transform: scale(1.03);
+      transition: transform 280ms var(--ease-out);
+    }
+    .topic.is-open .figure-btn img { transform: scale(1); transition-delay: 40ms; }
+    .zoom-chip {
+      position: absolute; right: 10px; bottom: 10px;
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 10px; border-radius: 999px;
+      background: rgba(24, 24, 27, .66); color: #FFFFFF;
+      font-size: 11.5px; font-weight: 600;
+      opacity: 0;
+      transition: opacity var(--t-ui) ease;
+      pointer-events: none;
+    }
+    .figure figcaption { margin-top: 10px; font-family: var(--serif); font-style: italic; font-size: 14.5px; line-height: 1.45; color: var(--ink-2); }
+
+    .stage-text { opacity: 0; transform: translateY(8px); transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out); }
+    .topic.is-open .stage-text { opacity: 1; transform: none; transition-duration: var(--t-ui), var(--t-move); transition-delay: 100ms; }
+
+    .prose { max-width: 66ch; }
+    .prose p { margin: 18px 0 0; font-size: 16.5px; line-height: 1.75; color: #27272A; text-wrap: pretty; }
+    .prose strong { font-weight: 700; color: var(--ink); }
+    .prose em { font-family: var(--serif); font-size: 1.05em; }
+
+    /* Placa museológica (fallback de imagem) */
+    .placard {
+      padding: 18px 20px;
+      background: #F3F1EC;
+      border: 1px solid #E2DFD7;
+      border-radius: 4px;
+    }
+    .placard-title { margin: 0 0 6px; font-family: var(--serif); font-style: italic; font-size: 1.08rem; line-height: 1.4; color: var(--ink); }
+    .placard-link { font-size: 12.5px; font-weight: 600; color: var(--ink-3); text-decoration: none; border-bottom: 1px solid #D6D3CD; transition: color var(--t-ui) ease, border-color var(--t-ui) ease; }
+
+    /* Caixas de destaque, em tom editorial */
+    .callout { margin: 28px 0 0; }
+    .callout-label { margin: 0 0 10px; font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3); }
+    blockquote.quote {
+      margin: 28px 0 0;
+      padding: 4px 0 4px 22px;
+      border-left: 2px solid var(--c-accent);
+    }
+    blockquote.quote p {
+      margin: 0 0 10px;
+      font-family: var(--serif); font-style: italic;
+      font-size: 1.4rem; line-height: 1.4; letter-spacing: -0.01em;
+      color: var(--ink);
+      text-wrap: pretty;
+    }
+    blockquote.quote cite { display: block; font-style: normal; font-size: 13px; color: var(--ink-3); }
+
+    .concepts dl { margin: 0; border-top: 1px solid var(--rule); }
+    .concepts dl > div { display: grid; grid-template-columns: minmax(150px, 34%) 1fr; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--rule); }
+    .concepts dt { font-size: 14.5px; font-weight: 700; color: var(--c-primary); }
+    .concepts dd { margin: 0; font-size: 14.5px; line-height: 1.6; color: #3F3F46; }
+
+    .compare-title { margin: 0 0 10px; font-family: var(--serif); font-size: 1.1rem; font-weight: 500; color: var(--ink); }
+    .compare table { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 1.5; border-top: 1px solid var(--ink); }
+    .compare th { padding: 10px 12px 10px 0; text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); border-bottom: 1px solid var(--rule); }
+    .compare td { padding: 11px 12px 11px 0; vertical-align: top; color: #3F3F46; border-bottom: 1px solid var(--rule); }
+    .compare td:first-child { font-weight: 700; color: var(--ink); }
+
+    .timeline ol { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+    .timeline li { display: grid; grid-template-columns: 100px 1fr; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--rule); font-size: 14.5px; line-height: 1.55; color: #3F3F46; }
+    .timeline .when { font-family: var(--serif); font-size: 1rem; font-weight: 600; color: var(--c-primary); font-variant-numeric: tabular-nums; }
+
+    /* Marcar como lido (fim do texto) */
+    .read-toggle {
+      display: inline-flex; align-items: center; gap: 10px;
+      margin-top: 28px;
+      padding: 10px 16px 10px 12px;
+      border: 1px solid #D6D3CD;
+      border-radius: 999px;
+      background: transparent;
+      font-size: 14px; font-weight: 600;
+      color: var(--ink);
+      transition: background-color var(--t-ui) var(--ease-out), border-color var(--t-ui) var(--ease-out), color var(--t-ui) ease, transform var(--t-press) var(--ease-out);
+    }
+    .read-toggle:active { transform: scale(0.98); }
+    .read-toggle .dot-check {
+      width: 22px; height: 22px; border-radius: 50%;
+      display: grid; place-items: center;
+      border: 1.5px solid #A8A29E;
+      color: #FFFFFF;
+      transition: background-color var(--t-ui) var(--ease-out), border-color var(--t-ui) var(--ease-out);
+    }
+    .read-toggle .dot-check .check-svg { width: 13px; height: 13px; }
+    .read-toggle[aria-pressed="true"] { border-color: var(--c-primary); color: var(--c-primary); background: var(--c-soft); }
+    .read-toggle[aria-pressed="true"] .dot-check { background: var(--c-primary); border-color: var(--c-primary); }
+
+    .chapter-nav { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 36px; }
+    .nav-link {
+      display: inline-flex; flex-direction: column; gap: 2px;
+      padding: 10px 0;
+      border: 0; background: transparent;
+      text-align: left;
+      transition: transform var(--t-press) var(--ease-out);
+    }
+    .nav-link.next { text-align: right; align-items: flex-end; margin-left: auto; }
+    .nav-link:active { transform: scale(0.98); }
+    .nav-link small { font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3); }
+    .nav-link span { font-family: var(--serif); font-size: 1.15rem; color: var(--ink); border-bottom: 1px solid transparent; transition: border-color var(--t-ui) ease; }
+
+    .footer-note { margin: 48px 0 0; padding-top: 16px; border-top: 1px solid var(--rule); font-size: 12.5px; color: var(--ink-3); }
+
+    /* =====================================================================
+       MODAIS (lightbox com backdrop blur + confirmação)
+       ===================================================================== */
+    .modal { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 24px; visibility: hidden; transition: visibility 0s linear 180ms; }
+    .modal.is-open { visibility: visible; transition-delay: 0s; }
+    .modal-backdrop {
+      position: absolute; inset: 0;
+      background: rgba(20, 18, 16, .62);
+      -webkit-backdrop-filter: blur(8px);
+      backdrop-filter: blur(8px);
+      opacity: 0;
+      transition: opacity 180ms var(--ease-out);
+    }
+    .modal.is-open .modal-backdrop { opacity: 1; transition-duration: var(--t-move); }
+    .modal-panel {
+      position: relative;
+      transform-origin: center;
+      opacity: 0;
+      transform: scale(0.94) translateY(8px);
+      transition: opacity 160ms var(--ease-out), transform 180ms var(--ease-out);
+    }
+    .modal.is-open .modal-panel { opacity: 1; transform: scale(1) translateY(0); transition-duration: var(--t-ui), 280ms; }
+    .lightbox-panel { margin: 0; display: grid; justify-items: center; gap: 14px; max-width: min(1100px, 100%); }
+    .lightbox-panel img { max-width: 100%; max-height: calc(100vh - 150px); object-fit: contain; border-radius: 4px; box-shadow: var(--shadow-lg); background: #1C1917; }
+    .lightbox-cap { max-width: 64ch; text-align: center; font-family: var(--serif); font-style: italic; font-size: 16px; color: #F5F5F4; }
+    .modal-close {
+      position: absolute; top: 16px; right: 16px; z-index: 2;
+      width: 42px; height: 42px; border-radius: 50%;
+      display: grid; place-items: center;
+      border: 0; background: rgba(255, 255, 255, .14); color: #FFFFFF;
+      transition: background-color var(--t-ui) ease, transform var(--t-press) var(--ease-out);
+    }
+    .modal-close:active { transform: scale(0.94); }
+    .dialog-panel { width: min(420px, 100%); padding: 26px; border-radius: 14px; background: #FFFFFF; box-shadow: var(--shadow-lg); }
+    .dialog-panel h3 { margin: 0 0 8px; font-family: var(--serif); font-size: 1.4rem; font-weight: 500; }
+    .dialog-panel p { margin: 0 0 16px; font-size: 14.5px; color: var(--ink-2); }
+    .dialog-panel label { display: flex; align-items: center; gap: 8px; margin-bottom: 22px; font-size: 14px; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+    .btn {
+      height: 38px; padding: 0 16px;
+      border-radius: 999px;
+      border: 1px solid #D6D3CD; background: #FFFFFF;
+      font-size: 14px; font-weight: 600;
+      transition: transform var(--t-press) var(--ease-out), background-color var(--t-ui) ease;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-danger { background: #9F1239; border-color: #9F1239; color: #FFFFFF; }
+
+    .toast {
+      position: fixed; left: 50%; bottom: 22px; z-index: 120;
+      max-width: calc(100% - 32px);
+      padding: 10px 16px;
+      border-radius: 999px;
+      background: #18181B; color: #FAFAF9;
+      font-size: 13.5px; font-weight: 600;
+      box-shadow: var(--shadow-lg);
+      opacity: 0;
+      transform: translate(-50%, 10px);
+      transition: opacity var(--t-ui) var(--ease-out), transform var(--t-move) var(--ease-out);
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    /* =====================================================================
+       HOVER — apenas em dispositivos com ponteiro fino
+       ===================================================================== */
+    @media (hover: hover) and (pointer: fine) {
+      .text-btn:hover { color: var(--ink); text-decoration-color: currentColor; }
+      .tab:hover .tab-num { color: var(--c-primary); }
+      .quiet-btn:hover { background: var(--c-soft); color: var(--ink); }
+      .topic-trigger:hover .topic-title { color: var(--c-primary); }
+      .read-chip:hover { border-color: var(--c-primary); color: var(--c-primary); }
+      .read-chip[aria-pressed="true"]:hover { color: #FFFFFF; }
+      .figure-btn:hover .zoom-chip { opacity: 1; }
+      .placard-link:hover { color: var(--ink); border-color: var(--ink); }
+      .read-toggle:hover { border-color: var(--c-primary); }
+      .nav-link:hover span { border-color: currentColor; }
+      .modal-close:hover { background: rgba(255, 255, 255, .26); }
+      .btn:hover { background: #F5F5F4; }
+      .btn-danger:hover { background: #881337; }
+    }
+
+    /* =====================================================================
+       RESPONSIVO
+       ===================================================================== */
+    @media (max-width: 720px) {
+      .tab-name { display: none; }
+      .tab { padding: 8px 10px; }
+      .tab-top { flex-direction: column; gap: 0; }
+      .tab-count { margin-left: 0; }
+      .tab-indicator::after { left: 10px; right: 10px; }
+    }
+    @media (max-width: 600px) {
+      .app { padding: 0 16px 44px; }
+      .nav-wrap { margin: 0 -16px; padding: 6px 16px 0; }
+      .topic-trigger { grid-template-columns: 34px 1fr 20px; gap: 10px; padding: 18px 0; }
+      .topic-title { font-size: 1.12rem; }
+      .topic-body { padding: 0 0 26px 0; }
+      .prose p { font-size: 16px; }
+      blockquote.quote p { font-size: 1.22rem; }
+      .concepts dl > div { grid-template-columns: 1fr; gap: 2px; }
+      .timeline li { grid-template-columns: 1fr; gap: 0; }
+      .toc-tools .lbl-long { display: none; }
+      .compare table, .compare tbody, .compare tr, .compare td { display: block; width: 100%; }
+      .compare thead { display: none; }
+      .compare tr { padding: 10px 0; border-bottom: 1px solid var(--rule); }
+      .compare td { padding: 2px 0; border: 0; }
+      .compare td:not(:first-child)::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3);
+      }
+    }
+
+    /* =====================================================================
+       MOVIMENTO REDUZIDO — mantém opacidade, remove deslocamento e blur
+       ===================================================================== */
+    @media (prefers-reduced-motion: reduce) {
+      :root { transition: none; }
+      .chapter.stagger .reveal { animation: fadeOnly 160ms ease both; animation-delay: 0ms; }
+      @keyframes fadeOnly { from { opacity: 0; } to { opacity: 1; } }
+      .collapse, .tab-indicator, .fill, .chev, .chev-wrap .chev, .quiet-btn .chev { transition: none; }
+      .figure-btn img, .topic.is-open .figure-btn img { transform: none; transition: none; }
+      .stage-text, .topic.is-open .stage-text, .notes-drawer .notes-card, .notes-drawer.is-open .notes-card { transform: none; }
+      .modal-panel, .modal.is-open .modal-panel { transform: none; }
+      .toast, .toast.show { transform: translate(-50%, 0); }
+      .track.pulse::after { animation: none; }
+      .check-svg path { transition: none; }
+      .text-btn:active, .tab:active, .quiet-btn:active, .topic-trigger:active, .read-chip:active, .figure-btn:active,
+      .read-toggle:active, .nav-link:active, .modal-close:active, .btn:active { transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+
+    <!-- ============================ CABEÇALHO ============================ -->
+    <header class="masthead">
+      <div class="mast-top">
+        <span class="seal">História · 2ª Série · Ensino Médio</span>
+        <button class="text-btn" type="button" id="btnReset">Reiniciar leitura</button>
+      </div>
+      <h1>Plano de Estudos <em>— Capítulos 11 a 14</em></h1>
+      <p class="lede">Da Era Napoleônica ao Primeiro Reinado: revoluções, independências e a construção do Estado brasileiro.</p>
+      <div class="overall">
+        <div class="overall-row">
+          <span class="overall-pct num"><span id="overallPct">0</span>%</span>
+          <span class="overall-label">da leitura concluída</span>
+          <span class="overall-meta num" id="overallMeta">0 de 36 tópicos</span>
+        </div>
+        <div class="track" id="overallBar" role="progressbar" aria-label="Progresso geral de leitura" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="fill"></span></div>
+      </div>
+      <p class="storage-warn" id="storageWarn">O navegador bloqueou o armazenamento local nesta página: o progresso e as anotações valerão apenas enquanto ela estiver aberta.</p>
+    </header>
+
+    <!-- ============================ ABAS ============================ -->
+    <div class="nav-wrap">
+      <nav class="tabs" id="tabs" role="tablist" aria-label="Capítulos"></nav>
+    </div>
+
+    <!-- ============================ CAPÍTULO ============================ -->
+    <main id="chapterView"></main>
+
+    <p class="footer-note">Seu progresso de leitura e suas anotações ficam salvos apenas neste navegador.</p>
+  </div>
+
+  <!-- ============================ LIGHTBOX ============================ -->
+  <div class="modal" id="lightbox" role="dialog" aria-modal="true" aria-label="Obra ampliada" aria-hidden="true">
+    <div class="modal-backdrop" data-close></div>
+    <button class="modal-close" type="button" data-close aria-label="Fechar imagem">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <figure class="modal-panel lightbox-panel">
+      <img id="lbImg" alt="" referrerpolicy="no-referrer">
+      <figcaption class="lightbox-cap" id="lbCap"></figcaption>
+    </figure>
+  </div>
+
+  <!-- ============================ CONFIRMAÇÃO ============================ -->
+  <div class="modal" id="resetDialog" role="dialog" aria-modal="true" aria-labelledby="resetTitle" aria-hidden="true">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-panel dialog-panel">
+      <h3 id="resetTitle">Reiniciar a leitura?</h3>
+      <p>Todos os tópicos marcados como lidos nos quatro capítulos voltarão para “a ler”.</p>
+      <label><input type="checkbox" id="resetNotes"> Apagar também minhas anotações</label>
+      <div class="dialog-actions">
+        <button class="btn" type="button" data-close>Cancelar</button>
+        <button class="btn btn-danger" type="button" id="resetConfirm">Reiniciar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    /* =====================================================================
+       ÍCONES
+       ===================================================================== */
+    var I = {
+      chev: '<svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>',
+      check: '<svg class="check-svg" viewBox="0 0 24 24" aria-hidden="true"><path pathLength="1" d="M5.5 12.5l4 4L18.5 7.5"/></svg>',
+      zoom: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width:14px;height:14px"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4M11 8v6M8 11h6"/></svg>',
+      expand: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px"><path d="M7 9l5-5 5 5M7 15l5 5 5-5"/></svg>',
+      collapse: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px"><path d="M7 4l5 5 5-5M7 20l5-5 5 5"/></svg>',
+      note: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px"><path d="M5 4h10l4 4v12H5z"/><path d="M9 11h6M9 15h6"/></svg>',
+      copy: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h9"/></svg>'
+    };
+
+    /* =====================================================================
+       CONTEÚDO
+       ===================================================================== */
+    var CHAPTERS = [
+      /* ===================================================================
+         CAPÍTULO 11
+         =================================================================== */
+      {
+        id: "c11", num: 11,
+        short: "Napoleão e Período Joanino",
+        title: "Era Napoleônica e o Período Joanino no Brasil",
+        sub: "Como a ascensão e a queda de Napoleão redesenharam a Europa — e trouxeram a Corte portuguesa para o Rio de Janeiro.",
+        theme: { primary: "#1B365D", accent: "#C68B2C", soft: "#F0F4F8", accentInk: "#1C1406" },
+        objectives: [
+          "Identificar os fatores da ascensão e declínio da Era Napoleônica na Europa e suas transformações políticas.",
+          "Relacionar a expansão francesa aos impactos na América Ibérica, em especial à vinda da Família Real portuguesa ao Brasil."
+        ],
+        topics: [
+          {
+            title: "As pinturas históricas além das narrativas",
+            img: "https://upload.wikimedia.org/wikipedia/commons/0/08/Jacques-Louis_David%2C_The_Coronation_of_Napoleon_edit.jpg",
+            caption: "A Sagração de Napoleão, Jacques-Louis David, 1807",
+            text: [
+              "Diante de uma pintura histórica, é tentador imaginar que estamos olhando para uma fotografia do passado. Mas a <strong>pintura histórica</strong> — o gênero mais prestigiado das academias de arte dos séculos XVIII e XIX — era uma construção cuidadosa, quase sempre encomendada para transmitir uma mensagem política. <em>A Sagração de Napoleão</em>, de <strong>Jacques-Louis David</strong>, representa a cerimônia de 2 de dezembro de 1804, na Catedral de Notre-Dame: Napoleão, já coroado, coloca a coroa sobre a cabeça de Josefina, enquanto o papa Pio VII apenas abençoa a cena.",
+              "Os detalhes revelam escolhas. David colocou a mãe de Napoleão em lugar de honra, embora ela não tenha comparecido à cerimônia. E o fato de o próprio Napoleão ter se coroado — em vez de receber a coroa das mãos do papa — comunica que seu poder vinha das conquistas e da nação, não da Igreja. A tela é, portanto, um instrumento de <strong>legitimação do poder</strong> e de <strong>construção da memória oficial</strong>: mostra como o imperador queria ser visto e lembrado pelas gerações seguintes.",
+              "<strong>Jean-Baptiste Debret</strong>, aluno e parente de David, trouxe essa tradição ao Brasil ao chegar com a Missão Artística Francesa, em 1816. Suas telas das cerimônias da monarquia — como a aclamação de D. João VI e a coroação de D. Pedro I — construíram uma imagem solene da Corte nos trópicos. Ler essas obras com olhar crítico é perguntar: quem encomendou? Para quem foi feita? O que aparece em primeiro plano — e o que ficou de fora do quadro?"
+            ],
+            boxes: [
+              { type: "concept", items: [
+                ["Pintura histórica", "Gênero acadêmico que representa grandes acontecimentos e personagens com composição solene e idealizada."],
+                ["Memória oficial", "Versão do passado produzida pelo poder para ser lembrada e celebrada — nem sempre fiel ao que aconteceu."],
+                ["Imagem como fonte", "Toda obra foi produzida por alguém, em um contexto e com intenções: deve ser interrogada, e não apenas contemplada."]
+              ]}
+            ]
+          },
+          {
+            title: "As ilhas na vida de Napoleão e o Golpe de 18 de Brumário",
+            img: "https://upload.wikimedia.org/wikipedia/commons/4/44/Bouchot_-_Le_general_Bonaparte_au_Conseil_des_Cinq-Cents.jpg",
+            caption: "Golpe de 18 de Brumário, François Bouchot",
+            text: [
+              "Três ilhas atravessam a vida de Napoleão Bonaparte. A primeira é a <strong>Córsega</strong>, onde ele nasceu, na cidade de Ajaccio, em 1769 — apenas um ano depois de a ilha passar do domínio de Gênova para a França. Filho da pequena nobreza corsa, estudou em escolas militares francesas e tornou-se oficial de artilharia. As outras duas, <strong>Elba</strong> e <strong>Santa Helena</strong>, só aparecerão no fim da história, como lugares de exílio.",
+              "A Revolução Francesa abriu espaço para jovens oficiais talentosos, independentemente da origem aristocrática. Napoleão destacou-se no cerco de Toulon (1793), ajudou a reprimir uma insurreição monarquista em Paris (1795) e ganhou fama nas campanhas da Itália (1796-1797) e do Egito (1798-1799). Enquanto isso, o <strong>Diretório</strong> — governo instalado em 1795 — mergulhava em instabilidade: crise econômica, corrupção, guerras externas e ameaças tanto de jacobinos quanto de realistas.",
+              "A alta burguesia queria estabilidade para preservar as conquistas da Revolução sem os riscos do radicalismo popular. Nesse cenário, com apoio de Sieyès e de setores burgueses, Napoleão liderou o <strong>Golpe de 18 de Brumário</strong> (9 de novembro de 1799): tropas invadiram o Conselho dos Quinhentos e o Diretório foi dissolvido. Encerrava-se a fase revolucionária e começava a <strong>Era Napoleônica</strong>."
+            ],
+            boxes: [
+              { type: "timeline", items: [
+                ["1769", "Nascimento de Napoleão em Ajaccio, na Córsega."],
+                ["1793", "Destaque no cerco de Toulon."],
+                ["1795", "Instalação do Diretório; repressão a uma revolta monarquista em Paris."],
+                ["1796–1799", "Campanhas da Itália e do Egito."],
+                ["1799", "Golpe de 18 de Brumário e início do Consulado."]
+              ]}
+            ]
+          },
+          {
+            title: "O Consulado Napoleônico (1799–1804)",
+            img: "https://upload.wikimedia.org/wikipedia/commons/5/50/Jacques-Louis_David_-_The_Emperor_Napoleon_in_His_Study_at_the_Tuileries_-_Google_Art_Project.jpg",
+            caption: "Napoleão em seu gabinete nas Tulherias, Jacques-Louis David, 1812",
+            text: [
+              "Com a Constituição do Ano VIII, o poder foi dividido formalmente entre três cônsules, mas, na prática, concentrou-se nas mãos do <strong>Primeiro Cônsul: Napoleão</strong>. A prioridade era pacificar uma França exausta depois de uma década de revolução e guerras. Para isso, o governo centralizou a administração, com prefeitos nomeados por Paris em cada departamento, e buscou reconciliar grupos que estavam em conflito desde 1789.",
+              "Na economia, foi criado o <strong>Banco da França</strong> (1800) e, logo depois, uma nova moeda estável, o <strong>franco</strong> (1803), que devolveu confiança aos negócios. Com a <strong>Concordata</strong> de 1801, o Estado reaproximou-se da Igreja Católica: o catolicismo foi reconhecido como a religião da maioria dos franceses, mas as terras confiscadas durante a Revolução não foram devolvidas. Na educação, surgiram os <strong>liceus</strong>, escolas secundárias públicas destinadas a formar os quadros administrativos e militares do Estado.",
+              "A obra mais duradoura do período foi o <strong>Código Civil Napoleônico</strong> (1804). Ele consolidou a <strong>igualdade jurídica</strong> entre os cidadãos, a defesa da <strong>propriedade privada</strong> e a liberdade de contrato — pilares da sociedade burguesa — e serviu de modelo para leis de muitos países, inclusive na América Latina. Ao mesmo tempo, manteve a submissão da mulher ao marido e favoreceu os patrões nas relações de trabalho, mostrando os limites dessa igualdade."
+            ],
+            boxes: [
+              { type: "concept", items: [
+                ["Banco da França e franco", "Instrumentos de estabilização financeira que devolveram confiança à economia após a Revolução."],
+                ["Concordata (1801)", "Acordo com o papa que reaproximou Estado e Igreja sem devolver as terras confiscadas."],
+                ["Código Civil (1804)", "Consolidou a igualdade perante a lei e a propriedade privada; modelo jurídico para dezenas de países."]
+              ]}
+            ]
+          },
+          {
+            title: "O Império Napoleônico (1804–1814) e o expansionismo europeu",
+            img: "https://upload.wikimedia.org/wikipedia/commons/f/fd/Napoleon_I_of_France_by_Andrea_Appiani.jpg",
+            caption: "Napoleão como Rei da Itália, Andrea Appiani, 1805",
+            text: [
+              "Em 1804, um <strong>plebiscito</strong> aprovou a transformação do Consulado em Império, e Napoleão foi coroado <strong>Imperador dos Franceses</strong>. A mudança alarmou as monarquias europeias: um governante saído da Revolução, à frente de um exército de cidadãos comandado por oficiais promovidos por mérito, desafiava a velha ordem aristocrática. Formaram-se sucessivas <strong>coligações</strong> — alianças entre Inglaterra, Áustria, Rússia, Prússia e outros Estados — para conter a França.",
+              "Em terra, Napoleão parecia invencível. Em Austerlitz (1805), derrotou austríacos e russos; em Iena (1806), venceu a Prússia. Com essas vitórias, redesenhou o mapa do continente: em 1806, o antigo <strong>Sacro Império Romano-Germânico</strong> deixou de existir, e vários Estados alemães foram reunidos na <strong>Confederação do Reno</strong>, sob proteção francesa. Irmãos de Napoleão ocuparam tronos como os de Nápoles, da Holanda e da Vestfália, e ele próprio assumiu a coroa da Itália, em 1805. No mar, porém, a Marinha britânica venceu a frota franco-espanhola em Trafalgar (1805).",
+              "A expansão tinha duas faces. Por onde passavam, os franceses difundiam <strong>princípios burgueses</strong>: fim de privilégios feudais, igualdade jurídica e códigos inspirados no Código Napoleônico. Mas também impunham ocupação militar, impostos, recrutamento de soldados e saques — o que alimentou, pouco a pouco, sentimentos nacionalistas contra o domínio francês."
+            ],
+            boxes: [
+              { type: "quote", text: "Encontrei a coroa da França na sarjeta e a peguei com a ponta da espada.", cite: "Frase tradicionalmente atribuída a Napoleão Bonaparte" },
+              { type: "compare", title: "As duas faces da expansão napoleônica", headers: ["Aspecto", "Difusão de ideias", "Dominação"], rows: [
+                ["Leis", "Igualdade jurídica e códigos modernos", "Leis impostas por um governo estrangeiro"],
+                ["Sociedade", "Fim de privilégios feudais", "Recrutamento forçado de soldados"],
+                ["Economia", "Abertura de mercados à burguesia", "Impostos e saques para financiar a guerra"],
+                ["Reação", "Admiração de setores liberais", "Nacionalismos contra a França"]
+              ]}
+            ]
+          },
+          {
+            title: "O Bloqueio Continental e a Revolta Espanhola",
+            img: "https://upload.wikimedia.org/wikipedia/commons/f/fd/El_Tres_de_Mayo%2C_by_Francisco_de_Goya%2C_from_Prado_in_Google_Earth.jpg",
+            caption: "Os Fuzilamentos de 3 de Maio, Francisco de Goya, 1814",
+            text: [
+              "Incapaz de derrotar a Inglaterra no mar, Napoleão decidiu atingi-la no bolso. Pelo Decreto de Berlim, de 1806, instituiu o <strong>Bloqueio Continental</strong>: os países europeus ficavam proibidos de comerciar com os britânicos. A ideia era sufocar a economia industrial inglesa, privando-a de mercados. Mas o bloqueio também prejudicou nações que dependiam desse comércio — e Portugal, aliado histórico da Inglaterra, resistiu a aderir.",
+              "Para fechar o cerco, Napoleão voltou-se para a <strong>Península Ibérica</strong>. Tropas francesas atravessaram a Espanha rumo a Portugal e, em 1808, Napoleão forçou a abdicação dos reis espanhóis, depondo <strong>Fernando VII</strong> e colocando no trono seu irmão, José Bonaparte. A população reagiu: em 2 de maio, Madri se levantou contra os ocupantes e, no dia seguinte, prisioneiros foram fuzilados — cena que <strong>Francisco de Goya</strong> eternizou do ponto de vista das vítimas, sem heroísmo nem glória.",
+              "A partir daí, a resistência espanhola organizou-se em <strong>guerrilhas</strong>: pequenos grupos que conheciam o terreno, atacavam de surpresa e desapareciam. Com apoio britânico, essa guerra prolongada consumiu tropas e recursos franceses por anos. E a deposição de Fernando VII teve efeito imediato do outro lado do Atlântico: nas colônias espanholas, abriu-se a pergunta sobre quem, afinal, deveria governar."
+            ],
+            boxes: [
+              { type: "concept", items: [
+                ["Bloqueio Continental (1806)", "Proibição imposta por Napoleão ao comércio europeu com a Inglaterra, para sufocar sua economia."],
+                ["Guerrilha", "Luta de pequenos grupos, com ataques rápidos e conhecimento do terreno, que desgastou o exército francês na Espanha."]
+              ]}
+            ]
+          },
+          {
+            title: "A Campanha da Rússia e o início do colapso",
+            img: "https://upload.wikimedia.org/wikipedia/commons/c/cc/Napoleons_retreat_from_moscow.jpg",
+            caption: "A retirada de Napoleão de Moscou, Adolph Northen",
+            text: [
+              "O czar <strong>Alexandre I</strong> havia aderido ao Bloqueio Continental pelo Tratado de Tilsit (1807), mas a proibição prejudicava a economia russa, que vendia cereais e madeira aos ingleses. No fim de 1810, a Rússia voltou a abrir seus portos ao comércio que interessava aos britânicos. Para Napoleão, era uma afronta que ameaçava todo o sistema do bloqueio — e ele decidiu punir o czar.",
+              "Em junho de 1812, o <strong>Grande Exército</strong> — cerca de 600 mil soldados de várias nacionalidades — cruzou a fronteira russa. Em vez de enfrentar o invasor em campo aberto, os russos recuaram e adotaram a <strong>tática da terra arrasada</strong>: destruíam plantações, depósitos e vilas para que os franceses não encontrassem abrigo nem comida. Depois da sangrenta Batalha de Borodino, Napoleão entrou em Moscou em setembro, mas encontrou a cidade quase vazia e tomada por incêndios. O czar recusou-se a negociar.",
+              "Sem suprimentos, Napoleão ordenou a retirada em outubro. O <strong>inverno rigoroso</strong>, a fome, as doenças e os ataques constantes dos cossacos transformaram a marcha em tragédia; a travessia do rio Berezina tornou-se símbolo do desastre. Das centenas de milhares que partiram, apenas algumas dezenas de milhares voltaram. O mito da invencibilidade estava quebrado, e uma nova coligação se formou contra a França."
+            ],
+            boxes: [
+              { type: "timeline", items: [
+                ["jun. 1812", "O Grande Exército invade a Rússia."],
+                ["set. 1812", "Batalha de Borodino e ocupação de Moscou em chamas."],
+                ["out. 1812", "Início da retirada, já às portas do inverno."],
+                ["nov. 1812", "Travessia do rio Berezina, sob ataques russos."],
+                ["dez. 1812", "Os remanescentes do exército deixam o território russo."]
+              ]}
+            ]
+          },
+          {
+            title: "A derrota definitiva, os Cem Dias e o Congresso de Viena",
+            img: "https://upload.wikimedia.org/wikipedia/commons/7/72/Battle_of_Waterloo_1815.PNG",
+            caption: "Batalha de Waterloo, William Sadler, 1815",
+            text: [
+              "Depois da Rússia, a nova coligação derrotou Napoleão na Batalha de Leipzig (1813), conhecida como <strong>Batalha das Nações</strong>. Em 1814, com Paris ocupada, ele abdicou e foi exilado na ilha de <strong>Elba</strong>, no Mediterrâneo. A dinastia Bourbon voltou ao trono francês com Luís XVIII.",
+              "Em 1815, Napoleão escapou de Elba e desembarcou na França, onde soldados enviados para prendê-lo aderiram a ele: começava o <strong>Governo dos Cem Dias</strong>. A aventura terminou em 18 de junho de 1815, na <strong>Batalha de Waterloo</strong>, na atual Bélgica, diante de tropas britânicas comandadas pelo duque de Wellington e prussianas lideradas por Blücher. Desta vez, o exílio foi definitivo: a remota ilha de <strong>Santa Helena</strong>, no Atlântico Sul, onde ele morreu em 1821.",
+              "Enquanto isso, os vencedores reuniram-se no <strong>Congresso de Viena</strong> (1814-1815), conduzido pelo chanceler austríaco Metternich. O objetivo era apagar as marcas da Revolução e de Napoleão: restaurar as monarquias absolutistas, redesenhar as fronteiras e garantir o equilíbrio entre as potências. Para proteger essa ordem conservadora, Rússia, Áustria e Prússia criaram a <strong>Santa Aliança</strong>, disposta a intervir contra movimentos liberais e revolucionários."
+            ],
+            boxes: [
+              { type: "concept", items: [
+                ["Princípio da legitimidade", "Os tronos deveriam voltar às dinastias consideradas legítimas antes da Revolução."],
+                ["Equilíbrio europeu", "Nenhuma potência deveria voltar a dominar o continente como a França napoleônica."],
+                ["Santa Aliança (1815)", "Pacto entre Rússia, Áustria e Prússia para combater ideias liberais e revoluções."]
+              ]}
+            ]
+          },
+          {
+            title: "A vinda da Família Real portuguesa para o Brasil (1808)",
+            img: "https://upload.wikimedia.org/wikipedia/commons/e/ea/Embarque_da_Fam%C3%ADlia_Real_para_o_Brasil_%281807%29.jpg",
+            caption: "Embarque da Família Real para o Brasil em 1807",
+            text: [
+              "Em 1807, Portugal estava entre a cruz e a espada. Napoleão exigiu que o país fechasse seus portos aos navios ingleses, prendesse súditos britânicos e confiscasse seus bens. Obedecer significava romper com a Inglaterra, grande parceira comercial e protetora da dinastia de Bragança; recusar significava a invasão francesa. O príncipe regente <strong>D. João</strong>, que governava no lugar de sua mãe, D. Maria I, tentou ganhar tempo o quanto pôde.",
+              "Nos bastidores, Portugal negociou um <strong>acordo secreto com a Grã-Bretanha</strong>: a Marinha britânica escoltaria a Corte até o Brasil e, em troca, os ingleses obteriam vantagens comerciais na colônia. Quando as tropas do general Junot marcharam sobre Lisboa, em novembro de 1807, a família real e milhares de pessoas embarcaram às pressas — levando consigo o tesouro, arquivos, a burocracia e boa parte da biblioteca real. Era a <strong>transferência de toda a máquina do Estado</strong>.",
+              "A frota chegou a Salvador em janeiro de 1808 e ao Rio de Janeiro em março. Pela primeira vez na história, uma monarquia europeia passava a governar seu império a partir da colônia. Esse fenômeno é conhecido como <strong>inversão metropolitana</strong>: o Rio de Janeiro tornou-se o centro de decisões do Império português, enquanto Lisboa, ocupada, passava à condição de periferia."
+            ],
+            boxes: [
+              { type: "compare", title: "Espanha e Portugal diante de Napoleão", headers: ["Aspecto", "Espanha", "Portugal"], rows: [
+                ["O rei", "Fernando VII deposto pelos franceses", "D. João transfere a Corte para o Rio de Janeiro"],
+                ["Na colônia", "Vazio de poder e disputa sobre quem governa", "A colônia vira sede da monarquia"],
+                ["Resultado", "Crise da autoridade colonial", "Continuidade monárquica e mais autonomia para o Brasil"]
+              ]}
+            ]
+          },
+          {
+            title: "Transformações econômicas, territoriais e culturais do Período Joanino",
+            img: "https://upload.wikimedia.org/wikipedia/commons/b/b3/Jean-Baptiste_Debret_-_Aclama%C3%A7%C3%A3o_de_D._Jo%C3%A3o_VI.jpg",
+            caption: "Aclamação de D. João VI no Rio de Janeiro, Jean-Baptiste Debret",
+            text: [
+              "Ainda em Salvador, em 28 de janeiro de 1808, D. João decretou a <strong>Abertura dos Portos às Nações Amigas</strong>, encerrando na prática o exclusivo comercial metropolitano — a base do pacto colonial. Pouco depois, revogou a proibição de manufaturas no Brasil. Os <strong>Tratados de 1810</strong> com a Inglaterra, porém, garantiram aos produtos ingleses uma tarifa de apenas 15%, menor até que a cobrada sobre mercadorias portuguesas (16%). A Inglaterra tornava-se a grande beneficiada da nova situação.",
+              "No território, D. João revidou contra a França ocupando a <strong>Guiana Francesa</strong> (1809-1817) e voltou-se para o Sul, ocupando a Banda Oriental, anexada em 1821 como <strong>Província Cisplatina</strong>. No Rio de Janeiro, nova capital do Império, surgiram instituições que mudaram a vida da cidade: a <strong>Imprensa Régia</strong> (1808), o Banco do Brasil (1808), o <strong>Jardim Botânico</strong>, a <strong>Biblioteca Real</strong>, a Academia Real Militar e, em 1816, a <strong>Missão Artística Francesa</strong>, com Debret, Taunay e Grandjean de Montigny.",
+              "Em 1815, após a derrota de Napoleão, o Brasil foi elevado a <strong>Reino Unido de Portugal, Brasil e Algarves</strong>. Juridicamente, deixava de ser colônia, e a permanência da Corte no Rio ganhava legitimidade diante das potências do Congresso de Viena. Com a morte de D. Maria I, D. João foi aclamado rei em 1818, no Rio de Janeiro — cerimônia registrada por Debret."
+            ],
+            boxes: [
+              { type: "timeline", items: [
+                ["1808", "Abertura dos Portos; Imprensa Régia; Banco do Brasil; Jardim Botânico."],
+                ["1809", "Ocupação da Guiana Francesa."],
+                ["1810", "Tratados com a Inglaterra; Biblioteca Real."],
+                ["1815", "Brasil elevado a Reino Unido de Portugal, Brasil e Algarves."],
+                ["1816", "Chegada da Missão Artística Francesa."],
+                ["1818", "Aclamação de D. João VI no Rio de Janeiro."],
+                ["1821", "Anexação da Província Cisplatina."]
+              ]}
+            ]
+          },
+          {
+            title: "A Revolução Liberal do Porto (1820) e as contradições da América Ibérica",
+            img: "https://upload.wikimedia.org/wikipedia/commons/8/86/Dom_Jo%C3%A3o_VI_by_Jean-Baptiste_Debret.jpg",
+            caption: "Retrato de D. João VI, Jean-Baptiste Debret",
+            text: [
+              "Em 1820, eclodiu em Portugal a <strong>Revolução Liberal do Porto</strong>. Burgueses e militares estavam insatisfeitos com a ausência do rei, com o comando britânico sobre o exército português e com a crise econômica provocada pela perda do monopólio sobre o comércio brasileiro. Exigiam uma Constituição que limitasse o poder do monarca e o retorno imediato de D. João VI. Pressionado, o rei voltou a Lisboa em abril de 1821, deixando o filho, D. Pedro, como príncipe regente do Brasil.",
+              "As Cortes de Lisboa, que se apresentavam como liberais, passaram então a defender medidas para reduzir a autonomia conquistada pelo Brasil desde 1808: subordinar as províncias diretamente a Lisboa e esvaziar as instituições criadas no Rio de Janeiro. Os brasileiros enxergaram nisso uma <strong>tentativa de recolonização</strong> — e essa tensão abriria caminho para a independência.",
+              "Aqui está o centro das <strong>contradições</strong> do período: o liberalismo português queria limitar o rei em Portugal, mas restaurar privilégios sobre o Brasil. E, na América Ibérica, as elites que celebravam a liberdade de comércio e os direitos do cidadão mantinham intactas a <strong>escravidão</strong>, a concentração de terras e a exclusão da maioria da população. Os discursos de liberdade vindos da Europa conviviam com estruturas profundamente desiguais."
+            ],
+            boxes: [
+              { type: "quote", text: "Pedro, se o Brasil se separar, antes seja para ti, que me hás de respeitar, do que para algum desses aventureiros.", cite: "Conselho atribuído a D. João VI ao filho, segundo carta de D. Pedro (1822)" }
+            ]
+          }
+        ]
+      },
+
+      /* ===================================================================
+         CAPÍTULO 12
+         =================================================================== */
+      {
+        id: "c12", num: 12,
+        short: "EUA e Haiti",
+        title: "Estados Unidos e Haiti: duas independências, duas histórias entrelaçadas",
+        sub: "Uma revolução feita por proprietários, outra por escravizados — e os limites da liberdade no mundo atlântico.",
+        theme: { primary: "#14532D", accent: "#C2410C", soft: "#F0FDF4", accentInk: "#FFFFFF" },
+        objectives: [
+          "Identificar as bases ideológicas da independência dos EUA e seus legados contemporâneos.",
+          "Relacionar a colonização e a independência do Haiti à transição da Modernidade para a Contemporaneidade."
+        ],
+        topics: [
+          {
+            title: "As Treze Colônias: Norte e Sul na América Britânica",
+            img: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Thirteen_Colonies_1775.svg/800px-Thirteen_Colonies_1775.svg.png",
+            caption: "Mapa das Treze Colônias Britânicas na América do Norte, 1775",
+            text: [
+              "As <strong>Treze Colônias</strong> inglesas se formaram ao longo da costa atlântica da América do Norte entre os séculos XVII e XVIII. Muitos colonos eram puritanos e membros de outros grupos religiosos que fugiam de perseguições; outros eram camponeses empobrecidos pelas transformações econômicas na Inglaterra. Diferenças de clima, de solo e de perfil dos colonizadores deram origem a sociedades muito distintas.",
+              "No <strong>Norte</strong> (Nova Inglaterra) e no <strong>Centro</strong>, predominaram as colônias de <strong>povoamento</strong>: pequenas e médias propriedades com policultura e trabalho livre e familiar, manufaturas, construção naval, pesca e um comércio intenso — incluindo o <strong>comércio triangular</strong>, que ligava as colônias ao Caribe e à África. No <strong>Sul</strong>, organizou-se o sistema de <strong>plantation</strong>: latifúndios monocultores de tabaco, arroz, anil e, mais tarde, algodão, voltados à exportação e sustentados pelo trabalho de africanos escravizados.",
+              "Durante boa parte do século XVIII, a Inglaterra praticou uma política conhecida como <strong>“negligência salutar”</strong>: fiscalizava pouco as colônias e tolerava seu comércio relativamente livre. Os colonos desenvolveram assembleias próprias e uma forte tradição de autogoverno — experiência que pesaria muito quando a metrópole decidisse mudar de postura."
+            ],
+            boxes: [
+              { type: "compare", title: "Colônias do Norte e Centro x Colônias do Sul", headers: ["Aspecto", "Norte e Centro", "Sul"], rows: [
+                ["Tipo de colônia", "Povoamento", "Exploração (plantation)"],
+                ["Propriedade", "Pequena e média, policultura", "Latifúndio monocultor"],
+                ["Trabalho", "Livre e familiar", "Africanos escravizados"],
+                ["Economia", "Comércio, manufaturas, pesca e navios", "Tabaco, arroz, anil e algodão para exportação"]
+              ]}
+            ]
+          },
+          {
+            title: "O enrijecimento do pacto colonial após a Guerra dos Sete Anos",
+            img: "https://upload.wikimedia.org/wikipedia/commons/5/52/Boston_Tea_Party_Currier_colored.jpg",
+            caption: "A Festa do Chá de Boston, litografia de Nathaniel Currier, 1846",
+            text: [
+              "A <strong>Guerra dos Sete Anos</strong> (1756-1763), travada entre Inglaterra e França também na América do Norte, terminou com vitória inglesa — e com uma dívida gigantesca. O Parlamento britânico concluiu que os colonos, protegidos pela guerra, deveriam ajudar a pagar a conta. A negligência salutar chegava ao fim, e a metrópole passou a controlar e tributar as colônias como nunca antes.",
+              "Vieram as leis fiscais: a <strong>Lei do Açúcar</strong> (1764), sobre o açúcar e o melaço que não viessem das Antilhas britânicas; a <strong>Lei do Selo</strong> (1765), que exigia selos pagos em jornais, documentos e contratos; e os <strong>Atos Townshend</strong> (1767), que taxavam vidro, papel, tinta e chá. Os colonos responderam com boicotes e com um argumento poderoso: sem deputados no Parlamento, não aceitariam impostos — <em>nenhuma taxação sem representação</em>. Em 5 de março de 1770, soldados britânicos atiraram contra uma multidão em Boston, matando cinco colonos: o <strong>Massacre de Boston</strong>, amplamente explorado pela propaganda patriota.",
+              "Em 1773, a <strong>Lei do Chá</strong> concedeu à Companhia das Índias Orientais o monopólio da venda de chá nas colônias. Em dezembro, colonos disfarçados de indígenas invadiram navios no porto de Boston e lançaram ao mar centenas de caixas de chá. A <strong>Festa do Chá de Boston</strong> tornou-se o símbolo da ruptura que se aproximava."
+            ],
+            boxes: [
+              { type: "quote", text: "Nenhuma taxação sem representação.", cite: "Lema dos colonos (“No taxation without representation”)" },
+              { type: "timeline", items: [
+                ["1763", "Fim da Guerra dos Sete Anos: vitória inglesa e endividamento."],
+                ["1764", "Lei do Açúcar."],
+                ["1765", "Lei do Selo."],
+                ["1767", "Atos Townshend."],
+                ["1770", "Massacre de Boston."],
+                ["1773", "Lei do Chá e Festa do Chá de Boston."]
+              ]}
+            ]
+          },
+          {
+            title: "As Leis Intoleráveis e a Declaração de Independência (1776)",
+            img: "https://upload.wikimedia.org/wikipedia/commons/f/f9/Declaration_of_Independence_%281819%29%2C_by_John_Trumbull.jpg",
+            caption: "Declaração de Independência, John Trumbull, 1819",
+            text: [
+              "A resposta britânica à Festa do Chá veio em 1774, com as leis que os colonos apelidaram de <strong>Leis Intoleráveis</strong>: o porto de Boston foi fechado até o pagamento do prejuízo, o autogoverno de Massachusetts foi restringido e os colonos passaram a ser obrigados a alojar tropas. A intenção era isolar Massachusetts como exemplo — mas o efeito foi o oposto: as colônias se uniram em solidariedade.",
+              "Ainda em 1774, representantes das colônias reuniram-se no <strong>Primeiro Congresso Continental da Filadélfia</strong>, que organizou boicotes e enviou petições ao rei. Em abril de 1775, os primeiros tiros foram disparados em Lexington e Concord. O <strong>Segundo Congresso Continental</strong> criou um exército sob o comando de George Washington, e o panfleto <em>Senso Comum</em>, de Thomas Paine (1776), convenceu muitos colonos de que a independência era o único caminho.",
+              "Em <strong>4 de julho de 1776</strong>, o Congresso aprovou a <strong>Declaração de Independência</strong>, redigida principalmente por <strong>Thomas Jefferson</strong>. O texto se apoiava no <strong>jusnaturalismo de John Locke</strong>: todos nascem com direitos naturais, que nenhum governo pode suprimir, e quando um governo se torna tirânico o povo tem o direito de alterá-lo ou aboli-lo. Era a primeira vez que uma colônia rompia com sua metrópole com base nesses princípios."
+            ],
+            boxes: [
+              { type: "quote", text: "Consideramos estas verdades evidentes por si mesmas: que todos os homens são criados iguais, que são dotados pelo Criador de certos direitos inalienáveis, entre os quais estão a vida, a liberdade e a busca da felicidade.", cite: "Declaração de Independência dos Estados Unidos, 4 de julho de 1776" }
+            ]
+          },
+          {
+            title: "A Guerra de Independência e a Constituição de 1787",
+            img: "https://upload.wikimedia.org/wikipedia/commons/9/95/Washington_Crossing_the_Delaware_by_Emanuel_Leutze%2C_MMA-NYC%2C_1851.jpg",
+            caption: "Washington atravessando o Rio Delaware, Emanuel Leutze, 1851",
+            text: [
+              "A guerra foi longa e difícil para os colonos. O quadro de Leutze representa um momento decisivo: na noite de Natal de 1776, Washington atravessou o gelado rio Delaware para surpreender as tropas inimigas em Trenton, reanimando os patriotas. A vitória em <strong>Saratoga</strong> (1777) convenceu a <strong>França</strong> a entrar no conflito em 1778, seguida pela <strong>Espanha</strong> — ambas interessadas em enfraquecer a Inglaterra. Em 1781, a rendição britânica em <strong>Yorktown</strong> praticamente encerrou a guerra, e o Tratado de Paris (1783) reconheceu a independência.",
+              "Nos primeiros anos, os Estados Unidos funcionaram como uma frágil confederação, com um governo central sem força para cobrar impostos ou manter a ordem. Em 1787, delegados reunidos na Filadélfia redigiram a <strong>Constituição</strong>, que criou a primeira <strong>república federativa presidencialista</strong> moderna: os estados mantinham autonomia, mas havia um governo central forte, chefiado por um presidente eleito. George Washington tornou-se o primeiro presidente, em 1789.",
+              "O coração do sistema é a <strong>divisão em três poderes</strong> — Executivo, Legislativo e Judiciário —, inspirada em Montesquieu, e o mecanismo de <strong>freios e contrapesos</strong>: o presidente pode vetar leis, o Congresso pode derrubar o veto e julgar o presidente, e a Suprema Corte pode declarar leis inconstitucionais. Nenhum poder governa sozinho."
+            ],
+            boxes: [
+              { type: "concept", items: [
+                ["Federalismo", "Os estados têm autonomia política, mas se unem sob um governo central com poderes definidos."],
+                ["Presidencialismo", "O chefe do Executivo é eleito e governa por mandato determinado."],
+                ["Freios e contrapesos", "Cada poder limita e fiscaliza os outros, evitando a concentração de autoridade."]
+              ]}
+            ]
+          },
+          {
+            title: "Os legados e contradições dos EUA na contemporaneidade",
+            img: "https://upload.wikimedia.org/wikipedia/commons/1/12/Scene_at_the_Signing_of_the_Constitution_of_the_United_States.jpg",
+            caption: "Assinatura da Constituição dos Estados Unidos, Howard Chandler Christy",
+            text: [
+              "A nova república proclamava que todos os homens eram criados iguais — mas manteve a <strong>escravidão</strong>. A Constituição chegou a contar cada pessoa escravizada como três quintos de uma pessoa livre para definir a representação dos estados no Congresso, ampliando o peso político dos senhores do Sul. A escravidão só foi abolida em 1865, ao final de uma sangrenta guerra civil.",
+              "Outros grupos também ficaram de fora da liberdade proclamada. Os <strong>povos indígenas</strong> foram progressivamente expulsos de suas terras pela expansão para o Oeste, e as <strong>mulheres</strong> só conquistaram o direito de voto em todo o país em 1920. O voto, nos primeiros tempos, era em geral restrito a homens brancos proprietários.",
+              "Um legado que segue vivo é a <strong>Segunda Emenda</strong> (1791), que garante “o direito do povo de manter e portar armas”, ligado originalmente às milícias da época da independência. Hoje, ela está no centro de um debate intenso, sobretudo após tiroteios em massa: para uns, a posse e o porte de armas são um direito fundamental do cidadão; para outros, a interpretação da emenda precisa ser atualizada para proteger a vida da população. Estudar a independência ajuda a entender por que esse debate é tão profundo na sociedade norte-americana."
+            ],
+            boxes: [
+              { type: "compare", title: "Ideais proclamados x realidade", headers: ["Ideal", "O que dizia", "O que acontecia"], rows: [
+                ["Igualdade", "Todos os homens são criados iguais", "Escravidão mantida até 1865"],
+                ["Liberdade", "Direitos inalienáveis", "Expulsão dos povos indígenas"],
+                ["Representação", "Governo pelo consentimento dos governados", "Voto restrito; mulheres excluídas até 1920"]
+              ]}
+            ]
+          },
+          {
+            title: "São Domingos: a pérola açucareira do Caribe francês",
+            img: "https://upload.wikimedia.org/wikipedia/commons/8/87/Habitation_sucriere_Saint-Domingue.jpg",
+            caption: "Engenho de açúcar na colônia francesa de São Domingos",
+            text: [
+              "Na porção ocidental da ilha de Hispaniola, os franceses estabeleceram a colônia de <strong>São Domingos</strong> (<em>Saint-Domingue</em>), atual Haiti. No século XVIII, ela se tornou a <strong>colônia mais lucrativa da França</strong> e uma das mais ricas do mundo — a “Pérola das Antilhas” —, produzindo enormes quantidades de açúcar e café para o mercado europeu.",
+              "Essa riqueza tinha como base a <strong>exploração brutal de africanos escravizados</strong>. Por volta de 1789, viviam na colônia cerca de meio milhão de escravizados, diante de algumas dezenas de milhares de brancos e de pessoas livres de cor. Nas plantações de cana, o trabalho era tão violento que a mortalidade era altíssima, e a população escravizada era continuamente “reposta” pelo tráfico atlântico.",
+              "A sociedade obedecia a uma <strong>rígida hierarquia racial</strong>. No topo, os grandes proprietários brancos (<em>grands blancs</em>); abaixo, os brancos pobres (<em>petits blancs</em>); depois, os livres de cor (<em>affranchis</em>), muitos deles proprietários, mas sem os mesmos direitos políticos dos brancos; e, na base, a imensa maioria escravizada. Fugas e comunidades de fugitivos, chamadas de <em>marronnage</em>, mostravam que a resistência nunca deixou de existir."
+            ],
+            boxes: [
+              { type: "compare", title: "A pirâmide social de São Domingos", headers: ["Grupo", "Quem eram", "Situação"], rows: [
+                ["Grands blancs", "Grandes proprietários e altos funcionários brancos", "Riqueza e poder político"],
+                ["Petits blancs", "Brancos pobres: artesãos, comerciantes, feitores", "Privilégios raciais, pouca riqueza"],
+                ["Affranchis", "Livres de cor, muitos proprietários", "Riqueza possível, direitos limitados"],
+                ["Escravizados", "Africanos e descendentes — a imensa maioria", "Trabalho forçado e violência extrema"]
+              ]}
+            ]
+          },
+          {
+            title: "A Revolução de Independência do Haiti (1791–1804)",
+            img: "https://upload.wikimedia.org/wikipedia/commons/c/c0/Toussaint_Louverture_-_Girardin.jpg",
+            caption: "General Toussaint Louverture, líder da Revolução Haitiana",
+            text: [
+              "A <strong>Revolução Francesa</strong> de 1789 e sua Declaração dos Direitos do Homem e do Cidadão repercutiram imediatamente em São Domingos. Os livres de cor reivindicaram igualdade, e os escravizados perceberam a contradição gritante entre o discurso de liberdade e sua própria condição. Em agosto de 1791, após a cerimônia religiosa de Bois Caïman, explodiu no norte da colônia uma insurreição gigantesca — a maior revolta de escravizados da história das Américas.",
+              "<strong>Toussaint Louverture</strong>, um ex-escravizado alforriado, tornou-se o principal líder militar e político do movimento. Em 1794, a França revolucionária aboliu a escravidão em suas colônias, e Toussaint passou a controlar a ilha, chegando a promulgar uma Constituição em 1801. <strong>Napoleão Bonaparte</strong>, porém, queria restaurar o controle francês e a escravidão: em 1802, enviou uma grande expedição comandada pelo general Leclerc. Toussaint foi capturado por traição e morreu numa prisão na França, em 1803.",
+              "A luta continuou sob o comando de <strong>Jean-Jacques Dessalines</strong>. A resistência dos revolucionários e a febre amarela dizimaram as tropas francesas, derrotadas na Batalha de Vertières, em novembro de 1803. Em <strong>1º de janeiro de 1804</strong>, Dessalines proclamou a independência do <strong>Haiti</strong> — nome de origem indígena para a ilha. Nascia o primeiro país das Américas governado por ex-escravizados, frequentemente lembrado como a primeira república negra, e o primeiro do continente a abolir definitivamente a escravidão."
+            ],
+            boxes: [
+              { type: "timeline", items: [
+                ["1789", "Revolução Francesa e Declaração dos Direitos do Homem e do Cidadão."],
+                ["1791", "Início da grande insurreição de escravizados."],
+                ["1794", "A França revolucionária abole a escravidão nas colônias."],
+                ["1802", "Expedição de Leclerc enviada por Napoleão; captura de Toussaint."],
+                ["1803", "Batalha de Vertières: derrota francesa."],
+                ["1804", "Dessalines proclama a independência do Haiti."]
+              ]}
+            ]
+          },
+          {
+            title: "O Haiti pós-independência e o trauma do “Haitianismo”",
+            img: "https://upload.wikimedia.org/wikipedia/commons/b/b2/Battle_of_Vertieres.jpg",
+            caption: "Batalha de Vertières, vitória decisiva pela independência do Haiti em 1803",
+            text: [
+              "A independência não trouxe reconhecimento. As potências escravistas temiam que o exemplo haitiano inspirasse revoltas em seus próprios territórios, e o Haiti foi <strong>isolado diplomática e comercialmente</strong>. Os Estados Unidos, por exemplo, só reconheceram oficialmente o país em 1862, em plena Guerra Civil.",
+              "Em 1825, sob a ameaça de navios de guerra, a França exigiu uma <strong>indenização de 150 milhões de francos</strong> — mais tarde reduzida para 90 milhões — como “compensação” aos antigos colonos pela perda de suas propriedades, o que incluía as próprias pessoas escravizadas. Para pagá-la, o Haiti recorreu a empréstimos de bancos franceses, criando uma dívida que se arrastou por mais de um século e que, em valores atuais, equivale a bilhões de dólares retirados do país.",
+              "O termo <strong>“haitianismo”</strong> designa o pavor das elites escravistas das Américas de que uma revolução semelhante acontecesse em seus territórios. No <strong>Brasil</strong>, esse medo esteve muito presente no século XIX: influenciou a dura repressão às revoltas de escravizados e ajuda a explicar por que as elites preferiram uma independência controlada, sem participação popular."
+            ],
+            boxes: [
+              { type: "concept", items: [
+                ["Haitianismo", "Medo das elites escravistas de que o exemplo haitiano provocasse rebeliões em outras regiões, inclusive no Brasil."],
+                ["Dívida da independência", "Indenização imposta pela França em 1825, que endividou o Haiti por gerações."],
+                ["Isolamento diplomático", "Recusa das potências em reconhecer e negociar com o país fundado por ex-escravizados."]
+              ]}
+            ]
+          },
+          {
+            title: "Conclusão: duas independências na transição para a Contemporaneidade",
+            img: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Coat_of_arms_of_Haiti.svg/800px-Coat_of_arms_of_Haiti.svg.png",
+            caption: "Brasão de Armas da República do Haiti: “L'Union Fait La Force”",
+            text: [
+              "As independências dos Estados Unidos e do Haiti aconteceram com poucas décadas de diferença e se apoiaram em ideias parecidas: direitos naturais, soberania do povo e rejeição à tirania. Mas foram feitas por grupos sociais muito diferentes — e chegaram a resultados opostos em relação à liberdade.",
+              "Nos Estados Unidos, a revolução foi liderada por <strong>proprietários</strong>, comerciantes e advogados que romperam com a metrópole, mas preservaram a ordem social interna, inclusive a escravidão. No Haiti, ela foi protagonizada pelos próprios <strong>escravizados</strong>, que derrubaram ao mesmo tempo o domínio colonial e a escravidão, levando o ideal de liberdade às últimas consequências.",
+              "Juntas, as duas revoluções marcam a passagem da <strong>Modernidade para a Contemporaneidade</strong>: mostram tanto a força dos novos princípios políticos quanto seus limites. O lema do brasão haitiano, “A união faz a força”, lembra que a liberdade conquistada pelo Haiti foi resultado de uma luta coletiva — e que, por isso mesmo, assustou tanto as elites do mundo atlântico."
+            ],
+            boxes: [
+              { type: "compare", title: "Duas independências, dois projetos", headers: ["Aspecto", "Estados Unidos", "Haiti"], rows: [
+                ["Liderança", "Elites proprietárias", "Ex-escravizados e livres de cor"],
+                ["Escravidão", "Mantida até 1865", "Abolida com a independência"],
+                ["Metrópole", "Inglaterra", "França"],
+                ["Reação internacional", "Apoio de França e Espanha", "Isolamento e indenização"],
+                ["Legado", "Modelo de república federativa presidencialista", "Símbolo da luta antiescravista"]
+              ]}
+            ]
+          }
+        ]
+      },
+
+      /* ===================================================================
+         CAPÍTULO 13 — usa EXCLUSIVAMENTE os dados da apresentação do grupo
+         =================================================================== */
+      {
+        id: "c13", num: 13,
+        short: "Independência do México",
+        title: "A Independência do México (1810–1824)",
+        sub: "Apresentação do grupo: da revolta popular dos padres à República Federal e ao Porfiriato.",
+        theme: { primary: "#6B1D2F", accent: "#B8860B", soft: "#FDF2F4", accentInk: "#1C1406" },
+        objectives: [
+          "Compreender o contexto colonial do Vice-Reino da Nova Espanha e as tensões sociais que prepararam o movimento de independência.",
+          "Analisar as fases da luta pela independência mexicana, desde a revolta popular dos padres Hidalgo e Morelos até o acordo conservador de Agustín de Iturbide e as consequências republicanas até o governo de Porfirio Díaz."
+        ],
+        topics: [
+          {
+            title: "O Vice-Reino da Nova Espanha e a Economia Colonial",
+            img: "https://upload.wikimedia.org/wikipedia/commons/2/23/Conquista_de_M%C3%A9xico_por_Cort%C3%A9s_Tenochtitlan.jpg",
+            caption: "A queda de Tenochtitlán e o início do domínio espanhol na Nova Espanha",
+            text: [
+              "A história da independência do México começa muito antes de 1810. Em <strong>1521</strong>, o <strong>Império Asteca</strong> caiu diante da conquista liderada por <strong>Hernán Cortés</strong>, e sobre esse território os espanhóis organizaram o <strong>Vice-Reino da Nova Espanha</strong>. Por quase <strong>300 anos</strong>, a região permaneceu sob domínio espanhol e se tornou a <strong>colônia mais rica da Espanha</strong>.",
+              "Essa riqueza se apoiava em dois pilares. O primeiro era a <strong>mineração</strong>: a <strong>prata</strong> era o principal minério extraído, ao lado do <strong>ouro</strong>, do <strong>cobre</strong> e do <strong>chumbo</strong>. O segundo era a <strong>agricultura em grandes latifúndios</strong>, onde se cultivavam <strong>tabaco, cacau, algodão, milho e feijão</strong>.",
+              "Vale guardar uma pergunta para os próximos tópicos: quem controlava essas minas e essas terras — e quem trabalhava nelas? A resposta está na forma como a sociedade da Nova Espanha estava organizada, e é justamente dessas desigualdades que nascerão as tensões da luta pela independência."
+            ],
+            boxes: [
+              { type: "compare", title: "As bases da economia colonial", headers: ["Setor", "Produtos", "Destaque"], rows: [
+                ["Mineração", "Prata, ouro, cobre e chumbo", "A prata era o principal minério"],
+                ["Agricultura", "Tabaco, cacau, algodão, milho e feijão", "Cultivados em grandes latifúndios"]
+              ]}
+            ]
+          },
+          {
+            title: "A Torre Hierárquica Social da Nova Espanha",
+            img: "https://upload.wikimedia.org/wikipedia/commons/e/e8/Casta_painting_all.jpg",
+            caption: "Pintura de castas ilustrando a hierarquia social colonial na Nova Espanha",
+            text: [
+              "A sociedade da Nova Espanha funcionava como uma <strong>torre hierárquica</strong>, em que o lugar de cada pessoa era definido pela origem. No topo estavam os <strong>peninsulares</strong>, nascidos na Espanha — chamados de <em>gachupines</em> no México e de <em>chapetones</em> no restante da América Espanhola. Eram eles que ocupavam os <strong>altos cargos políticos e militares</strong>.",
+              "No meio da torre estavam os <strong>criollos</strong>, descendentes de espanhóis nascidos na América. Eram <strong>donos de terras e riquezas</strong>, mas ficavam <strong>excluídos das decisões políticas</strong>. Essa combinação — poder econômico sem poder político — é uma das chaves para entender a independência: os criollos tinham recursos e motivos para desejar mudanças.",
+              "Na base estavam os <strong>indígenas e mestiços</strong>, submetidos à <strong>extrema pobreza</strong>, ao pagamento de <strong>tributos</strong> e à <strong>exploração</strong>. Eram a maioria que sustentava, com seu trabalho, a riqueza da colônia mais rica da Espanha, sem participar de suas decisões nem de seus benefícios."
+            ],
+            boxes: [
+              { type: "compare", title: "A torre hierárquica da Nova Espanha", headers: ["Posição", "Grupo", "Situação"], rows: [
+                ["Topo", "Peninsulares (gachupines / chapetones)", "Altos cargos políticos e militares"],
+                ["Meio", "Criollos", "Terras e riquezas, mas excluídos das decisões políticas"],
+                ["Base", "Indígenas e mestiços", "Extrema pobreza, tributos e exploração"]
+              ]}
+            ]
+          },
+          {
+            title: "Causas Estruturais, Ideais Iluministas e o Gatilho de 1808",
+            img: "https://upload.wikimedia.org/wikipedia/commons/3/3e/Virgen_de_Guadalupe_1531.jpg",
+            caption: "Virgem de Guadalupe, símbolo espiritual e identitário adotado pelos insurgentes",
+            text: [
+              "Antes de qualquer revolta, um conjunto de <strong>causas estruturais</strong> vinha alimentando o descontentamento. As <strong>Reformas Bourbônicas</strong> provocaram o <strong>aumento da carga tributária</strong> e a <strong>perda de autonomia das elites locais</strong> — um golpe direto nos interesses dos criollos, que já se sentiam afastados do poder político.",
+              "Ao mesmo tempo, circulavam pela colônia as <strong>ideias iluministas</strong>: a <strong>soberania popular</strong>, a <strong>igualdade natural</strong> entre os seres humanos e a <strong>rejeição ao absolutismo</strong>. Dois exemplos externos mostravam que era possível transformar essas ideias em ação: a <strong>Independência dos Estados Unidos</strong> e a <strong>Revolução Francesa</strong>. Internamente, fortalecia-se uma <strong>identidade criolla</strong>, construída pela <strong>valorização do passado indígena</strong> e pelo culto à <strong>Virgem de Guadalupe</strong> — símbolos de um pertencimento próprio, distinto da Espanha.",
+              "Faltava apenas um estopim. Ele veio em <strong>1808</strong>, com a <strong>invasão napoleônica da Espanha</strong> e a <strong>deposição do rei Fernando VII</strong>. Com o rei afastado, a autoridade espanhola sobre a colônia ficou abalada — e as tensões acumuladas ao longo de séculos encontraram espaço para explodir."
+            ],
+            boxes: [
+              { type: "concept", items: [
+                ["Causas estruturais", "Reformas Bourbônicas: aumento da carga tributária e perda de autonomia das elites locais."],
+                ["Influências externas", "Ideias iluministas, Independência dos EUA e Revolução Francesa."],
+                ["Identidade criolla", "Valorização do passado indígena e culto à Virgem de Guadalupe."],
+                ["Gatilho imediato (1808)", "Invasão napoleônica da Espanha e deposição de Fernando VII."]
+              ]}
+            ]
+          },
+          {
+            title: "O Grito de Dolores e a Revolta Popular de Miguel Hidalgo (1810–1811)",
+            img: "https://upload.wikimedia.org/wikipedia/commons/c/c9/Miguel_Hidalgo_y_Costilla_-_Joaqu%C3%ADn_Ram%C3%ADrez.jpg",
+            caption: "Padre Miguel Hidalgo y Costilla, iniciador da Independência do México",
+            text: [
+              "A revolução começou na madrugada de <strong>16 de setembro de 1810</strong>, com o célebre <strong>Grito de Dolores</strong>, liderado pelo <strong>Padre Miguel Hidalgo</strong>. O chamado à luta não se dirigiu apenas à elite: ele mobilizou a base da torre social.",
+              "Em pouco tempo, formou-se um <strong>imenso exército popular</strong>, composto por <strong>camponeses, indígenas e mestiços</strong>. Hidalgo decretou o <strong>fim da escravidão</strong> e o <strong>fim dos tributos indígenas</strong> — medidas que respondiam diretamente às condições de quem estava na base da sociedade colonial e que davam ao movimento um forte caráter social.",
+              "Justamente por isso, a reação foi violenta. As <strong>tropas realistas</strong> e a <strong>elite</strong> combateram o movimento, que ameaçava não apenas o domínio espanhol, mas também a ordem social. Hidalgo foi <strong>excomungado</strong> e <strong>fuzilado em 1811</strong>. A primeira fase da revolta terminava derrotada, mas a luta não acabaria com ele."
+            ],
+            boxes: [
+              { type: "concept", items: [
+                ["Grito de Dolores", "Convocação feita pelo Padre Miguel Hidalgo na madrugada de 16 de setembro de 1810, que deu início à revolução."],
+                ["Caráter popular", "Exército de camponeses, indígenas e mestiços; fim da escravidão e dos tributos indígenas."],
+                ["Desfecho", "Reação violenta das tropas realistas e da elite; Hidalgo excomungado e fuzilado em 1811."]
+              ]}
+            ]
+          },
+          {
+            title: "A Continuidade da Luta Social: José María Morelos e Vicente Guerrero",
+            img: "https://upload.wikimedia.org/wikipedia/commons/6/6b/Jos%C3%A9_Mar%C3%ADa_Morelos_y_Pav%C3%B3n.jpg",
+            caption: "Padre José María Morelos, autor de “Sentimentos da Nação”",
+            text: [
+              "Com a morte de Hidalgo, a liderança foi assumida por outro sacerdote, o <strong>Padre José María Morelos</strong>. Ele <strong>organizou militarmente os insurgentes</strong>, dando mais estrutura a um movimento que havia nascido como uma grande mobilização popular.",
+              "Morelos também deu à luta um programa político. No documento <em>Sentimentos da Nação</em>, defendeu a <strong>igualdade social</strong>, a <strong>soberania popular</strong> e a <strong>reforma agrária</strong>, com a <strong>divisão dos grandes latifúndios</strong> — uma proposta que tocava no centro da desigualdade da Nova Espanha. Em <strong>1813</strong>, promulgou a <strong>declaração de independência</strong>. Foi capturado e <strong>executado em 1815</strong>.",
+              "Mesmo assim, a resistência não desapareceu. Nas montanhas, as <strong>guerrilhas</strong> comandadas por <strong>Vicente Guerrero</strong> mantiveram a luta viva — e Guerrero ainda teria um papel decisivo no desfecho da independência."
+            ],
+            boxes: [
+              { type: "compare", title: "Os líderes da fase popular", headers: ["Líder", "Atuação", "Destino"], rows: [
+                ["Miguel Hidalgo", "Grito de Dolores (1810); fim da escravidão e dos tributos indígenas", "Excomungado e fuzilado em 1811"],
+                ["José María Morelos", "Sentimentos da Nação; declaração de independência (1813)", "Capturado e executado em 1815"],
+                ["Vicente Guerrero", "Guerrilhas nas montanhas", "Manteve a resistência até 1821"]
+              ]}
+            ]
+          },
+          {
+            title: "A Virada Conservadora: o Plano de Iguala e o Tratado de Córdoba (1821)",
+            img: "https://upload.wikimedia.org/wikipedia/commons/b/b5/Entrada_del_Ej%C3%A9rcito_Trigarante_a_la_Ciudad_de_M%C3%A9xico.jpg",
+            caption: "Entrada triunfal do Exército Trigarante na Cidade do México em 1821",
+            text: [
+              "Em 1821, o cenário mudou de forma inesperada. Na Espanha, a <strong>Constituição liberal de Cádiz</strong> ameaçava <strong>privilégios tradicionais</strong>, e isso despertou o medo da <strong>elite criolla</strong> e do <strong>clero</strong>. A independência, que antes parecia uma ameaça à ordem, passou a ser vista por esses grupos como uma forma de proteger seus interesses.",
+              "Nasceu então uma aliança estratégica entre o militar realista <strong>Agustín de Iturbide</strong> e o líder guerrilheiro <strong>Vicente Guerrero</strong>, firmada no <strong>Plano de Iguala</strong>. O acordo se baseava nas <strong>Três Garantias</strong>: a <strong>independência do México</strong>, o <strong>catolicismo como religião única</strong> e a <strong>igualdade entre os cidadãos</strong>. Para defendê-las, formou-se o <strong>Exército Trigarante</strong>.",
+              "Em <strong>24 de agosto de 1821</strong>, foi assinado o <strong>Tratado de Córdoba</strong> com o vice-rei <strong>Juan O'Donojú</strong>, selando a emancipação. Repare no contraste com a fase anterior: a independência que começou com uma revolta popular liderada por padres terminou com um acordo conduzido pela elite e por um militar que antes defendia a Coroa."
+            ],
+            boxes: [
+              { type: "compare", title: "Duas fases da luta pela independência", headers: ["Aspecto", "Fase popular (1810–1815)", "Virada conservadora (1821)"], rows: [
+                ["Líderes", "Padres Miguel Hidalgo e José María Morelos", "Agustín de Iturbide, aliado a Vicente Guerrero"],
+                ["Base social", "Camponeses, indígenas e mestiços", "Elite criolla, clero e Exército Trigarante"],
+                ["Propostas", "Fim da escravidão e dos tributos indígenas; igualdade social; reforma agrária", "Três Garantias: independência, catolicismo único e igualdade entre cidadãos"],
+                ["Desfecho", "Hidalgo fuzilado (1811); Morelos executado (1815)", "Tratado de Córdoba (24 de agosto de 1821)"]
+              ]},
+              { type: "concept", items: [
+                ["Plano de Iguala", "Aliança entre Iturbide e Guerrero baseada nas Três Garantias."],
+                ["Exército Trigarante", "Força militar formada para defender as Três Garantias."],
+                ["Tratado de Córdoba", "Assinado em 24 de agosto de 1821 com o vice-rei Juan O'Donojú, selando a emancipação."]
+              ]}
+            ]
+          },
+          {
+            title: "Do Efêmero Império de Agostinho I à República Federal (1822–1824)",
+            img: "https://upload.wikimedia.org/wikipedia/commons/d/d4/Agust%C3%ADn_de_Iturbide_y_Ar%C3%A1mburu.jpg",
+            caption: "Agustín de Iturbide como Imperador Agostinho I do México",
+            text: [
+              "Conquistada a independência, o México não se tornou imediatamente uma república. Em <strong>1822</strong>, <strong>Agustín de Iturbide</strong> foi coroado imperador com o título de <strong>Agostinho I</strong>, instalando o <strong>Primeiro Império Mexicano</strong>.",
+              "O império, porém, durou pouco. Iturbide sofreu uma <strong>rápida perda de apoio político</strong>, enfrentou uma <strong>crise financeira</strong> e viu crescer a <strong>oposição republicana</strong>, liderada por <strong>Guadalupe Victoria</strong> — um veterano das lutas de Hidalgo e Morelos. Pressionado, Iturbide <strong>abdicou em 1823</strong>.",
+              "Em <strong>1824</strong>, foi promulgada uma nova <strong>Constituição</strong>, que instituiu a <strong>República Federal do México</strong>. <strong>Guadalupe Victoria</strong> tornou-se seu <strong>primeiro presidente</strong>. Assim, alguém que havia lutado na fase popular da independência chegava ao comando do novo país."
+            ],
+            boxes: [
+              { type: "timeline", items: [
+                ["1822", "Iturbide é coroado imperador como Agostinho I: Primeiro Império Mexicano."],
+                ["1823", "Perda de apoio, crise financeira e oposição republicana levam à abdicação de Iturbide."],
+                ["1824", "Constituição institui a República Federal; Guadalupe Victoria é o primeiro presidente."]
+              ]}
+            ]
+          },
+          {
+            title: "Consequências da Independência, Caudilhismo e a Era de Porfirio Díaz",
+            img: "https://upload.wikimedia.org/wikipedia/commons/e/e5/Porfirio_Diaz_en_1902.jpg",
+            caption: "General Porfirio Díaz, figura central do caudilhismo e do Porfiriato no México",
+            text: [
+              "A independência deixou um país marcado pela <strong>devastação econômica</strong>. As guerras destruíram <strong>minas e campos agrícolas</strong> — justamente os pilares da antiga riqueza colonial —, houve <strong>fuga de capitais dos peninsulares</strong> e o novo Estado contraiu um <strong>alto endividamento externo com bancos britânicos</strong>.",
+              "Na política, instalou-se uma longa <strong>instabilidade</strong>, marcada pela ascensão do <strong>caudilhismo</strong>: lideranças político-militares autoritárias, <strong>apoiadas por tropas e latifundiários</strong>. Esse processo culminou na longa ditadura de <strong>Porfirio Díaz</strong>, iniciada em <strong>1876</strong> — o chamado <strong>Porfiriato</strong> —, caracterizada pela <strong>modernização com capital estrangeiro</strong>, acompanhada de <strong>intensa concentração fundiária</strong> e <strong>miséria camponesa</strong>.",
+              "Foi esse cenário que gerou o estopim da <strong>Revolução Mexicana de 1910</strong>, liderada por <strong>Francisco I. Madero</strong>. Repare que a questão da terra, presente desde a proposta de reforma agrária de Morelos, continuava sem solução quase um século depois da independência."
+            ],
+            boxes: [
+              { type: "concept", items: [
+                ["Devastação econômica", "Destruição de minas e campos, fuga de capitais dos peninsulares e endividamento com bancos britânicos."],
+                ["Caudilhismo", "Lideranças político-militares autoritárias apoiadas por tropas e latifundiários."],
+                ["Porfiriato (a partir de 1876)", "Ditadura de Porfirio Díaz: modernização com capital estrangeiro, concentração fundiária e miséria camponesa."]
+              ]},
+              { type: "timeline", items: [
+                ["1521", "Queda do Império Asteca diante de Hernán Cortés."],
+                ["1808", "Invasão napoleônica da Espanha e deposição de Fernando VII."],
+                ["1810", "Grito de Dolores (16 de setembro)."],
+                ["1811", "Fuzilamento de Hidalgo."],
+                ["1813", "Morelos promulga a declaração de independência."],
+                ["1815", "Execução de Morelos."],
+                ["1821", "Plano de Iguala e Tratado de Córdoba (24 de agosto)."],
+                ["1822", "Coroação de Agostinho I."],
+                ["1823", "Abdicação de Iturbide."],
+                ["1824", "Constituição e República Federal; Guadalupe Victoria presidente."],
+                ["1876", "Início do Porfiriato."],
+                ["1910", "Revolução Mexicana, com Francisco I. Madero."]
+              ]}
+            ]
+          }
+        ]
+      },
+
+      /* ===================================================================
+         CAPÍTULO 14
+         =================================================================== */
+      {
+        id: "c14", num: 14,
+        short: "Primeiro Reinado",
+        title: "O Brasil e suas Constituições: o Primeiro Reinado (1822–1831)",
+        sub: "A construção do Estado imperial, suas disputas e o caminho até a Constituição Cidadã.",
+        theme: { primary: "#273043", accent: "#3F6212", soft: "#F4F6F8", accentInk: "#FFFFFF" },
+        objectives: [
+          "Analisar a construção do Estado brasileiro pós-independência e as questões políticas e sociais do Primeiro Reinado.",
+          "Relacionar as disputas internas e externas ao desgaste de D. Pedro I e sua abdicação."
+        ],
+        topics: [
+          {
+            title: "Os primeiros passos do Império e os grupos políticos",
+            img: "https://upload.wikimedia.org/wikipedia/commons/e/e5/Jean-Baptiste_Debret_-_Coroa%C3%A7%C3%A3o_de_D._Pedro_I.jpg",
+            caption: "Coroação de D. Pedro I como Imperador do Brasil, Jean-Baptiste Debret",
+            text: [
+              "Depois do Grito do Ipiranga, D. Pedro foi <strong>aclamado imperador</strong> em 12 de outubro de 1822 e <strong>coroado</strong> em 1º de dezembro, no Rio de Janeiro — cerimônia pintada por Debret com toda a pompa de uma monarquia europeia. Mas a festa escondia um desafio enorme: transformar a antiga colônia em um <strong>Estado nacional</strong>, com leis, instituições, exército e reconhecimento externo.",
+              "As elites que apoiaram a independência tinham duas prioridades claras: manter a <strong>unidade territorial</strong> de um país imenso, com províncias muito diferentes entre si, e preservar o <strong>regime escravista</strong>, base da economia. A monarquia era vista como a melhor garantia de ordem para alcançar esses objetivos sem abrir espaço para revoltas populares.",
+              "Logo surgiu, porém, uma disputa sobre <strong>quanto poder</strong> o imperador deveria ter. O <strong>Partido Brasileiro</strong>, formado sobretudo por grandes proprietários rurais, defendia uma monarquia constitucional que limitasse o rei. O <strong>Partido Português</strong>, formado por comerciantes e burocratas, muitos nascidos em Portugal, apoiava um poder centralizado nas mãos do imperador. Essa polarização marcaria todo o Primeiro Reinado."
+            ],
+            boxes: [
+              { type: "compare", title: "Os grupos políticos do Primeiro Reinado", headers: ["Aspecto", "Partido Brasileiro", "Partido Português"], rows: [
+                ["Composição", "Grandes proprietários rurais", "Comerciantes e burocratas"],
+                ["Proposta", "Monarquia constitucional que limitasse o rei", "Poder centralizado no imperador"],
+                ["Visão de Estado", "Legislativo forte, controlado pelos proprietários", "Executivo forte, próximo ao modelo absolutista"]
+              ]}
+            ]
+          },
+          {
+            title: "A Assembleia Constituinte de 1823 e a “Constituição da Mandioca”",
+            img: "https://upload.wikimedia.org/wikipedia/commons/1/12/Pedro_I_of_Brazil_1822.jpg",
+            caption: "Retrato de D. Pedro I, Imperador do Brasil",
+            text: [
+              "Em maio de 1823, reuniu-se no Rio de Janeiro a <strong>Assembleia Constituinte</strong>, encarregada de escrever a primeira Constituição do Brasil independente. Os deputados, em sua maioria ligados às elites agrárias, queriam garantir que o novo Estado fosse governado de acordo com seus interesses — e isso significava estabelecer limites ao poder do imperador.",
+              "O anteprojeto, elaborado sob a liderança de <strong>Antônio Carlos de Andrada</strong>, irmão de José Bonifácio, ficou conhecido como <strong>“Constituição da Mandioca”</strong>. Para votar e ser votado, era preciso comprovar uma renda medida em <strong>alqueires de farinha de mandioca</strong>. Esse critério <strong>censitário</strong> excluía a maioria da população e, ao medir a riqueza pela produção agrícola, também deixava de fora muitos <strong>comerciantes portugueses</strong>, cuja fortuna vinha do comércio.",
+              "O projeto ainda reduzia os poderes do imperador, que teria apenas um veto temporário sobre as leis, e tinha um tom claramente antilusitano. Para D. Pedro I, era inaceitável. Instalava-se um <strong>impasse político</strong> entre o imperador e os constituintes."
+            ],
+            boxes: [
+              { type: "concept", items: [
+                ["Voto censitário", "Direito de voto condicionado à renda — no projeto de 1823, medida em alqueires de farinha de mandioca."],
+                ["Escala da mandioca", "Quanto mais alto o cargo, maior a renda exigida: de 150 alqueires para ser eleitor a 1.000 para ser senador."]
+              ]}
+            ]
+          },
+          {
+            title: "A Noite da Agonia e a Constituição Outorgada de 1824",
+            img: "https://upload.wikimedia.org/wikipedia/commons/e/e2/Constitui%C3%A7%C3%A3o_de_1824.jpg",
+            caption: "Capa da Constituição Política do Império do Brasil, outorgada em 1824",
+            text: [
+              "O impasse terminou pela força. Na madrugada de 11 para 12 de novembro de 1823, <strong>tropas imperiais cercaram e dissolveram a Assembleia Constituinte</strong>. Os deputados resistiram durante a noite em sessão permanente, episódio que ficou conhecido como <strong>“Noite da Agonia”</strong>. Vários foram presos e exilados, entre eles os irmãos Andrada.",
+              "Para substituir a Constituinte, D. Pedro I nomeou um <strong>Conselho de Estado</strong> formado por pessoas de sua confiança, encarregado de redigir uma nova Carta. O imperador prometeu um texto “duplicadamente mais liberal” do que o da Assembleia — promessa que, na prática, significou um documento feito sob medida para fortalecer o seu próprio poder.",
+              "Em <strong>25 de março de 1824</strong>, a Constituição foi <strong>outorgada</strong>, isto é, imposta pelo governante, sem aprovação de representantes eleitos. Apesar da origem autoritária, ela foi a mais duradoura da história do Brasil: vigorou por 65 anos, até a Proclamação da República, em 1889."
+            ],
+            boxes: [
+              { type: "quote", text: "Uma Constituição duplicadamente mais liberal.", cite: "Promessa de D. Pedro I ao dissolver a Assembleia Constituinte (1823)" },
+              { type: "concept", items: [
+                ["Constituição outorgada", "Imposta pelo governante, sem participação de uma assembleia eleita."],
+                ["Constituição promulgada", "Elaborada e aprovada por representantes eleitos pelo povo."]
+              ]}
+            ]
+          },
+          {
+            title: "O Poder Moderador e a arquitetura autoritária do Império",
+            img: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Coat_of_arms_of_the_Empire_of_Brazil_%281822-1870%29.svg/800px-Coat_of_arms_of_the_Empire_of_Brazil_%281822-1870%29.svg.png",
+            caption: "Brasão Imperial do Brasil, símbolo da centralização monárquica",
+            text: [
+              "A grande novidade da Constituição de 1824 foi a criação de <strong>quatro poderes</strong>: Executivo, Legislativo, Judiciário e o <strong>Poder Moderador</strong>, exclusivo do imperador. Este último era descrito como a “chave de toda a organização política”: por meio dele, D. Pedro podia dissolver a Câmara dos Deputados, nomear senadores vitalícios, escolher e demitir ministros e suspender magistrados. O imperador era declarado “inviolável e sagrado” e não respondia por seus atos.",
+              "O sistema eleitoral era <strong>censitário e indireto</strong>: só votava quem comprovasse uma renda mínima anual, e os votantes escolhiam eleitores que, por sua vez, elegiam deputados e senadores. Mulheres e escravizados estavam excluídos. O Estado era <strong>unitário</strong>: as províncias não tinham autonomia, e seus presidentes eram <strong>nomeados pelo imperador</strong>.",
+              "Pelo regime do <strong>Padroado</strong>, o catolicismo era a religião oficial, e a Igreja ficava <strong>submetida ao Estado</strong>: o governo nomeava bispos e pagava o clero, e outras religiões só podiam ser praticadas em culto doméstico. O resultado era uma arquitetura política que concentrava o poder no imperador e garantia às elites proprietárias a exclusividade da representação."
+            ],
+            boxes: [
+              { type: "quote", text: "O Poder Moderador da nova invenção maquiavélica é a chave mestra da opressão da nação brasileira.", cite: "Frei Caneca, crítica ao projeto constitucional de D. Pedro I (1824)" },
+              { type: "compare", title: "A estrutura da Constituição de 1824", headers: ["Elemento", "Como funcionava", "Efeito"], rows: [
+                ["Poder Moderador", "Exclusivo do imperador, acima dos demais poderes", "Concentração de poder no monarca"],
+                ["Voto", "Censitário e indireto", "Exclusão da maioria da população"],
+                ["Unitarismo", "Presidentes de província nomeados pelo imperador", "Províncias sem autonomia"],
+                ["Padroado", "Igreja submetida ao Estado", "Religião oficial e controle do clero"]
+              ]}
+            ]
+          },
+          {
+            title: "O preço do reconhecimento internacional e a crise financeira",
+            img: "https://upload.wikimedia.org/wikipedia/commons/5/59/Sovereign_1825_George_IV.jpg",
+            caption: "Libra esterlina britânica de 1825, símbolo do endividamento externo brasileiro",
+            text: [
+              "Para existir de fato como nação, o Brasil precisava ser reconhecido pelos outros países. Os <strong>Estados Unidos</strong> foram os primeiros, em 1824, em sintonia com a Doutrina Monroe (“a América para os americanos”). As monarquias europeias, porém, resistiam — e o reconhecimento por <strong>Portugal</strong> era essencial para abrir caminho aos demais.",
+              "Com mediação da <strong>Inglaterra</strong>, foi assinado em 1825 o <strong>Tratado de Paz e Aliança</strong>, pelo qual Portugal reconheceu a independência. O preço foi alto: o Brasil pagou uma <strong>indenização de 2 milhões de libras esterlinas</strong>, obtida por meio de <strong>empréstimo com bancos ingleses</strong>. O país nascia, portanto, endividado — e devendo justamente à Inglaterra.",
+              "Em troca de seu apoio, os ingleses conseguiram a <strong>renovação dos tratados comerciais de 1810</strong>, com tarifas privilegiadas para seus produtos. Com importações baratas, gastos militares crescentes e emissão descontrolada de moeda, o governo acumulou <strong>déficits</strong>, e o primeiro <strong>Banco do Brasil</strong>, criado em 1808, faliu em 1829."
+            ],
+            boxes: [
+              { type: "concept", items: [
+                ["Preço do reconhecimento", "Indenização de 2 milhões de libras a Portugal, financiada por empréstimo inglês."],
+                ["Dependência econômica", "Tratados desiguais e dívida externa colocaram o Brasil sob forte influência britânica."],
+                ["Crise financeira", "Déficits, emissão de moeda e falência do primeiro Banco do Brasil (1829)."]
+              ]}
+            ]
+          },
+          {
+            title: "A Confederação do Equador (1824)",
+            img: "https://upload.wikimedia.org/wikipedia/commons/3/3c/Frei_Caneca.jpg",
+            caption: "Frei Joaquim do Amor Divino Caneca, mártir da Confederação do Equador",
+            text: [
+              "A Constituição outorgada provocou reação imediata em <strong>Pernambuco</strong>, província com forte tradição liberal e republicana desde 1817. A centralização do poder no Rio de Janeiro, a nomeação dos presidentes de província pelo imperador e o Poder Moderador eram vistos como uma traição aos ideais da independência. O estopim foi a tentativa de substituir o presidente da província, Manuel de Carvalho Pais de Andrade, por um nome indicado por D. Pedro I.",
+              "Em 2 de julho de 1824, foi proclamada a <strong>Confederação do Equador</strong>, que convidava as províncias do Nordeste a formar uma <strong>república federalista</strong>. Paraíba, Rio Grande do Norte e Ceará aderiram em diferentes graus. Entre os líderes estavam <strong>Frei Caneca</strong>, que divulgava suas ideias no jornal <em>Typhis Pernambucano</em>, e <strong>Cipriano Barata</strong>, autor dos jornais <em>Sentinela da Liberdade</em>. O movimento chegou a propor o fim do tráfico de escravizados, o que assustou parte dos proprietários.",
+              "A <strong>repressão imperial foi violenta</strong>: tropas por terra e uma esquadra comandada pelo almirante Cochrane cercaram o Recife. Os rebeldes foram julgados por comissões militares. <strong>Frei Caneca</strong> foi condenado à forca, mas, como nenhum carrasco aceitou executá-lo, acabou <strong>fuzilado em 13 de janeiro de 1825</strong>. O episódio expôs o caráter autoritário do novo Estado."
+            ],
+            boxes: [
+              { type: "compare", title: "Confederação do Equador x Constituição de 1824", headers: ["Tema", "Confederação do Equador", "Constituição de 1824"], rows: [
+                ["Forma de governo", "República", "Monarquia"],
+                ["Organização", "Federalismo e autonomia provincial", "Unitarismo e centralização"],
+                ["Poder central", "Limitado", "Poder Moderador do imperador"],
+                ["Tráfico de escravizados", "Proposta de extinção", "Mantido"]
+              ]}
+            ]
+          },
+          {
+            title: "A Guerra da Cisplatina (1825–1828) e a perda do Sul",
+            img: "https://upload.wikimedia.org/wikipedia/commons/d/d2/Batalla_de_Ituzaingo.jpg",
+            caption: "Batalha do Passo do Rosário / Ituzaingó durante a Guerra da Cisplatina",
+            text: [
+              "A <strong>Província Cisplatina</strong>, atual Uruguai, havia sido anexada em 1821, mas sua população tinha língua, cultura e história ligadas à região do Rio da Prata. Em 1825, um grupo de revolucionários orientais liderados por Juan Antonio Lavalleja iniciou uma revolta e declarou a incorporação da província às <strong>Províncias Unidas do Rio da Prata</strong> (atual Argentina). O Brasil respondeu declarando guerra.",
+              "O conflito foi impopular e muito caro. Para formar o exército, o governo recorreu ao <strong>recrutamento forçado</strong> e à contratação de <strong>mercenários estrangeiros</strong>, que chegaram a se revoltar no Rio de Janeiro em 1828. Na principal batalha, a do <strong>Passo do Rosário</strong> (Ituzaingó, para os argentinos), em 1827, nenhum lado obteve vitória decisiva, e o bloqueio naval no Prata prejudicava também o comércio britânico.",
+              "Com <strong>mediação da Inglaterra</strong>, interessada na livre navegação do Rio da Prata, foi assinado em 1828 um acordo de paz que reconheceu a <strong>independência da República Oriental do Uruguai</strong>. Para o Brasil, o saldo foi negativo: perda territorial, milhares de mortos, mais dívidas e um enorme desgaste da imagem do imperador."
+            ],
+            boxes: [
+              { type: "concept", items: [
+                ["Estado-tampão", "O Uruguai independente passou a funcionar como zona de equilíbrio entre Brasil e Argentina, atendendo também aos interesses britânicos."],
+                ["Custo interno", "Recrutamento forçado, mercenários e endividamento ampliaram a oposição a D. Pedro I."]
+              ]}
+            ]
+          },
+          {
+            title: "Crise sucessória em Portugal, Noite das Garrafadas e Abdicação (1831)",
+            img: "https://upload.wikimedia.org/wikipedia/commons/9/9b/Abdica%C3%A7%C3%A3o_de_D._Pedro_I.jpg",
+            caption: "Abdicação de D. Pedro I em 7 de abril de 1831, Aurélio de Figueiredo",
+            text: [
+              "Em 1826, morreu <strong>D. João VI</strong>. Como herdeiro, D. Pedro I também se tornou rei de Portugal, como D. Pedro IV. Para evitar a reunificação das coroas, rejeitada pelos brasileiros, abdicou do trono português em favor da filha, Maria da Glória, ainda criança. Em 1828, porém, seu irmão D. Miguel usurpou o trono. D. Pedro passou a se envolver cada vez mais na <strong>crise sucessória portuguesa</strong>, alimentando a desconfiança de que se importava mais com Portugal do que com o Brasil.",
+              "A oposição liberal cresceu, com jornais críticos ao autoritarismo do imperador. Em novembro de 1830, o jornalista <strong>Líbero Badaró</strong>, crítico do governo, foi assassinado em São Paulo, e a opinião pública culpou aliados do imperador. Em março de 1831, ao voltar de Minas Gerais, onde fora recebido com frieza, D. Pedro foi festejado por portugueses no Rio de Janeiro; brasileiros reagiram, e os confrontos de rua com garrafas e pedras ficaram conhecidos como <strong>Noite das Garrafadas</strong> (13 de março).",
+              "Em abril, D. Pedro demitiu um ministério de brasileiros e nomeou outro de sua confiança. Multidões e tropas reuniram-se no Campo de Santana exigindo a volta do ministério anterior. Sem apoio militar, na madrugada de <strong>7 de abril de 1831</strong>, D. Pedro I <strong>abdicou</strong> em favor do filho, <strong>D. Pedro II</strong>, de apenas 5 anos, e partiu para Portugal. Começava o Período Regencial."
+            ],
+            boxes: [
+              { type: "timeline", items: [
+                ["1826", "Morte de D. João VI; D. Pedro abdica do trono português em favor da filha."],
+                ["1828", "D. Miguel usurpa o trono português; fim da Guerra da Cisplatina."],
+                ["1829", "Falência do primeiro Banco do Brasil."],
+                ["nov. 1830", "Assassinato de Líbero Badaró."],
+                ["13 mar. 1831", "Noite das Garrafadas."],
+                ["7 abr. 1831", "Abdicação de D. Pedro I em favor de D. Pedro II."]
+              ]}
+            ]
+          },
+          {
+            title: "Investigando o Brasil: da Constituição Outorgada (1824) à Constituição Cidadã (1988)",
+            img: "https://upload.wikimedia.org/wikipedia/commons/1/19/Ulysses_Guimar%C3%A3es_segurando_a_Constitui%C3%A7%C3%A3o_de_1988.jpg",
+            caption: "Ulysses Guimarães promulga a Constituição Cidadã de 1988",
+            text: [
+              "Desde 1824, o Brasil teve <strong>sete constituições</strong> — algumas <strong>promulgadas</strong> por assembleias eleitas, outras <strong>outorgadas</strong> por governos autoritários. Olhar para essa sequência é perceber que a cidadania brasileira não foi um presente: ela foi conquistada aos poucos, com avanços e retrocessos.",
+              "O voto censitário de 1824 deu lugar ao voto dos homens alfabetizados com a Constituição de 1891, que também separou Igreja e Estado e adotou o federalismo. As mulheres conquistaram o direito de voto em 1932, confirmado na Constituição de 1934, que incorporou direitos trabalhistas. Já os períodos autoritários — o Estado Novo (1937) e a Ditadura Civil-Militar (1967) — restringiram liberdades e direitos políticos.",
+              "A <strong>Constituição de 1988</strong>, chamada por Ulysses Guimarães de <strong>“Constituição Cidadã”</strong>, foi elaborada após a redemocratização, com ampla participação da sociedade. Ela consolidou o <strong>sufrágio universal</strong>, estendendo o voto aos analfabetos e tornando-o facultativo para jovens de 16 e 17 anos, definiu o racismo como crime inafiançável e imprescritível, criou o Sistema Único de Saúde (SUS) e ampliou os <strong>direitos sociais</strong>, como educação, saúde, trabalho e proteção à infância e aos povos indígenas."
+            ],
+            boxes: [
+              { type: "compare", title: "As Constituições do Brasil", headers: ["Ano", "Tipo", "Contexto", "Destaques"], rows: [
+                ["1824", "Outorgada", "Império (D. Pedro I)", "Poder Moderador, voto censitário, Padroado"],
+                ["1891", "Promulgada", "Início da República", "Federalismo, presidencialismo, separação Igreja-Estado"],
+                ["1934", "Promulgada", "Governo Vargas", "Voto feminino e secreto, direitos trabalhistas"],
+                ["1937", "Outorgada", "Estado Novo", "Poder concentrado no presidente, restrição de liberdades"],
+                ["1946", "Promulgada", "Redemocratização", "Retorno das liberdades democráticas"],
+                ["1967", "Outorgada pelo regime militar", "Ditadura Civil-Militar", "Centralização no Executivo, restrição de direitos"],
+                ["1988", "Promulgada", "Nova República", "Constituição Cidadã: sufrágio universal e direitos sociais"]
+              ]},
+              { type: "quote", text: "Temos ódio à ditadura. Ódio e nojo.", cite: "Ulysses Guimarães, discurso na promulgação da Constituição, 5 de outubro de 1988" }
+            ]
+          }
+        ]
+      }
+    ];
+
+
+    /* =====================================================================
+       ESTADO E PERSISTÊNCIA (localStorage protegido para iframes)
+       ===================================================================== */
+    var STORAGE_KEY = "planoHistoria_2s_cap11a14_leitura_v2";
+    var storageOK = true;
+    var state = { read: {}, notes: {}, tab: "c11" };
+    var openTopics = {};
+    var notesOpen = false;
+    var reduceMotion = false;
+    try { reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) {}
+
+    function $(id) { return document.getElementById(id); }
+
+    function loadState() {
+      try {
+        window.localStorage.setItem("__t__", "1");
+        window.localStorage.removeItem("__t__");
+      } catch (e) {
+        storageOK = false;
+        $("storageWarn").classList.add("show");
+        return;
+      }
+      try {
+        var raw = window.localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        var s = JSON.parse(raw);
+        if (s && typeof s === "object") {
+          state.read = s.read && typeof s.read === "object" ? s.read : {};
+          state.notes = s.notes && typeof s.notes === "object" ? s.notes : {};
+          state.tab = typeof s.tab === "string" ? s.tab : "c11";
+        }
+      } catch (e) { /* dados inválidos: recomeça */ }
+    }
+
+    function saveState() {
+      if (!storageOK) return false;
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        return true;
+      } catch (e) {
+        storageOK = false;
+        $("storageWarn").classList.add("show");
+        return false;
+      }
+    }
+
+    /* =====================================================================
+       UTILIDADES
+       ===================================================================== */
+    function esc(s) {
+      return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+    function pad(n) { return n < 10 ? "0" + n : String(n); }
+    function chapterById(id) {
+      for (var i = 0; i < CHAPTERS.length; i++) if (CHAPTERS[i].id === id) return CHAPTERS[i];
+      return null;
+    }
+    function tKey(ch, i) { return ch.id + "-t" + (i + 1); }
+    function progressOf(ch) {
+      var done = 0;
+      for (var i = 0; i < ch.topics.length; i++) if (state.read[tKey(ch, i)]) done++;
+      return { done: done, total: ch.topics.length, ratio: done / ch.topics.length };
+    }
+
+    /* Página do arquivo no acervo da Wikimedia Commons */
+    function commonsPage(url) {
+      try {
+        var parts = url.split("/");
+        var t = parts.indexOf("thumb");
+        var file = t > -1 ? parts[t + 3] : parts[parts.length - 1];
+        return "https://commons.wikimedia.org/wiki/File:" + file;
+      } catch (e) { return url; }
+    }
+
+    var toastTimer = null;
+    function toast(msg) {
+      var t = $("toast");
+      t.textContent = msg;
+      t.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2400);
+    }
+
+    function applyTheme(ch) {
+      var s = document.documentElement.style;
+      s.setProperty("--c-primary", ch.theme.primary);
+      s.setProperty("--c-accent", ch.theme.accent);
+      s.setProperty("--c-soft", ch.theme.soft);
+    }
+
+    /* Contagem animada (count-up) */
+    function countTo(el, to) {
+      if (!el) return;
+      var from = parseInt(el.getAttribute("data-val") || el.textContent, 10) || 0;
+      el.setAttribute("data-val", to);
+      if (reduceMotion || from === to) { el.textContent = to; return; }
+      var start = null, dur = 420;
+      var token = {};
+      el._countToken = token;
+      function frame(ts) {
+        if (el._countToken !== token) return;
+        if (start === null) start = ts;
+        var p = Math.min(1, (ts - start) / dur);
+        var eased = 1 - Math.pow(1 - p, 3);
+        el.textContent = Math.round(from + (to - from) * eased);
+        if (p < 1) window.requestAnimationFrame(frame);
+      }
+      window.requestAnimationFrame(frame);
+    }
+
+    function pulse(el) {
+      if (!el || reduceMotion) return;
+      el.classList.remove("pulse");
+      void el.offsetWidth;
+      el.classList.add("pulse");
+    }
+
+    /* =====================================================================
+       PROGRESSO
+       ===================================================================== */
+    function updateProgress(animate) {
+      var total = 0, done = 0;
+      CHAPTERS.forEach(function (ch) {
+        var p = progressOf(ch);
+        total += p.total; done += p.done;
+        var c = document.querySelector('.tab[data-ch="' + ch.id + '"] .tab-count');
+        if (c) c.textContent = p.done + "/" + p.total;
+      });
+      var pct = total ? Math.round((done / total) * 100) : 0;
+      if (animate) countTo($("overallPct"), pct); else { $("overallPct").textContent = pct; $("overallPct").setAttribute("data-val", pct); }
+      $("overallMeta").textContent = done + " de " + total + " tópicos";
+      $("overallBar").setAttribute("aria-valuenow", pct);
+      $("overallBar").querySelector(".fill").style.transform = "scaleX(" + (total ? done / total : 0) + ")";
+
+      var ch = chapterById(state.tab);
+      var cp = progressOf(ch);
+      var d = $("chapDone");
+      if (d) {
+        if (animate) countTo(d, cp.done); else { d.textContent = cp.done; d.setAttribute("data-val", cp.done); }
+        var cpPct = Math.round(cp.ratio * 100);
+        if (animate) countTo($("chapPct"), cpPct); else { $("chapPct").textContent = cpPct; $("chapPct").setAttribute("data-val", cpPct); }
+        $("chapProgBar").setAttribute("aria-valuenow", cpPct);
+        $("chapProgBar").querySelector(".fill").style.transform = "scaleX(" + cp.ratio + ")";
+      }
+    }
+
+    /* =====================================================================
+       ABAS + INDICADOR DESLIZANTE (layout compartilhado)
+       ===================================================================== */
+    function renderTabs() {
+      var html = '<span class="tab-indicator" id="tabIndicator" aria-hidden="true"></span>';
+      CHAPTERS.forEach(function (ch) {
+        var sel = ch.id === state.tab;
+        html +=
+          '<button class="tab" type="button" role="tab" id="tab-' + ch.id + '" data-ch="' + ch.id + '" aria-selected="' + sel + '" aria-controls="chapterView" tabindex="' + (sel ? "0" : "-1") + '">' +
+            '<span class="tab-top"><span class="tab-num">Cap. ' + ch.num + '</span><span class="tab-count num"></span></span>' +
+            '<span class="tab-name">' + ch.short + '</span>' +
+          '</button>';
+      });
+      $("tabs").innerHTML = html;
+    }
+
+    function positionIndicator(animate) {
+      var tabs = $("tabs");
+      var active = tabs.querySelector('.tab[aria-selected="true"]');
+      var ind = $("tabIndicator");
+      if (!active || !ind) return;
+      if (!animate) tabs.classList.add("no-anim");
+      ind.style.width = active.offsetWidth + "px";
+      ind.style.transform = "translateX(" + active.offsetLeft + "px)";
+      if (!animate) { void ind.offsetWidth; tabs.classList.remove("no-anim"); }
+    }
+
+    /* =====================================================================
+       BLOCOS DE DESTAQUE
+       ===================================================================== */
+    function renderBox(b) {
+      if (b.type === "quote") {
+        return '<blockquote class="quote"><p>“' + b.text + '”</p><cite>— ' + b.cite + '</cite></blockquote>';
+      }
+      if (b.type === "concept") {
+        return '<div class="callout concepts"><p class="callout-label">Conceitos-chave</p><dl>' +
+          b.items.map(function (it) { return '<div><dt>' + it[0] + '</dt><dd>' + it[1] + '</dd></div>'; }).join("") +
+          '</dl></div>';
+      }
+      if (b.type === "compare") {
+        var head = b.headers.map(function (h) { return '<th scope="col">' + h + '</th>'; }).join("");
+        var rows = b.rows.map(function (r) {
+          return '<tr>' + r.map(function (c, i) { return '<td data-label="' + esc(b.headers[i]) + '">' + c + '</td>'; }).join("") + '</tr>';
+        }).join("");
+        return '<div class="callout compare"><p class="callout-label">Quadro comparativo</p>' +
+          (b.title ? '<p class="compare-title">' + b.title + '</p>' : '') +
+          '<table><thead><tr>' + head + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+      }
+      if (b.type === "timeline") {
+        return '<div class="callout timeline"><p class="callout-label">Linha do tempo</p><ol>' +
+          b.items.map(function (it) { return '<li><span class="when">' + it[0] + '</span><span>' + it[1] + '</span></li>'; }).join("") +
+          '</ol></div>';
+      }
+      return "";
+    }
+
+    /* =====================================================================
+       TÓPICO (linha do índice editorial)
+       ===================================================================== */
+    function renderTopic(ch, t, i) {
+      var key = tKey(ch, i);
+      var read = !!state.read[key];
+      if (openTopics[key] === undefined) openTopics[key] = (i === 0);
+      var open = openTopics[key];
+      var revealIdx = Math.min(4 + i, 14);
+      return '' +
+        '<li class="topic reveal' + (open ? " is-open" : "") + (read ? " is-read" : "") + '" data-key="' + key + '" style="--i:' + revealIdx + '">' +
+          '<div class="topic-row">' +
+            '<h3 class="topic-h"><button class="topic-trigger" type="button" aria-expanded="' + open + '" aria-controls="panel-' + key + '" id="trigger-' + key + '">' +
+              '<span class="topic-num num">' + pad(i + 1) + '</span>' +
+              '<span><span class="topic-title">' + t.title + '</span><span class="topic-status">' + (read ? "Lido" : "A ler") + '</span></span>' +
+              '<span class="chev-wrap">' + I.chev + '</span>' +
+            '</button></h3>' +
+            '<button class="read-chip" type="button" data-read="' + key + '" aria-pressed="' + read + '" aria-label="Marcar “' + esc(t.title.replace(/<[^>]+>/g, "")) + '” como lido" title="Marcar como lido">' + I.check + '</button>' +
+          '</div>' +
+          '<div class="collapse" id="panel-' + key + '" role="region" aria-labelledby="trigger-' + key + '">' +
+            '<div class="collapse-inner"><div class="topic-body">' +
+              '<figure class="figure">' +
+                '<button class="figure-btn" type="button" data-zoom aria-label="Ampliar: ' + esc(t.caption) + '">' +
+                  '<img src="' + esc(t.img) + '" alt="' + esc(t.caption) + '" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-caption="' + esc(t.caption) + '" onerror="imgFallback(this)">' +
+                  '<span class="zoom-chip">' + I.zoom + ' Ampliar</span>' +
+                '</button>' +
+                '<figcaption>' + t.caption + '</figcaption>' +
+              '</figure>' +
+              '<div class="stage-text">' +
+                '<div class="prose">' + t.text.map(function (p) { return '<p>' + p + '</p>'; }).join("") + '</div>' +
+                (t.boxes || []).map(renderBox).join("") +
+                '<button class="read-toggle" type="button" data-read="' + key + '" aria-pressed="' + read + '">' +
+                  '<span class="dot-check">' + I.check + '</span><span class="read-label">' + (read ? "Lido" : "Marcar como lido") + '</span>' +
+                '</button>' +
+              '</div>' +
+            '</div></div>' +
+          '</div>' +
+        '</li>';
+    }
+
+    /* Placa museológica quando a imagem não carrega */
+    window.imgFallback = function (img) {
+      try {
+        var btn = img.closest(".figure-btn");
+        if (!btn) return;
+        var cap = img.getAttribute("data-caption") || "Obra histórica";
+        var src = img.getAttribute("src") || "";
+        var fig = btn.parentNode;
+        var plate = document.createElement("div");
+        plate.className = "placard";
+        plate.innerHTML =
+          '<p class="placard-title">' + esc(cap) + '</p>' +
+          (src ? '<a class="placard-link" href="' + esc(commonsPage(src)) + '" target="_blank" rel="noopener noreferrer">Ver acervo original ↗</a>' : '');
+        fig.replaceChild(plate, btn);
+        var fc = fig.querySelector("figcaption");
+        if (fc) fc.style.display = "none";
+      } catch (e) { /* silencioso */ }
+    };
+
+    /* =====================================================================
+       CAPÍTULO
+       ===================================================================== */
+    function renderChapter(stagger) {
+      var ch = chapterById(state.tab);
+      applyTheme(ch);
+      var idx = CHAPTERS.indexOf(ch);
+      var prev = CHAPTERS[idx - 1], next = CHAPTERS[idx + 1];
+
+      var html =
+        '<div class="chapter' + (stagger ? " stagger" : "") + '" role="tabpanel" aria-labelledby="tab-' + ch.id + '">' +
+          '<header class="chap-head reveal" style="--i:0">' +
+            '<span class="chap-kicker">Capítulo ' + ch.num + '</span>' +
+            '<h2>' + ch.title + '</h2>' +
+            '<p class="chap-sub">' + ch.sub + '</p>' +
+          '</header>' +
+          '<div class="chap-progress reveal" style="--i:1">' +
+            '<div class="chap-progress-row"><span><strong class="num"><span id="chapDone">0</span> de ' + ch.topics.length + '</strong> tópicos lidos</span><span class="num"><span id="chapPct">0</span>%</span></div>' +
+            '<div class="track" id="chapProgBar" role="progressbar" aria-label="Progresso do capítulo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="fill"></span></div>' +
+          '</div>' +
+          '<section class="objectives reveal" style="--i:2"><p class="label">Objetivos de aprendizagem</p><ol>' +
+            ch.objectives.map(function (o, i) { return '<li><span class="obj-n num">' + pad(i + 1) + '</span><span>' + o + '</span></li>'; }).join("") +
+          '</ol></section>' +
+
+          '<div class="toc-tools reveal" style="--i:3">' +
+            '<h3>Índice<span class="num">' + ch.topics.length + ' tópicos</span></h3>' +
+            '<button class="quiet-btn" type="button" data-all="open">' + I.expand + 'Expandir <span class="lbl-long">todos</span></button>' +
+            '<button class="quiet-btn" type="button" data-all="close">' + I.collapse + 'Recolher <span class="lbl-long">todos</span></button>' +
+            '<button class="quiet-btn" type="button" id="notesToggle" aria-expanded="' + notesOpen + '" aria-controls="notesDrawer">' + I.note + 'Anotações' + I.chev + '</button>' +
+          '</div>' +
+
+          '<div class="collapse notes-drawer' + (notesOpen ? " is-open" : "") + '" id="notesDrawer">' +
+            '<div class="collapse-inner"><div class="notes-card">' +
+              '<header><h4>Minhas anotações — Cap. ' + ch.num + '</h4><p class="notes-hint">Opcional · salvas automaticamente</p></header>' +
+              '<label class="sr-only" for="notesArea">Anotações do capítulo ' + ch.num + '</label>' +
+              '<textarea id="notesArea" placeholder="Resumos, dúvidas, datas e conexões entre os tópicos deste capítulo…">' + esc(state.notes[ch.id] || "") + '</textarea>' +
+              '<div class="notes-foot">' +
+                '<span class="save-state" id="saveState"><span class="dot"></span><span id="saveTxt">Pronto</span> · <span class="num" id="charCount">0</span> caracteres</span>' +
+                '<span class="notes-actions">' +
+                  '<button class="quiet-btn" type="button" id="copyNotes">' + I.copy + 'Copiar</button>' +
+                  '<button class="quiet-btn" type="button" id="copyAllNotes">' + I.copy + 'Copiar todas</button>' +
+                '</span>' +
+              '</div>' +
+            '</div></div>' +
+          '</div>' +
+
+          '<ol class="toc">' + ch.topics.map(function (t, i) { return renderTopic(ch, t, i); }).join("") + '</ol>' +
+
+          '<nav class="chapter-nav reveal" style="--i:14" aria-label="Navegação entre capítulos">' +
+            (prev ? '<button class="nav-link" type="button" data-goto="' + prev.id + '"><small>← Anterior</small><span>Cap. ' + prev.num + ' · ' + prev.short + '</span></button>' : '') +
+            (next ? '<button class="nav-link next" type="button" data-goto="' + next.id + '"><small>Próximo →</small><span>Cap. ' + next.num + ' · ' + next.short + '</span></button>' : '') +
+          '</nav>' +
+        '</div>';
+
+      $("chapterView").innerHTML = html;
+      updateCharCount();
+      updateProgress(false);
+    }
+
+    function selectTab(id, opts) {
+      opts = opts || {};
+      if (!chapterById(id) || id === state.tab) return;
+      state.tab = id;
+      saveState();
+      var tabs = document.querySelectorAll(".tab");
+      for (var i = 0; i < tabs.length; i++) {
+        var on = tabs[i].getAttribute("data-ch") === id;
+        tabs[i].setAttribute("aria-selected", on);
+        tabs[i].setAttribute("tabindex", on ? "0" : "-1");
+      }
+      /* Ações de teclado não animam: a troca é instantânea */
+      positionIndicator(!opts.keyboard);
+      renderChapter(!opts.keyboard);
+      if (opts.scroll) {
+        var y = $("tabs").getBoundingClientRect().top + window.pageYOffset - 8;
+        if (window.pageYOffset > y) {
+          try { window.scrollTo({ top: y, behavior: reduceMotion ? "auto" : "smooth" }); } catch (e) { window.scrollTo(0, y); }
+        }
+      }
+    }
+
+    /* =====================================================================
+       ACCORDION
+       ===================================================================== */
+    function setTopic(li, open) {
+      openTopics[li.getAttribute("data-key")] = open;
+      li.classList.toggle("is-open", open);
+      li.querySelector(".topic-trigger").setAttribute("aria-expanded", open);
+    }
+    function setAll(open) {
+      var list = document.querySelectorAll("#chapterView .topic");
+      for (var i = 0; i < list.length; i++) setTopic(list[i], open);
+    }
+
+    function toggleRead(key) {
+      var on = !state.read[key];
+      if (on) state.read[key] = true; else delete state.read[key];
+      saveState();
+      var li = document.querySelector('.topic[data-key="' + key + '"]');
+      if (li) {
+        li.classList.toggle("is-read", on);
+        li.querySelector(".topic-status").textContent = on ? "Lido" : "A ler";
+        var btns = li.querySelectorAll("[data-read]");
+        for (var i = 0; i < btns.length; i++) btns[i].setAttribute("aria-pressed", on);
+        var lbl = li.querySelector(".read-label");
+        if (lbl) lbl.textContent = on ? "Lido" : "Marcar como lido";
+      }
+      updateProgress(true);
+      if (on) {
+        pulse($("chapProgBar"));
+        var ch = chapterById(state.tab), p = progressOf(ch);
+        if (p.done === p.total) toast("Capítulo " + ch.num + " concluído — excelente leitura!");
+      }
+    }
+
+    /* =====================================================================
+       ANOTAÇÕES
+       ===================================================================== */
+    var saveTimer = null;
+    function updateCharCount() {
+      var ta = $("notesArea");
+      if (ta) $("charCount").textContent = ta.value.length;
+    }
+    function copyText(text) {
+      return new Promise(function (resolve) {
+        function legacy() {
+          var ta = document.createElement("textarea");
+          ta.value = text;
+          ta.setAttribute("readonly", "");
+          ta.style.position = "fixed"; ta.style.top = "0"; ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          var ok = false;
+          try { ok = document.execCommand("copy"); } catch (e) {}
+          document.body.removeChild(ta);
+          resolve(ok);
+        }
+        try {
+          if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(function () { resolve(true); }, legacy);
+          else legacy();
+        } catch (e) { legacy(); }
+      });
+    }
+
+    /* =====================================================================
+       MODAIS
+       ===================================================================== */
+    var lastFocus = null;
+    function openModal(id) {
+      lastFocus = document.activeElement;
+      var m = $(id);
+      m.classList.add("is-open");
+      m.setAttribute("aria-hidden", "false");
+      var f = m.querySelector(".modal-close, button");
+      if (f) setTimeout(function () { f.focus({ preventScroll: true }); }, 0);
+    }
+    function closeModal(id) {
+      var m = $(id);
+      if (!m.classList.contains("is-open")) return;
+      m.classList.remove("is-open");
+      m.setAttribute("aria-hidden", "true");
+      if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
+    }
+    function openLightbox(src, cap) {
+      var img = $("lbImg");
+      img.setAttribute("referrerpolicy", "no-referrer");
+      img.src = src;
+      img.alt = cap || "";
+      $("lbCap").textContent = cap || "";
+      openModal("lightbox");
+    }
+
+    /* =====================================================================
+       EVENTOS
+       ===================================================================== */
+    function bind() {
+      var tabsEl = $("tabs");
+      tabsEl.addEventListener("click", function (e) {
+        var b = e.target.closest(".tab");
+        if (b) selectTab(b.getAttribute("data-ch"), { keyboard: e.detail === 0 });
+      });
+      tabsEl.addEventListener("keydown", function (e) {
+        var k = e.key;
+        if (k !== "ArrowRight" && k !== "ArrowLeft" && k !== "Home" && k !== "End") return;
+        e.preventDefault();
+        var idx = CHAPTERS.indexOf(chapterById(state.tab));
+        if (k === "ArrowRight") idx = (idx + 1) % CHAPTERS.length;
+        if (k === "ArrowLeft") idx = (idx - 1 + CHAPTERS.length) % CHAPTERS.length;
+        if (k === "Home") idx = 0;
+        if (k === "End") idx = CHAPTERS.length - 1;
+        selectTab(CHAPTERS[idx].id, { keyboard: true });
+        $("tab-" + CHAPTERS[idx].id).focus();
+      });
+
+      var view = $("chapterView");
+      view.addEventListener("click", function (e) {
+        var trig = e.target.closest(".topic-trigger");
+        if (trig) { var li = trig.closest(".topic"); setTopic(li, !li.classList.contains("is-open")); return; }
+
+        var zoom = e.target.closest("[data-zoom]");
+        if (zoom) { var img = zoom.querySelector("img"); if (img) openLightbox(img.getAttribute("src"), img.getAttribute("data-caption")); return; }
+
+        var rd = e.target.closest("[data-read]");
+        if (rd) { toggleRead(rd.getAttribute("data-read")); return; }
+
+        var all = e.target.closest("[data-all]");
+        if (all) { setAll(all.getAttribute("data-all") === "open"); return; }
+
+        if (e.target.closest("#notesToggle")) {
+          notesOpen = !notesOpen;
+          $("notesDrawer").classList.toggle("is-open", notesOpen);
+          $("notesToggle").setAttribute("aria-expanded", notesOpen);
+          if (notesOpen) setTimeout(function () { var ta = $("notesArea"); if (ta) ta.focus({ preventScroll: true }); }, 0);
+          return;
+        }
+
+        if (e.target.closest("#copyNotes")) {
+          var ch = chapterById(state.tab), txt = (state.notes[ch.id] || "").trim();
+          if (!txt) { toast("Ainda não há anotações neste capítulo."); return; }
+          copyText("Capítulo " + ch.num + " — " + ch.title + "\n\n" + txt).then(function (ok) {
+            if (ok) toast("Anotações do Cap. " + ch.num + " copiadas");
+            else { $("notesArea").select(); toast("Texto selecionado: use Ctrl+C para copiar"); }
+          });
+          return;
+        }
+        if (e.target.closest("#copyAllNotes")) {
+          var parts = [];
+          CHAPTERS.forEach(function (c) {
+            var t = (state.notes[c.id] || "").trim();
+            if (t) parts.push("— Capítulo " + c.num + ": " + c.title + " —\n" + t);
+          });
+          if (!parts.length) { toast("Você ainda não fez anotações."); return; }
+          copyText("Plano de Estudos de História — Minhas anotações\n\n" + parts.join("\n\n")).then(function (ok) {
+            toast(ok ? "Todas as anotações foram copiadas" : "Não foi possível copiar neste navegador");
+          });
+          return;
+        }
+
+        var go = e.target.closest("[data-goto]");
+        if (go) selectTab(go.getAttribute("data-goto"), { scroll: true });
+      });
+
+      view.addEventListener("input", function (e) {
+        if (e.target.id !== "notesArea") return;
+        var ch = chapterById(state.tab);
+        state.notes[ch.id] = e.target.value;
+        updateCharCount();
+        $("saveState").classList.remove("saved");
+        $("saveTxt").textContent = "Salvando…";
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(function () {
+          var ok = saveState();
+          var ss = $("saveState");
+          if (!ss) return;
+          ss.classList.toggle("saved", ok);
+          $("saveTxt").textContent = ok ? "Salvo" : "Salvo só nesta sessão";
+        }, 400);
+      });
+
+      $("btnReset").addEventListener("click", function () { $("resetNotes").checked = false; openModal("resetDialog"); });
+      $("resetConfirm").addEventListener("click", function () {
+        state.read = {};
+        if ($("resetNotes").checked) state.notes = {};
+        openTopics = {};
+        saveState();
+        closeModal("resetDialog");
+        renderChapter(true);
+        toast("Leitura reiniciada");
+      });
+
+      document.addEventListener("click", function (e) {
+        var c = e.target.closest("[data-close]");
+        if (!c) return;
+        var m = c.closest(".modal");
+        if (m) closeModal(m.id);
+      });
+      $("lbImg").addEventListener("click", function () { closeModal("lightbox"); });
+      $("lbImg").addEventListener("error", function () { if ($("lightbox").classList.contains("is-open")) closeModal("lightbox"); });
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") { closeModal("lightbox"); closeModal("resetDialog"); }
+      });
+
+      var rt = null;
+      window.addEventListener("resize", function () {
+        clearTimeout(rt);
+        rt = setTimeout(function () { positionIndicator(false); }, 80);
+      });
+    }
+
+    /* =====================================================================
+       INICIALIZAÇÃO
+       ===================================================================== */
+    function init() {
+      loadState();
+      if (!chapterById(state.tab)) state.tab = "c11";
+      renderTabs();
+      renderChapter(true);
+      bind();
+      positionIndicator(false);
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { positionIndicator(false); });
+    }
+
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+    else init();
+  })();
+  </script>
+</body>
+</html>
