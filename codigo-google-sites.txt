@@ -12,22 +12,24 @@
     /* =====================================================================
        CORES DO CAPÍTULO (registradas para transição suave entre abas)
        ===================================================================== */
-    @property --c-primary { syntax: "<color>"; inherits: true; initial-value: #1B365D; }
-    @property --c-accent  { syntax: "<color>"; inherits: true; initial-value: #C68B2C; }
-    @property --c-soft    { syntax: "<color>"; inherits: true; initial-value: #F0F4F8; }
+    @property --c-primary { syntax: "<color>"; inherits: true; initial-value: #FACC15; }
+    @property --c-accent  { syntax: "<color>"; inherits: true; initial-value: #FACC15; }
+    @property --c-soft    { syntax: "<color>"; inherits: true; initial-value: #1F1B0A; }
 
     :root {
-      --paper: #FAF9F6;
-      --card: #FFFFFF;
-      --rule: #E5E2DC;
-      --line: #E6E4DD;
-      --ink: #18181B;
-      --ink-2: #52525B;
-      --ink-3: #78716C;
+      color-scheme: dark;
+      --paper: #0B0B0C;
+      --card: #141416;
+      --rule: #2A2A2E;
+      --line: #2A2A2E;
+      --ink: #F5F5F4;
+      --ink-2: #C4C4C8;
+      --ink-3: #9A9AA2;
+      --on-yellow: #0B0B0C;
 
-      --c-primary: #1B365D;
-      --c-accent: #C68B2C;
-      --c-soft: #F0F4F8;
+      --c-primary: #FACC15;
+      --c-accent: #FACC15;
+      --c-soft: #1F1B0A;
 
       --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
       --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
@@ -62,6 +64,7 @@
     img { display: block; max-width: 100%; }
     button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
     a { color: inherit; }
+    ::selection { background: #FACC15; color: #0B0B0C; }
     :focus-visible { outline: 2px solid var(--c-primary); outline-offset: 3px; border-radius: 4px; }
     .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
     .num { font-variant-numeric: tabular-nums; }
@@ -144,7 +147,7 @@
       30%  { opacity: .28; transform: scaleY(1); }
       100% { opacity: 0;   transform: scaleY(1); }
     }
-    .storage-warn { display: none; margin: 14px 0 0; font-size: 13px; color: #9A3412; }
+    .storage-warn { display: none; margin: 14px 0 0; font-size: 13px; color: #FDBA74; }
     .storage-warn.show { display: block; }
 
     /* =====================================================================
@@ -154,7 +157,7 @@
       position: sticky; top: 0; z-index: 40;
       margin: 0 -20px;
       padding: 8px 20px 0;
-      background: rgba(250, 249, 246, .9);
+      background: rgba(11, 11, 12, .9);
       -webkit-backdrop-filter: saturate(160%) blur(10px);
       backdrop-filter: saturate(160%) blur(10px);
     }
@@ -298,7 +301,7 @@
       padding: 14px 16px;
       border: 1px solid var(--rule);
       border-radius: 10px;
-      background: #FFFFFF;
+      background: #0F0F11;
       color: var(--ink);
       font: 400 16px/1.65 var(--serif);
       transition: border-color var(--t-ui) ease, box-shadow var(--t-ui) ease;
@@ -308,7 +311,7 @@
     .notes-actions { display: flex; gap: 2px; flex-wrap: wrap; }
     .save-state { display: inline-flex; align-items: center; gap: 6px; }
     .save-state .dot { width: 6px; height: 6px; border-radius: 50%; background: #A8A29E; transition: background-color var(--t-ui) ease; }
-    .save-state.saved .dot { background: #3F6212; }
+    .save-state.saved .dot { background: #FACC15; }
 
     /* =====================================================================
        ÍNDICE EDITORIAL DE TÓPICOS
@@ -355,14 +358,14 @@
       width: 34px; height: 34px;
       display: grid; place-items: center;
       padding: 0;
-      border: 1.5px solid #D6D3CD;
+      border: 1.5px solid #3F3F46;
       border-radius: 50%;
       background: transparent;
       color: var(--ink-3);
       transition: background-color var(--t-ui) var(--ease-out), border-color var(--t-ui) var(--ease-out), color var(--t-ui) ease, transform var(--t-press) var(--ease-out);
     }
     .read-chip:active { transform: scale(0.94); }
-    .read-chip[aria-pressed="true"] { background: var(--c-primary); border-color: var(--c-primary); color: #FFFFFF; }
+    .read-chip[aria-pressed="true"] { background: var(--c-primary); border-color: var(--c-primary); color: var(--on-yellow); }
 
     /* Check em SVG desenhado por stroke-dashoffset */
     .check-svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
@@ -378,14 +381,14 @@
       padding: 0; border: 0;
       border-radius: 4px;
       overflow: hidden;
-      background: #EFECE6;
+      background: #1A1A1D;
       cursor: zoom-in;
       transition: transform var(--t-press) var(--ease-out);
     }
     .figure-btn:active { transform: scale(0.99); }
     .figure-btn img {
       width: 100%; height: auto; max-height: 460px; min-height: 120px;
-      object-fit: contain; background: #EFECE6;
+      object-fit: contain; background: #1A1A1D;
       transform: scale(1.03);
       transition: transform 280ms var(--ease-out);
     }
@@ -406,19 +409,19 @@
     .topic.is-open .stage-text { opacity: 1; transform: none; transition-duration: var(--t-ui), var(--t-move); transition-delay: 100ms; }
 
     .prose { max-width: 66ch; }
-    .prose p { margin: 18px 0 0; font-size: 16.5px; line-height: 1.75; color: #27272A; text-wrap: pretty; }
+    .prose p { margin: 18px 0 0; font-size: 16.5px; line-height: 1.75; color: #E4E4E7; text-wrap: pretty; }
     .prose strong { font-weight: 700; color: var(--ink); }
     .prose em { font-family: var(--serif); font-size: 1.05em; }
 
     /* Placa museológica (fallback de imagem) */
     .placard {
       padding: 18px 20px;
-      background: #F3F1EC;
-      border: 1px solid #E2DFD7;
+      background: #17171A;
+      border: 1px solid #2E2E33;
       border-radius: 4px;
     }
     .placard-title { margin: 0 0 6px; font-family: var(--serif); font-style: italic; font-size: 1.08rem; line-height: 1.4; color: var(--ink); }
-    .placard-link { font-size: 12.5px; font-weight: 600; color: var(--ink-3); text-decoration: none; border-bottom: 1px solid #D6D3CD; transition: color var(--t-ui) ease, border-color var(--t-ui) ease; }
+    .placard-link { font-size: 12.5px; font-weight: 600; color: var(--ink-3); text-decoration: none; border-bottom: 1px solid #3F3F46; transition: color var(--t-ui) ease, border-color var(--t-ui) ease; }
 
     /* Caixas de destaque, em tom editorial */
     .callout { margin: 28px 0 0; }
@@ -440,16 +443,16 @@
     .concepts dl { margin: 0; border-top: 1px solid var(--rule); }
     .concepts dl > div { display: grid; grid-template-columns: minmax(150px, 34%) 1fr; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--rule); }
     .concepts dt { font-size: 14.5px; font-weight: 700; color: var(--c-primary); }
-    .concepts dd { margin: 0; font-size: 14.5px; line-height: 1.6; color: #3F3F46; }
+    .concepts dd { margin: 0; font-size: 14.5px; line-height: 1.6; color: #D4D4D8; }
 
     .compare-title { margin: 0 0 10px; font-family: var(--serif); font-size: 1.1rem; font-weight: 500; color: var(--ink); }
     .compare table { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 1.5; border-top: 1px solid var(--ink); }
     .compare th { padding: 10px 12px 10px 0; text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); border-bottom: 1px solid var(--rule); }
-    .compare td { padding: 11px 12px 11px 0; vertical-align: top; color: #3F3F46; border-bottom: 1px solid var(--rule); }
+    .compare td { padding: 11px 12px 11px 0; vertical-align: top; color: #D4D4D8; border-bottom: 1px solid var(--rule); }
     .compare td:first-child { font-weight: 700; color: var(--ink); }
 
     .timeline ol { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
-    .timeline li { display: grid; grid-template-columns: 100px 1fr; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--rule); font-size: 14.5px; line-height: 1.55; color: #3F3F46; }
+    .timeline li { display: grid; grid-template-columns: 100px 1fr; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--rule); font-size: 14.5px; line-height: 1.55; color: #D4D4D8; }
     .timeline .when { font-family: var(--serif); font-size: 1rem; font-weight: 600; color: var(--c-primary); font-variant-numeric: tabular-nums; }
 
     /* Marcar como lido (fim do texto) */
@@ -457,7 +460,7 @@
       display: inline-flex; align-items: center; gap: 10px;
       margin-top: 28px;
       padding: 10px 16px 10px 12px;
-      border: 1px solid #D6D3CD;
+      border: 1px solid #3F3F46;
       border-radius: 999px;
       background: transparent;
       font-size: 14px; font-weight: 600;
@@ -468,8 +471,8 @@
     .read-toggle .dot-check {
       width: 22px; height: 22px; border-radius: 50%;
       display: grid; place-items: center;
-      border: 1.5px solid #A8A29E;
-      color: #FFFFFF;
+      border: 1.5px solid #52525B;
+      color: var(--on-yellow);
       transition: background-color var(--t-ui) var(--ease-out), border-color var(--t-ui) var(--ease-out);
     }
     .read-toggle .dot-check .check-svg { width: 13px; height: 13px; }
@@ -524,7 +527,7 @@
       transition: background-color var(--t-ui) ease, transform var(--t-press) var(--ease-out);
     }
     .modal-close:active { transform: scale(0.94); }
-    .dialog-panel { width: min(420px, 100%); padding: 26px; border-radius: 14px; background: #FFFFFF; box-shadow: var(--shadow-lg); }
+    .dialog-panel { width: min(420px, 100%); padding: 26px; border-radius: 14px; background: #161618; border: 1px solid #2A2A2E; box-shadow: var(--shadow-lg); }
     .dialog-panel h3 { margin: 0 0 8px; font-family: var(--serif); font-size: 1.4rem; font-weight: 500; }
     .dialog-panel p { margin: 0 0 16px; font-size: 14.5px; color: var(--ink-2); }
     .dialog-panel label { display: flex; align-items: center; gap: 8px; margin-bottom: 22px; font-size: 14px; }
@@ -532,7 +535,7 @@
     .btn {
       height: 38px; padding: 0 16px;
       border-radius: 999px;
-      border: 1px solid #D6D3CD; background: #FFFFFF;
+      border: 1px solid #3F3F46; background: #1C1C1F; color: var(--ink);
       font-size: 14px; font-weight: 600;
       transition: transform var(--t-press) var(--ease-out), background-color var(--t-ui) ease;
     }
@@ -544,7 +547,7 @@
       max-width: calc(100% - 32px);
       padding: 10px 16px;
       border-radius: 999px;
-      background: #18181B; color: #FAFAF9;
+      background: #FACC15; color: #0B0B0C;
       font-size: 13.5px; font-weight: 600;
       box-shadow: var(--shadow-lg);
       opacity: 0;
@@ -563,13 +566,13 @@
       .quiet-btn:hover { background: var(--c-soft); color: var(--ink); }
       .topic-trigger:hover .topic-title { color: var(--c-primary); }
       .read-chip:hover { border-color: var(--c-primary); color: var(--c-primary); }
-      .read-chip[aria-pressed="true"]:hover { color: #FFFFFF; }
+      .read-chip[aria-pressed="true"]:hover { color: var(--on-yellow); }
       .figure-btn:hover .zoom-chip { opacity: 1; }
       .placard-link:hover { color: var(--ink); border-color: var(--ink); }
       .read-toggle:hover { border-color: var(--c-primary); }
       .nav-link:hover span { border-color: currentColor; }
       .modal-close:hover { background: rgba(255, 255, 255, .26); }
-      .btn:hover { background: #F5F5F4; }
+      .btn:hover { background: #26262A; }
       .btn-danger:hover { background: #881337; }
     }
 
@@ -677,8 +680,8 @@
       margin: -30px 0 0 -30px;
       display: grid; place-items: center;
       border-radius: 50%;
-      background: rgba(250, 249, 246, .92);
-      color: var(--ink);
+      background: #FACC15;
+      color: #0B0B0C;
       box-shadow: 0 8px 24px -6px rgba(0, 0, 0, .45);
       transition: transform var(--t-ui) var(--ease-out), background-color var(--t-ui) ease;
     }
@@ -698,14 +701,14 @@
     .video-channel { display: block; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--c-primary); }
     .video-title { margin: 4px 0 8px; font-family: var(--serif); font-size: 1.12rem; font-weight: 500; line-height: 1.35; color: var(--ink); text-wrap: pretty; }
     .video-links { display: flex; flex-wrap: wrap; gap: 4px 16px; }
-    .video-note { display: none; margin: 0 0 6px; font-size: 12.5px; color: #9A3412; }
+    .video-note { display: none; margin: 0 0 6px; font-size: 12.5px; color: #FDBA74; }
     .video-card.thumb-missing .video-note { display: block; }
     .video-search { display: none; }
     .video-card.thumb-missing .video-search { display: inline; }
 
     @media (hover: hover) and (pointer: fine) {
       .video-poster:hover img { transform: scale(1.02); }
-      .video-poster:hover .play { transform: scale(1.06); background: #FFFFFF; }
+      .video-poster:hover .play { transform: scale(1.06); background: #FDE047; }
     }
     @media (max-width: 640px) {
       .video-grid { grid-template-columns: 1fr; gap: 26px; }
@@ -727,7 +730,7 @@
         <button class="text-btn" type="button" id="btnReset">Reiniciar leitura</button>
       </div>
       <h1>Plano de Estudos <em>— Capítulos 11 a 14</em></h1>
-      <p class="lede">Da Era Napoleônica ao Primeiro Reinado: revoluções, independências e a construção do Estado brasileiro.</p>
+      <p class="lede">Da Era Napoleônica ao Primeiro Reinado: as revoluções, as independências e a formação do Estado brasileiro.</p>
       <div class="overall">
         <div class="overall-row">
           <span class="overall-pct num"><span id="overallPct">0</span>%</span>
@@ -799,6 +802,14 @@
     /* =====================================================================
        CONTEÚDO
        ===================================================================== */
+    /* Monta o endereço da obra no acervo da Wikimedia Commons a partir do
+       nome exato do arquivo (Special:FilePath localiza o arquivo correto). */
+    function commons(file) {
+      return "https://commons.wikimedia.org/wiki/Special:FilePath/" + encodeURIComponent(file.replace(/ /g, "_")) + "?width=1200";
+    }
+
+    var YELLOW = { primary: "#FACC15", accent: "#FACC15", soft: "#1F1B0A" };
+
     var CHAPTERS = [
       /* ===================================================================
          CAPÍTULO 11
@@ -806,74 +817,74 @@
       {
         id: "c11", num: 11,
         short: "Napoleão e Período Joanino",
-        title: "Era Napoleônica e o Período Joanino no Brasil",
-        sub: "Como a ascensão e a queda de Napoleão redesenharam a Europa — e trouxeram a Corte portuguesa para o Rio de Janeiro.",
-        theme: { primary: "#1B365D", accent: "#C68B2C", soft: "#F0F4F8" },
+        title: "A Era Napoleônica e o Período Joanino no Brasil",
+        sub: "A ascensão e a queda de Napoleão Bonaparte transformaram a Europa e motivaram a transferência da Corte portuguesa para o Rio de Janeiro.",
+        theme: YELLOW,
         objectives: [
-          "Identificar os fatores de ascensão e declínio da Era Napoleônica.",
-          "Relacionar a expansão francesa à vinda da Família Real portuguesa ao Brasil."
+          "Identificar os fatores que explicam a ascensão e o declínio da Era Napoleônica.",
+          "Relacionar a expansão francesa à transferência da Família Real portuguesa para o Brasil."
         ],
         topics: [
           {
-            title: "O Golpe de 18 de Brumário e o Consulado (1799–1804)",
-            img: "https://upload.wikimedia.org/wikipedia/commons/4/44/Bouchot_-_Le_general_Bonaparte_au_Conseil_des_Cinq-Cents.jpg",
-            caption: "Golpe de 18 de Brumário, François Bouchot",
+            title: "Do Golpe do 18 de Brumário ao Consulado (1799–1804)",
+            img: commons("Jean Auguste Dominique Ingres, Portrait de Napoléon Bonaparte en premier consul.jpg"),
+            caption: "Napoleão Bonaparte como Primeiro Cônsul, Jean-Auguste-Dominique Ingres, 1803",
             text: [
-              "Em 1799, a França vivia a crise do <strong>Diretório</strong>: corrupção, inflação e ameaças de jacobinos e realistas. Com apoio da burguesia, o general <strong>Napoleão Bonaparte</strong> liderou o <strong>Golpe de 18 de Brumário</strong> (9 de novembro de 1799), que encerrou a fase revolucionária e inaugurou o <strong>Consulado</strong>.",
-              "Como Primeiro Cônsul, Napoleão pacificou o país e reorganizou o Estado: criou o <strong>Banco da França</strong> (1800), firmou a <strong>Concordata</strong> com a Igreja Católica (1801) e promulgou o <strong>Código Civil Napoleônico</strong> (1804), que garantiu a <strong>igualdade jurídica</strong> e a <strong>propriedade privada</strong>, consolidando as conquistas da burguesia. O código serviu de modelo para leis de vários países, inclusive na América Latina."
+              "No final da década de 1790, a França enfrentava a crise do <strong>Diretório</strong>, marcada por instabilidade política, inflação e denúncias de corrupção. Nesse contexto, o general <strong>Napoleão Bonaparte</strong>, com o apoio da alta burguesia, liderou o <strong>Golpe do 18 de Brumário</strong> (9 de novembro de 1799), que encerrou o processo revolucionário e deu início ao <strong>Consulado</strong>.",
+              "Na condição de Primeiro Cônsul, Napoleão promoveu a reorganização do Estado: fundou o <strong>Banco da França</strong> (1800), estabeleceu a <strong>Concordata</strong> com a Igreja Católica (1801) e promulgou o <strong>Código Civil Napoleônico</strong> (1804). Esse código assegurou a <strong>igualdade perante a lei</strong> e o <strong>direito à propriedade privada</strong>, consolidando as conquistas da burguesia e servindo de modelo para a legislação de diversos países."
             ]
           },
           {
             title: "O Império Napoleônico e o Bloqueio Continental (1804–1812)",
-            img: "https://upload.wikimedia.org/wikipedia/commons/0/08/Jacques-Louis_David%2C_The_Coronation_of_Napoleon_edit.jpg",
-            caption: "A Sagração de Napoleão, Jacques-Louis David, 1807",
+            img: commons("La bataille d'Austerlitz. 2 decembre 1805 (François Gérard).jpg"),
+            caption: "A Batalha de Austerlitz, François Gérard, 1810",
             text: [
-              "Em 1804, após um plebiscito, Napoleão foi coroado <strong>Imperador dos Franceses</strong>. A tela de <strong>Jacques-Louis David</strong> mostra o próprio Napoleão coroando Josefina diante do papa: uma imagem de <strong>propaganda oficial</strong>, feita para legitimar seu poder — o pintor chegou a incluir a mãe do imperador, que não esteve na cerimônia.",
-              "Vitórias como <strong>Austerlitz (1805)</strong> espalharam o domínio francês e os princípios burgueses pela Europa. Sem conseguir vencer a Inglaterra no mar (derrota em <strong>Trafalgar</strong>, 1805), Napoleão decretou o <strong>Bloqueio Continental (1806)</strong>: os países europeus ficavam proibidos de comerciar com os ingleses, para sufocar a economia britânica."
+              "Em 1804, após a aprovação em plebiscito, Napoleão foi coroado <strong>Imperador dos Franceses</strong>. A arte oficial, especialmente as obras de <strong>Jacques-Louis David</strong>, contribuiu para legitimar o novo regime, ao apresentar o imperador como herdeiro da glória nacional.",
+              "Vitórias militares como a de <strong>Austerlitz (1805)</strong> ampliaram o domínio francês e difundiram princípios liberais pela Europa. A Inglaterra, contudo, permanecia invicta no mar, sobretudo após a <strong>Batalha de Trafalgar (1805)</strong>. Para enfraquecê-la economicamente, Napoleão decretou o <strong>Bloqueio Continental (1806)</strong>, que proibia os países europeus de comercializar com os britânicos."
             ]
           },
           {
-            title: "O Declínio: Revolta Espanhola e Campanha da Rússia (1808–1812)",
-            img: "https://upload.wikimedia.org/wikipedia/commons/f/fd/El_Tres_de_Mayo%2C_by_Francisco_de_Goya%2C_from_Prado_in_Google_Earth.jpg",
-            caption: "Os Fuzilamentos de 3 de Maio, Francisco de Goya, 1814",
+            title: "O declínio napoleônico: a resistência espanhola e a campanha da Rússia",
+            img: commons("National Museum in Poznan - Przejście przez Berezynę.JPG"),
+            caption: "A travessia do rio Berezina pelo Grande Exército, January Suchodolski, 1866",
             text: [
-              "O declínio começou na Península Ibérica. Em 1808, Napoleão depôs o rei espanhol <strong>Fernando VII</strong> e pôs no trono o irmão, José Bonaparte. A população reagiu, e a repressão francesa foi eternizada por <strong>Goya</strong> em <em>Os Fuzilamentos de 3 de Maio</em>. As <strong>guerrilhas</strong> espanholas, com apoio inglês, desgastaram o exército francês por anos.",
-              "Em <strong>1812</strong>, como a Rússia rompeu o bloqueio, Napoleão invadiu o país com cerca de <strong>600 mil soldados</strong>. Os russos recuaram usando a tática da <strong>terra arrasada</strong> — destruindo plantações e abrigos —, e Moscou foi encontrada em chamas. Na retirada, o <strong>inverno rigoroso</strong>, a fome e os ataques dizimaram as tropas."
+              "O enfraquecimento do Império começou na <strong>Península Ibérica</strong>. Em 1808, Napoleão destituiu o rei espanhol <strong>Fernando VII</strong> e entregou o trono a seu irmão, José Bonaparte. A população reagiu com uma resistência prolongada, organizada em <strong>guerrilhas</strong> e apoiada pela Inglaterra, que desgastou as tropas francesas durante vários anos.",
+              "Em <strong>1812</strong>, em resposta ao rompimento do Bloqueio pela Rússia, Napoleão invadiu o país com cerca de <strong>600 mil soldados</strong>. Os russos recuaram e adotaram a tática da <strong>terra arrasada</strong>, destruindo colheitas e abrigos. Durante a retirada, o <strong>inverno rigoroso</strong>, a fome e os ataques constantes provocaram a morte da maior parte do exército francês."
             ]
           },
           {
-            title: "Derrota em Waterloo e o Congresso de Viena (1815)",
-            img: "https://upload.wikimedia.org/wikipedia/commons/7/72/Battle_of_Waterloo_1815.PNG",
-            caption: "Batalha de Waterloo, William Sadler, 1815",
+            title: "A derrota em Waterloo e a reorganização da Europa no Congresso de Viena",
+            img: commons("Congresso de Viena, 1819.jpg"),
+            caption: "O Congresso de Viena, gravura a partir de Jean-Baptiste Isabey, 1819",
             text: [
-              "Derrotado em <strong>Leipzig (1813)</strong>, Napoleão abdicou e foi exilado na ilha de <strong>Elba</strong> (1814). Em 1815, fugiu e voltou ao poder no <strong>Governo dos Cem Dias</strong>, até a derrota definitiva em <strong>Waterloo</strong> (18 de junho de 1815) para britânicos e prussianos. Morreu exilado em <strong>Santa Helena</strong>, em 1821.",
-              "Os vencedores se reuniram no <strong>Congresso de Viena</strong> (1814–1815), que redesenhou o mapa europeu e <strong>restaurou as monarquias absolutistas</strong> pelo princípio da legitimidade. Para defender essa ordem conservadora, Rússia, Áustria e Prússia criaram a <strong>Santa Aliança</strong>, disposta a reprimir movimentos liberais e revolucionários."
+              "Derrotado na <strong>Batalha de Leipzig (1813)</strong>, Napoleão abdicou e foi exilado na ilha de <strong>Elba</strong>. Em 1815, retornou ao poder no chamado <strong>Governo dos Cem Dias</strong>, mas sofreu a derrota definitiva na <strong>Batalha de Waterloo</strong>, diante de forças britânicas e prussianas. Foi, então, exilado na ilha de <strong>Santa Helena</strong>, onde morreu em 1821.",
+              "Paralelamente, as potências vencedoras reuniram-se no <strong>Congresso de Viena</strong> (1814–1815) para redefinir as fronteiras europeias e <strong>restaurar as monarquias absolutistas</strong>, com base no princípio da legitimidade. Para preservar essa ordem conservadora, Rússia, Áustria e Prússia formaram a <strong>Santa Aliança</strong>, comprometida com a repressão aos movimentos liberais."
             ]
           },
           {
-            title: "A Vinda da Família Real e o Período Joanino (1808–1821)",
-            img: "https://upload.wikimedia.org/wikipedia/commons/e/ea/Embarque_da_Fam%C3%ADlia_Real_para_o_Brasil_%281807%29.jpg",
-            caption: "Embarque da Família Real para o Brasil em 1807",
+            title: "A transferência da Corte portuguesa e o Período Joanino (1808–1821)",
+            img: commons("ChegadaRioDJoaoVI.jpg"),
+            caption: "Chegada da Família Real portuguesa ao Rio de Janeiro em 1808, Geoff Hunt",
             text: [
-              "Pressionado a aderir ao Bloqueio Continental e ameaçado de invasão francesa, o príncipe regente <strong>D. João</strong> fez um acordo com a <strong>Inglaterra</strong>: a Corte portuguesa partiu para o Brasil no fim de 1807, <strong>escoltada pela Marinha britânica</strong>, e chegou em <strong>1808</strong>. Pela primeira vez, uma metrópole passava a ser governada a partir da colônia.",
-              "O <strong>Período Joanino</strong> transformou o Brasil: <strong>Abertura dos Portos às Nações Amigas (1808)</strong>, que encerrou o monopólio comercial português; <strong>Tratados de 1810</strong>, com tarifas privilegiadas para os ingleses; criação da <strong>Imprensa Régia</strong>, da <strong>Biblioteca Real</strong> e do <strong>Jardim Botânico</strong>; e, em <strong>1815</strong>, a elevação do Brasil a <strong>Reino Unido de Portugal, Brasil e Algarves</strong>."
+              "Pressionado a aderir ao Bloqueio Continental e ameaçado pela invasão francesa, o príncipe regente <strong>D. João</strong> firmou um acordo com a <strong>Inglaterra</strong>. No final de 1807, a Corte portuguesa partiu para o Brasil sob a <strong>escolta da Marinha britânica</strong> e chegou em <strong>1808</strong>. Pela primeira vez, uma metrópole europeia passou a ser governada a partir de sua colônia.",
+              "O <strong>Período Joanino</strong> promoveu profundas transformações: a <strong>Abertura dos Portos às Nações Amigas (1808)</strong> pôs fim ao monopólio comercial português; os <strong>Tratados de 1810</strong> concederam tarifas privilegiadas aos ingleses; foram criados a <strong>Imprensa Régia</strong>, a <strong>Biblioteca Real</strong> e o <strong>Jardim Botânico</strong>; e, em <strong>1815</strong>, o Brasil foi elevado a <strong>Reino Unido de Portugal, Brasil e Algarves</strong>."
             ],
             boxes: [
               { type: "timeline", items: [
                 ["1808", "Chegada da Corte e Abertura dos Portos."],
-                ["1810", "Tratados com a Inglaterra."],
-                ["1815", "Brasil elevado a Reino Unido."],
+                ["1810", "Assinatura dos tratados com a Inglaterra."],
+                ["1815", "Elevação do Brasil a Reino Unido."],
                 ["1821", "Retorno de D. João VI a Portugal."]
               ]}
             ]
           },
           {
-            title: "Revolução Liberal do Porto (1820) e Retorno de D. João VI",
-            img: "https://upload.wikimedia.org/wikipedia/commons/8/86/Dom_Jo%C3%A3o_VI_by_Jean-Baptiste_Debret.jpg",
-            caption: "Retrato de D. João VI, Jean-Baptiste Debret",
+            title: "A Revolução Liberal do Porto e o retorno de D. João VI a Portugal",
+            img: commons("Oscar Pereira da Silva - Sessão das Cortes De Lisboa, Acervo do Museu Paulista da USP 2.jpg"),
+            caption: "Sessão das Cortes de Lisboa, Oscar Pereira da Silva",
             text: [
-              "Em <strong>1820</strong>, a <strong>Revolução Liberal do Porto</strong> exigiu uma Constituição para Portugal e o <strong>retorno de D. João VI</strong>, que estava no Brasil havia mais de uma década. O rei voltou a Lisboa em <strong>1821</strong> e deixou o filho, <strong>D. Pedro</strong>, como <strong>príncipe regente</strong> do Brasil.",
-              "Liberais em Portugal, as <strong>Cortes de Lisboa</strong> queriam, porém, reduzir a autonomia brasileira — subordinar as províncias a Lisboa e exigir a volta de D. Pedro —, o que os brasileiros viram como uma <strong>tentativa de recolonização</strong>. Essa contradição aproximou as elites do príncipe regente e abriu caminho para a <strong>independência, em 1822</strong>."
+              "Em <strong>1820</strong>, a <strong>Revolução Liberal do Porto</strong> exigiu a elaboração de uma Constituição para Portugal e o <strong>retorno de D. João VI</strong>, que residia no Brasil havia mais de uma década. O monarca regressou a Lisboa em <strong>1821</strong>, deixando seu filho, <strong>D. Pedro</strong>, como <strong>príncipe regente</strong>.",
+              "Embora defendessem ideias liberais em Portugal, as <strong>Cortes de Lisboa</strong> pretendiam reduzir a autonomia brasileira, subordinando as províncias diretamente a Lisboa e exigindo o retorno de D. Pedro. Essas medidas foram interpretadas como uma <strong>tentativa de recolonização</strong>, o que aproximou as elites brasileiras do príncipe regente e favoreceu o processo que culminou na <strong>independência, em 1822</strong>."
             ]
           }
         ]
@@ -886,73 +897,73 @@
         id: "c12", num: 12,
         short: "EUA e Haiti",
         title: "Estados Unidos e Haiti: duas independências",
-        sub: "Uma revolução feita por proprietários, outra por escravizados — e os limites da liberdade no mundo atlântico.",
-        theme: { primary: "#14532D", accent: "#C2410C", soft: "#F0FDF4" },
+        sub: "Uma independência conduzida por proprietários e outra protagonizada por escravizados revelam os limites da liberdade no mundo atlântico.",
+        theme: YELLOW,
         objectives: [
-          "Identificar as bases ideológicas da independência dos EUA.",
-          "Relacionar a Revolução do Haiti à transição para a Contemporaneidade."
+          "Identificar as bases ideológicas da independência dos Estados Unidos.",
+          "Relacionar a Revolução do Haiti à transição para a Idade Contemporânea."
         ],
         topics: [
           {
-            title: "As Treze Colônias: Norte e Sul",
-            img: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Thirteen_Colonies_1775.svg/800px-Thirteen_Colonies_1775.svg.png",
-            caption: "Mapa das Treze Colônias Britânicas na América do Norte, 1775",
+            title: "As Treze Colônias: as diferenças entre o Norte e o Sul",
+            img: commons("Benjamin Franklin - Join or Die.jpg"),
+            caption: "“Join, or Die” (Unam-se ou morram), charge atribuída a Benjamin Franklin, 1754",
             text: [
-              "As <strong>Treze Colônias</strong> inglesas se formaram na costa atlântica da América do Norte nos séculos XVII e XVIII. No <strong>Norte</strong> predominaram colônias de <strong>povoamento</strong>: pequenas propriedades, <strong>trabalho livre</strong>, manufaturas e intenso <strong>comércio</strong>. No <strong>Sul</strong>, desenvolveu-se a <strong>plantation</strong>: <strong>latifúndios</strong> monocultores voltados à exportação e baseados no <strong>trabalho de africanos escravizados</strong>.",
-              "Durante boa parte do século XVIII, a Inglaterra praticou a <strong>“negligência salutar”</strong>: fiscalizava pouco as colônias, que ganharam assembleias próprias e uma forte <strong>tradição de autogoverno</strong> — experiência decisiva quando a metrópole decidiu endurecer o controle."
+              "As <strong>Treze Colônias</strong> inglesas formaram-se na costa atlântica da América do Norte entre os séculos XVII e XVIII. No <strong>Norte</strong>, predominaram as colônias de <strong>povoamento</strong>, caracterizadas por pequenas propriedades, <strong>trabalho livre</strong>, atividades manufatureiras e intenso <strong>comércio</strong>. No <strong>Sul</strong>, desenvolveu-se o sistema de <strong>plantation</strong>, baseado em <strong>latifúndios</strong> monocultores voltados à exportação e no <strong>trabalho de africanos escravizados</strong>.",
+              "Durante grande parte do século XVIII, a Inglaterra adotou a política de <strong>“negligência salutar”</strong>, fiscalizando pouco as colônias. Com isso, os colonos criaram assembleias próprias e desenvolveram uma sólida <strong>tradição de autogoverno</strong>, fator decisivo quando a metrópole passou a intensificar o controle."
             ],
             boxes: [
               { type: "compare", title: "Norte x Sul", headers: ["Aspecto", "Norte", "Sul"], rows: [
                 ["Colonização", "Povoamento", "Plantation"],
                 ["Propriedade", "Pequena e média", "Latifúndio"],
                 ["Trabalho", "Livre", "Escravizado"],
-                ["Economia", "Comércio e manufaturas", "Exportação agrícola"]
+                ["Economia", "Comércio e manufaturas", "Agricultura de exportação"]
               ]}
             ]
           },
           {
-            title: "O Enrijecimento do Pacto Colonial",
-            img: "https://upload.wikimedia.org/wikipedia/commons/5/52/Boston_Tea_Party_Currier_colored.jpg",
-            caption: "A Festa do Chá de Boston, litografia de Nathaniel Currier, 1846",
+            title: "O enrijecimento do pacto colonial e a reação dos colonos",
+            img: commons("Paul Revere, after Henry Pelham, The Boston Massacre, 1770, NGA 11550.jpg"),
+            caption: "O Massacre de Boston, gravura de Paul Revere a partir de Henry Pelham, 1770",
             text: [
-              "A <strong>Guerra dos Sete Anos (1756–1763)</strong> contra a França deu vitória à Inglaterra, mas deixou uma enorme dívida. Para pagá-la, o Parlamento acabou com a negligência salutar e criou impostos: <strong>Lei do Açúcar (1764)</strong>, <strong>Lei do Selo (1765)</strong> e <strong>Lei do Chá (1773)</strong>. Os colonos protestaram com o lema <strong>“nenhuma taxação sem representação”</strong>, já que não tinham deputados no Parlamento.",
-              "Em 1773, colonos jogaram ao mar a carga de chá de navios ingleses na <strong>Festa do Chá de Boston</strong>. A Inglaterra respondeu em 1774 com as <strong>Leis Intoleráveis</strong> — fechamento do porto de Boston e restrições ao autogoverno —, o que acabou unindo as colônias contra a metrópole."
+              "A <strong>Guerra dos Sete Anos (1756–1763)</strong>, travada contra a França, terminou com a vitória inglesa, mas deixou uma dívida elevada. Para saldá-la, o Parlamento britânico abandonou a negligência salutar e instituiu novos tributos, como a <strong>Lei do Açúcar (1764)</strong>, a <strong>Lei do Selo (1765)</strong> e a <strong>Lei do Chá (1773)</strong>. Os colonos protestaram sob o lema <strong>“nenhuma taxação sem representação”</strong>, já que não possuíam representantes no Parlamento.",
+              "As tensões aumentaram com o <strong>Massacre de Boston (1770)</strong> e com a <strong>Festa do Chá de Boston (1773)</strong>, quando colonos lançaram ao mar a carga de chá de navios ingleses. Em resposta, a Inglaterra aprovou as <strong>Leis Intoleráveis (1774)</strong>, o que acabou unindo as colônias contra a metrópole."
             ]
           },
           {
-            title: "Declaração de Independência (1776) e Constituição dos EUA (1787)",
-            img: "https://upload.wikimedia.org/wikipedia/commons/f/f9/Declaration_of_Independence_%281819%29%2C_by_John_Trumbull.jpg",
-            caption: "Declaração de Independência, John Trumbull, 1819",
+            title: "A Declaração de Independência (1776) e a Constituição de 1787",
+            img: commons("John Trumbull - The Surrender of Lord Cornwallis at Yorktown, October 19, 1781 - 1832.4 - Yale University Art Gallery.jpg"),
+            caption: "A rendição de Lord Cornwallis em Yorktown, John Trumbull",
             text: [
-              "Em <strong>4 de julho de 1776</strong>, o Congresso Continental aprovou a <strong>Declaração de Independência</strong>, redigida por <strong>Thomas Jefferson</strong> com base no <strong>Iluminismo</strong>: todos teriam direitos naturais à vida, à liberdade e à busca da felicidade. Com apoio da França e da Espanha, o exército de <strong>George Washington</strong> venceu a guerra, e a Inglaterra reconheceu a independência em <strong>1783</strong>.",
-              "A <strong>Constituição de 1787</strong> criou uma <strong>República Federativa Presidencialista</strong>, com <strong>divisão dos três poderes</strong>. Mas a liberdade tinha limites: a <strong>escravidão foi mantida</strong> até 1865, e indígenas e mulheres ficaram excluídos. Outro legado é a <strong>Segunda Emenda</strong>, que garante o porte de armas e segue no centro de debates atuais nos EUA."
+              "Em <strong>4 de julho de 1776</strong>, o Congresso Continental aprovou a <strong>Declaração de Independência</strong>, redigida por <strong>Thomas Jefferson</strong> com base nos princípios do <strong>Iluminismo</strong>, como os direitos naturais à vida, à liberdade e à busca da felicidade. Com o apoio da França e da Espanha, o exército liderado por <strong>George Washington</strong> venceu a guerra, e a Inglaterra reconheceu a independência em <strong>1783</strong>.",
+              "A <strong>Constituição de 1787</strong> instituiu uma <strong>república federativa presidencialista</strong>, com <strong>separação dos três poderes</strong>. A liberdade proclamada, entretanto, tinha limites: a <strong>escravidão foi mantida</strong> até 1865, e indígenas e mulheres foram excluídos da cidadania. Outro legado é a <strong>Segunda Emenda</strong>, que garante o porte de armas e permanece no centro dos debates políticos norte-americanos."
             ]
           },
           {
-            title: "São Domingos: A Colônia Açucareira Francesa",
-            img: "https://upload.wikimedia.org/wikipedia/commons/8/87/Habitation_sucriere_Saint-Domingue.jpg",
-            caption: "Engenho de açúcar na colônia francesa de São Domingos",
+            title: "São Domingos: a mais rica colônia açucareira da França",
+            img: commons("Carte de Delisle de l'isle de Saint Domingue.jpg"),
+            caption: "Mapa da ilha de São Domingos, Guillaume Delisle, 1725",
             text: [
-              "<strong>São Domingos</strong> (<em>Saint-Domingue</em>), atual Haiti, era a <strong>colônia mais rica do Caribe</strong> e a mais lucrativa da França no século XVIII, grande produtora de <strong>açúcar</strong>. Essa riqueza vinha da <strong>exploração brutal de africanos escravizados</strong>: por volta de 1789, eram cerca de meio milhão de pessoas, diante de algumas dezenas de milhares de brancos e de livres de cor.",
-              "A sociedade seguia uma <strong>rígida hierarquia racial</strong>: no topo, os grandes proprietários brancos; depois, os brancos pobres; em seguida, os <strong>livres de cor</strong>, com direitos limitados; e, na base, a imensa maioria escravizada, submetida a jornadas exaustivas e a uma mortalidade altíssima."
+              "<strong>São Domingos</strong> (<em>Saint-Domingue</em>), atual Haiti, era a <strong>colônia mais lucrativa da França</strong> no século XVIII e uma das maiores produtoras de <strong>açúcar</strong> do mundo. Essa riqueza dependia da <strong>exploração brutal de africanos escravizados</strong>: por volta de 1789, a colônia contava com cerca de meio milhão de escravizados, diante de algumas dezenas de milhares de brancos e de pessoas livres de cor.",
+              "A sociedade organizava-se segundo uma <strong>rígida hierarquia racial</strong>. No topo, estavam os grandes proprietários brancos; em seguida, os brancos pobres; depois, os <strong>livres de cor</strong>, que tinham direitos limitados; e, na base, a ampla maioria escravizada, submetida a jornadas exaustivas e a altíssimos índices de mortalidade."
             ]
           },
           {
             title: "A Revolução de Independência do Haiti (1791–1804)",
-            img: "https://upload.wikimedia.org/wikipedia/commons/c/c0/Toussaint_Louverture_-_Girardin.jpg",
-            caption: "General Toussaint Louverture, líder da Revolução Haitiana",
+            img: commons("Jean Jacques Dessalines.jpg"),
+            caption: "Retrato de Jean-Jacques Dessalines, Louis Rigaud, 1878",
             text: [
-              "Inspirados pelos ideais da <strong>Revolução Francesa</strong>, os escravizados de São Domingos se rebelaram em <strong>1791</strong>, na maior revolta de escravizados da história das Américas. O ex-escravizado <strong>Toussaint Louverture</strong> tornou-se o grande líder do movimento, e a França revolucionária aboliu a escravidão em 1794.",
-              "Em 1802, <strong>Napoleão</strong> enviou tropas para restaurar o domínio francês e a escravidão; Toussaint foi capturado e morreu preso na França. A luta seguiu com <strong>Jean-Jacques Dessalines</strong>, que derrotou os franceses e proclamou a independência em <strong>1º de janeiro de 1804</strong>. Nascia o <strong>Haiti</strong>, lembrado como a <strong>primeira república negra</strong> e o primeiro país da América a <strong>abolir definitivamente a escravidão</strong>."
+              "Influenciados pelos ideais da <strong>Revolução Francesa</strong>, os escravizados de São Domingos rebelaram-se em <strong>1791</strong>, dando início à maior revolta escrava da história das Américas. O ex-escravizado <strong>Toussaint Louverture</strong> tornou-se o principal líder do movimento, e a França revolucionária aboliu a escravidão em 1794.",
+              "Em 1802, <strong>Napoleão Bonaparte</strong> enviou tropas para restabelecer o domínio francês e a escravidão; Toussaint foi capturado e morreu preso na França. A luta prosseguiu sob o comando de <strong>Jean-Jacques Dessalines</strong>, que derrotou os franceses e proclamou a independência em <strong>1º de janeiro de 1804</strong>. Surgia, assim, o <strong>Haiti</strong>, considerado a <strong>primeira república negra</strong> e o primeiro país americano a <strong>abolir definitivamente a escravidão</strong>."
             ]
           },
           {
-            title: "O Haiti Pós-Independência e o “Haitianismo”",
-            img: "https://upload.wikimedia.org/wikipedia/commons/b/b2/Battle_of_Vertieres.jpg",
-            caption: "Batalha de Vertières, vitória decisiva pela independência do Haiti em 1803",
+            title: "O Haiti após a independência e o “haitianismo”",
+            img: commons("Grabado de Carlos X de Francia danddole la independencia a Haití.jpg"),
+            caption: "Carlos X, rei da França, concede a independência ao Haiti (1825), gravura de época",
             text: [
-              "As potências escravistas temiam o exemplo haitiano, e o novo país sofreu <strong>isolamento diplomático</strong>: os Estados Unidos, por exemplo, só o reconheceram em 1862. Em <strong>1825</strong>, sob ameaça militar, a <strong>França</strong> exigiu uma <strong>indenização de 150 milhões de francos</strong> (depois reduzida a 90 milhões) para reconhecer a independência — uma dívida que pesou sobre o Haiti por mais de um século.",
-              "O <strong>“haitianismo”</strong> foi o medo das elites escravistas das Américas de que a revolução se repetisse em seus territórios. No <strong>Brasil</strong>, esse temor ajudou a explicar a dura repressão às revoltas de escravizados e a preferência das elites por uma <strong>independência controlada</strong>, sem participação popular."
+              "Temendo que o exemplo haitiano se espalhasse, as potências escravistas impuseram ao novo país um longo <strong>isolamento diplomático</strong>; os Estados Unidos, por exemplo, só o reconheceram em 1862. Em <strong>1825</strong>, sob ameaça militar, a <strong>França</strong> exigiu uma <strong>indenização de 150 milhões de francos</strong> (posteriormente reduzida para 90 milhões) para reconhecer a independência, o que gerou uma dívida que comprometeu a economia haitiana por mais de um século.",
+              "O termo <strong>“haitianismo”</strong> designa o temor das elites escravistas americanas de que revoltas semelhantes ocorressem em seus territórios. No <strong>Brasil</strong>, esse receio contribuiu para a forte repressão às rebeliões de escravizados e para a preferência das elites por uma <strong>independência sem participação popular</strong>."
             ]
           }
         ]
@@ -965,72 +976,72 @@
         id: "c13", num: 13,
         short: "Independência do México",
         title: "A Independência do México (1810–1824)",
-        sub: "Apresentação do grupo: da revolta popular dos padres à República Federal e ao Porfiriato.",
-        theme: { primary: "#6B1D2F", accent: "#B8860B", soft: "#FDF2F4" },
+        sub: "Apresentação do grupo: da revolta popular liderada pelos padres à República Federal e ao Porfiriato.",
+        theme: YELLOW,
         objectives: [
-          "Compreender o contexto colonial da Nova Espanha.",
-          "Analisar as fases da independência mexicana até suas consequências republicanas."
+          "Compreender o contexto colonial do Vice-Reino da Nova Espanha.",
+          "Analisar as fases da independência mexicana e suas consequências no período republicano."
         ],
         topics: [
           {
-            title: "Vice-Reino da Nova Espanha e Hierarquia Social",
-            img: "https://upload.wikimedia.org/wikipedia/commons/e/e8/Casta_painting_all.jpg",
-            caption: "Pintura de castas ilustrando a hierarquia social colonial na Nova Espanha",
+            title: "O Vice-Reino da Nova Espanha e sua hierarquia social",
+            img: commons("De español e india, mestiza.jpg"),
+            caption: "De espanhol e indígena, mestiça: pintura de castas de Miguel Cabrera, c. 1763",
             text: [
-              "Depois da queda do <strong>Império Asteca</strong> diante de <strong>Hernán Cortés</strong>, em <strong>1521</strong>, a Espanha organizou o <strong>Vice-Reino da Nova Espanha</strong>, que por quase 300 anos foi sua <strong>colônia mais rica</strong>. A economia se baseava na <strong>mineração</strong>, com destaque para a <strong>prata</strong>, e na agricultura em grandes <strong>latifúndios</strong>.",
-              "A sociedade era uma <strong>torre hierárquica</strong>: no topo, os <strong>peninsulares</strong> — chamados de <strong>gachupines</strong> —, que ocupavam os cargos políticos; no meio, os <strong>criollos</strong>, donos de terras e riquezas, mas <strong>sem poder político</strong>; e, na base, <strong>indígenas e mestiços</strong>, em extrema pobreza e sob forte exploração."
+              "Após a queda do <strong>Império Asteca</strong> diante de <strong>Hernán Cortés</strong>, em <strong>1521</strong>, a Espanha organizou o <strong>Vice-Reino da Nova Espanha</strong>, que, por quase 300 anos, foi sua <strong>colônia mais rica</strong>. A economia baseava-se na <strong>mineração</strong>, sobretudo de <strong>prata</strong>, e na agricultura praticada em grandes <strong>latifúndios</strong>.",
+              "A sociedade estruturava-se como uma <strong>torre hierárquica</strong>. No topo, encontravam-se os <strong>peninsulares</strong>, chamados de <strong>gachupines</strong>, que ocupavam os cargos políticos; no meio, os <strong>criollos</strong>, proprietários de terras e riquezas, porém <strong>excluídos do poder político</strong>; e, na base, os <strong>indígenas e mestiços</strong>, submetidos à extrema pobreza e à exploração."
             ]
           },
           {
-            title: "Causas Estruturais e o Gatilho de 1808",
-            img: "https://upload.wikimedia.org/wikipedia/commons/3/3e/Virgen_de_Guadalupe_1531.jpg",
-            caption: "Virgem de Guadalupe, símbolo espiritual e identitário adotado pelos insurgentes",
+            title: "As causas da independência e o estopim de 1808",
+            img: commons("Francisco Goya - Portrait of Ferdinand VII of Spain in his robes of state (1815) - Prado.jpg"),
+            caption: "Retrato de Fernando VII com o manto real, Francisco de Goya, 1815",
             text: [
-              "Várias <strong>causas estruturais</strong> alimentavam a insatisfação. As <strong>Reformas Bourbônicas</strong> aumentaram os impostos e tiraram autonomia das elites locais. Circulavam as <strong>ideias iluministas</strong> — soberania popular, igualdade natural e rejeição ao absolutismo —, e os exemplos da <strong>Independência dos EUA</strong> e da <strong>Revolução Francesa</strong> mostravam que a mudança era possível. A <strong>identidade criolla</strong> se fortalecia com a valorização do passado indígena e o culto à <strong>Virgem de Guadalupe</strong>.",
-              "O <strong>gatilho</strong> veio em <strong>1808</strong>: a <strong>invasão napoleônica da Espanha</strong> e a <strong>deposição do rei Fernando VII</strong> abalaram a autoridade espanhola sobre a colônia."
+              "Diversas <strong>causas estruturais</strong> alimentavam a insatisfação na colônia. As <strong>Reformas Bourbônicas</strong> elevaram os impostos e reduziram a autonomia das elites locais. Ao mesmo tempo, circulavam as <strong>ideias iluministas</strong>, como a soberania popular, a igualdade natural e a rejeição ao absolutismo, e os exemplos da <strong>Independência dos Estados Unidos</strong> e da <strong>Revolução Francesa</strong> demonstravam que a mudança era possível. A <strong>identidade criolla</strong> fortalecia-se com a valorização do passado indígena e com o culto à <strong>Virgem de Guadalupe</strong>.",
+              "O <strong>estopim</strong> ocorreu em <strong>1808</strong>, quando a <strong>invasão napoleônica da Espanha</strong> e a <strong>deposição do rei Fernando VII</strong> enfraqueceram a autoridade espanhola sobre a colônia."
             ]
           },
           {
-            title: "O Grito de Dolores e a Revolta de Miguel Hidalgo (1810–1811)",
-            img: "https://upload.wikimedia.org/wikipedia/commons/c/c9/Miguel_Hidalgo_y_Costilla_-_Joaqu%C3%ADn_Ram%C3%ADrez.jpg",
-            caption: "Padre Miguel Hidalgo y Costilla, iniciador da Independência do México",
+            title: "O Grito de Dolores e a revolta liderada por Miguel Hidalgo (1810–1811)",
+            img: commons("Miguel Hidalgo y Costilla antes del grito de Dolores, pintura de Unzueta.jpg"),
+            caption: "Miguel Hidalgo antes do Grito de Dolores, pintura de Adrián Unzueta",
             text: [
-              "A luta começou em <strong>16 de setembro de 1810</strong>, com o <strong>Grito de Dolores</strong>, liderado pelo <strong>Padre Miguel Hidalgo</strong>. Ele mobilizou um grande exército popular de <strong>camponeses, indígenas e mestiços</strong> e decretou o <strong>fim da escravidão</strong> e dos tributos indígenas.",
-              "Por envolver a base da torre social, essa primeira fase ameaçava não só o domínio espanhol, mas também a ordem da colônia. O movimento enfrentou a reação violenta das <strong>tropas realistas</strong> e da <strong>elite</strong>, e Hidalgo foi <strong>excomungado</strong> e <strong>fuzilado em 1811</strong>. A luta pela independência, porém, continuou."
+              "O movimento de independência teve início em <strong>16 de setembro de 1810</strong>, com o <strong>Grito de Dolores</strong>, liderado pelo <strong>Padre Miguel Hidalgo</strong>. O sacerdote mobilizou um amplo exército popular, formado por <strong>camponeses, indígenas e mestiços</strong>, e decretou o <strong>fim da escravidão</strong> e dos tributos indígenas.",
+              "Por envolver a base da sociedade colonial, essa primeira fase ameaçava não apenas o domínio espanhol, mas também a ordem social vigente. Por isso, enfrentou a violenta reação das <strong>tropas realistas</strong> e da <strong>elite</strong>. Hidalgo foi <strong>excomungado</strong> e <strong>fuzilado em 1811</strong>; a luta pela independência, entretanto, prosseguiu."
             ]
           },
           {
-            title: "José María Morelos e a Resistência de Vicente Guerrero",
-            img: "https://upload.wikimedia.org/wikipedia/commons/6/6b/Jos%C3%A9_Mar%C3%ADa_Morelos_y_Pav%C3%B3n.jpg",
-            caption: "Padre José María Morelos, autor de “Sentimentos da Nação”",
+            title: "José María Morelos e a resistência de Vicente Guerrero",
+            img: commons("Vicente Ramón Guerrero Saldaña.png"),
+            caption: "Retrato de Vicente Guerrero, Anacleto Escutia, 1850",
             text: [
-              "Após a morte de Hidalgo, o <strong>Padre José María Morelos</strong> assumiu a liderança e organizou militarmente os insurgentes. No documento <em>Sentimentos da Nação</em>, defendeu a <strong>igualdade social</strong>, a <strong>soberania popular</strong> e a <strong>reforma agrária</strong>, com a divisão dos grandes latifúndios. Em <strong>1813</strong>, promulgou a declaração de independência, mas foi capturado e <strong>executado em 1815</strong>.",
-              "Mesmo assim, a resistência não acabou: nas montanhas, as <strong>guerrilhas</strong> de <strong>Vicente Guerrero</strong> mantiveram a luta viva — e Guerrero ainda teria papel decisivo no desfecho da independência."
+              "Após a morte de Hidalgo, o <strong>Padre José María Morelos</strong> assumiu a liderança do movimento e organizou militarmente os insurgentes. No documento <em>Sentimentos da Nação</em>, defendeu a <strong>igualdade social</strong>, a <strong>soberania popular</strong> e a <strong>reforma agrária</strong>, com a divisão dos grandes latifúndios. Em <strong>1813</strong>, promulgou a declaração de independência, mas foi capturado e <strong>executado em 1815</strong>.",
+              "Ainda assim, a resistência não se extinguiu: nas regiões montanhosas, as <strong>guerrilhas</strong> comandadas por <strong>Vicente Guerrero</strong> mantiveram a luta ativa. Guerrero, aliás, viria a desempenhar papel decisivo no desfecho do processo de independência."
             ]
           },
           {
-            title: "Plano de Iguala e Tratado de Córdoba (1821)",
-            img: "https://upload.wikimedia.org/wikipedia/commons/b/b5/Entrada_del_Ej%C3%A9rcito_Trigarante_a_la_Ciudad_de_M%C3%A9xico.jpg",
-            caption: "Entrada triunfal do Exército Trigarante na Cidade do México em 1821",
+            title: "O Plano de Iguala e o Tratado de Córdoba (1821)",
+            img: commons("Abrazo de Acatempan.JPG"),
+            caption: "Encontro entre Agustín de Iturbide e Vicente Guerrero, pintura de Román Sagredo, 1870",
             text: [
-              "Em 1821, a elite criolla e o clero temiam a <strong>Constituição liberal de Cádiz</strong>, que ameaçava privilégios tradicionais. Por isso, o militar realista <strong>Agustín de Iturbide</strong> aliou-se ao guerrilheiro <strong>Vicente Guerrero</strong> no <strong>Plano de Iguala</strong>, baseado nas <strong>Três Garantias</strong>: <strong>independência</strong>, <strong>catolicismo</strong> como religião única e <strong>igualdade</strong> entre os cidadãos. Para defendê-las, formou-se o <strong>Exército Trigarante</strong>.",
-              "Em <strong>24 de agosto de 1821</strong>, o <strong>Tratado de Córdoba</strong>, assinado com o vice-rei Juan O'Donojú, selou a emancipação. A independência que começou como revolta popular terminou com um <strong>acordo conservador</strong> conduzido pela elite."
+              "Em 1821, a elite criolla e o clero temiam a <strong>Constituição liberal de Cádiz</strong>, que ameaçava privilégios tradicionais. Diante disso, o militar realista <strong>Agustín de Iturbide</strong> aliou-se ao líder guerrilheiro <strong>Vicente Guerrero</strong> por meio do <strong>Plano de Iguala</strong>, fundamentado nas <strong>Três Garantias</strong>: <strong>independência</strong>, <strong>catolicismo</strong> como religião única e <strong>igualdade</strong> entre os cidadãos. Para assegurá-las, formou-se o <strong>Exército Trigarante</strong>.",
+              "Em <strong>24 de agosto de 1821</strong>, o <strong>Tratado de Córdoba</strong>, firmado com o vice-rei Juan O'Donojú, consolidou a emancipação. Desse modo, um processo iniciado como revolta popular foi concluído por meio de um <strong>acordo conservador</strong>, conduzido pela elite."
             ],
             boxes: [
-              { type: "compare", title: "Duas fases da independência", headers: ["Aspecto", "Fase popular (1810–1815)", "Virada conservadora (1821)"], rows: [
+              { type: "compare", title: "As duas fases da independência", headers: ["Aspecto", "Fase popular (1810–1815)", "Virada conservadora (1821)"], rows: [
                 ["Líderes", "Hidalgo e Morelos", "Iturbide e Guerrero"],
-                ["Base", "Camponeses, indígenas e mestiços", "Elite criolla, clero e Exército Trigarante"],
-                ["Propostas", "Fim da escravidão; reforma agrária", "Três Garantias"]
+                ["Base social", "Camponeses, indígenas e mestiços", "Elite criolla, clero e Exército Trigarante"],
+                ["Propostas", "Fim da escravidão e reforma agrária", "Três Garantias"]
               ]}
             ]
           },
           {
-            title: "Do Império de Agostinho I à República e o Caudilhismo",
-            img: "https://upload.wikimedia.org/wikipedia/commons/e/e5/Porfirio_Diaz_en_1902.jpg",
-            caption: "General Porfirio Díaz, figura central do caudilhismo e do Porfiriato no México",
+            title: "Do Império de Agostinho I à República e ao caudilhismo",
+            img: commons("Guadalupe Victoria, 29-9-1786 - 21-3-1843 (1825).jpg"),
+            caption: "Retrato de Guadalupe Victoria, primeiro presidente do México, 1825",
             text: [
-              "Em <strong>1822</strong>, Iturbide coroou-se imperador como <strong>Agostinho I</strong>, mas perdeu apoio, enfrentou crise financeira e a oposição republicana de <strong>Guadalupe Victoria</strong>, abdicando em 1823. Em <strong>1824</strong>, uma nova Constituição criou a <strong>República Federal do México</strong>, com Guadalupe Victoria como primeiro presidente.",
-              "O país saiu da guerra com <strong>devastação econômica</strong> — minas e campos destruídos, fuga de capitais e dívidas com bancos britânicos — e grande instabilidade, marcada pelo <strong>caudilhismo</strong>: líderes político-militares autoritários apoiados por tropas e latifundiários. Esse processo culminou na ditadura de <strong>Porfirio Díaz</strong> (a partir de <strong>1876</strong>), com concentração de terras e miséria camponesa — estopim da <strong>Revolução Mexicana de 1910</strong>, liderada por Francisco I. Madero."
+              "Em <strong>1822</strong>, Iturbide coroou-se imperador com o título de <strong>Agostinho I</strong>. Contudo, perdeu apoio político, enfrentou uma crise financeira e a oposição republicana liderada por <strong>Guadalupe Victoria</strong>, abdicando em 1823. Em <strong>1824</strong>, uma nova Constituição instituiu a <strong>República Federal do México</strong>, tendo Guadalupe Victoria como primeiro presidente.",
+              "O país, porém, emergiu da guerra com <strong>grave devastação econômica</strong>, decorrente da destruição de minas e campos, da fuga de capitais e das dívidas com bancos britânicos. Seguiu-se um período de instabilidade marcado pelo <strong>caudilhismo</strong>, isto é, por lideranças político-militares autoritárias apoiadas por tropas e latifundiários. Esse processo culminou na ditadura de <strong>Porfirio Díaz</strong>, iniciada em <strong>1876</strong>, cuja concentração de terras e miséria camponesa desencadeou a <strong>Revolução Mexicana de 1910</strong>, liderada por Francisco I. Madero."
             ]
           }
         ]
@@ -1043,71 +1054,71 @@
         id: "c14", num: 14,
         short: "Primeiro Reinado",
         title: "O Brasil e suas Constituições: o Primeiro Reinado (1822–1831)",
-        sub: "A construção do Estado imperial, suas disputas e o caminho até a Constituição Cidadã.",
-        theme: { primary: "#273043", accent: "#3F6212", soft: "#F4F6F8" },
+        sub: "A construção do Estado imperial brasileiro, seus conflitos e a trajetória até a Constituição Cidadã.",
+        theme: YELLOW,
         objectives: [
-          "Analisar a formação do Estado brasileiro no Primeiro Reinado.",
+          "Analisar a formação do Estado brasileiro durante o Primeiro Reinado.",
           "Relacionar as crises do período à abdicação de D. Pedro I."
         ],
         topics: [
           {
-            title: "Constituinte de 1823 e a “Constituição da Mandioca”",
-            img: "https://upload.wikimedia.org/wikipedia/commons/1/12/Pedro_I_of_Brazil_1822.jpg",
-            caption: "Retrato de D. Pedro I, Imperador do Brasil",
+            title: "A Assembleia Constituinte de 1823 e a “Constituição da Mandioca”",
+            img: commons("Oscar Pereira da Silva - Retrato de José Bonifácio de Andrada e Silva, Acervo do Museu Paulista da USP.jpg"),
+            caption: "Retrato de José Bonifácio de Andrada e Silva, Oscar Pereira da Silva, 1922",
             text: [
-              "Após a independência, a <strong>Assembleia Constituinte de 1823</strong> se reuniu para elaborar a primeira Constituição do Brasil. Dois grupos se enfrentavam: o <strong>Partido Brasileiro</strong>, de grandes proprietários rurais, que queria <strong>limitar o poder do imperador</strong>; e o <strong>Partido Português</strong>, de comerciantes e burocratas, que defendia um <strong>poder centralizado</strong> em D. Pedro I.",
-              "O projeto ficou conhecido como <strong>“Constituição da Mandioca”</strong>: o direito de votar e ser votado dependia de uma renda medida em <strong>alqueires de farinha de mandioca</strong> (voto <strong>censitário</strong>), e o imperador teria poderes reduzidos. D. Pedro I não aceitou e, em novembro de 1823, mandou tropas fecharem a Assembleia na <strong>Noite da Agonia</strong>."
+              "Após a independência, foi instalada a <strong>Assembleia Constituinte de 1823</strong>, encarregada de elaborar a primeira Constituição do Brasil. Nela, destacavam-se dois grupos: o <strong>Partido Brasileiro</strong>, formado por grandes proprietários rurais que desejavam <strong>limitar o poder do imperador</strong>, e o <strong>Partido Português</strong>, composto por comerciantes e burocratas favoráveis a um <strong>poder centralizado</strong> em D. Pedro I.",
+              "O projeto ficou conhecido como <strong>“Constituição da Mandioca”</strong>, pois condicionava o direito de votar e de ser votado a uma renda medida em <strong>alqueires de farinha de mandioca</strong> (<strong>voto censitário</strong>). Como o texto reduzia seus poderes, D. Pedro I ordenou o fechamento da Assembleia em novembro de 1823, episódio conhecido como <strong>Noite da Agonia</strong>; vários deputados, entre eles os irmãos Andrada, foram presos e exilados."
             ]
           },
           {
-            title: "A Constituição Outorgada de 1824 e o Poder Moderador",
-            img: "https://upload.wikimedia.org/wikipedia/commons/e/e2/Constitui%C3%A7%C3%A3o_de_1824.jpg",
-            caption: "Capa da Constituição Política do Império do Brasil, outorgada em 1824",
+            title: "A Constituição outorgada de 1824 e o Poder Moderador",
+            img: commons("PeterI-de Sa.jpg"),
+            caption: "Retrato de D. Pedro I com trajes imperiais, Simplício Rodrigues de Sá, c. 1826",
             text: [
-              "Em <strong>25 de março de 1824</strong>, D. Pedro I <strong>outorgou</strong> (impôs) a primeira Constituição do Brasil. A grande novidade foi o <strong>Poder Moderador</strong>, um <strong>quarto poder exclusivo do imperador</strong>, acima do Executivo, do Legislativo e do Judiciário: com ele, D. Pedro podia dissolver a Câmara, nomear senadores e escolher ministros.",
-              "O <strong>voto era censitário e indireto</strong>, e mulheres e escravizados estavam excluídos. O Estado era <strong>unitário</strong>: os presidentes de província eram nomeados pelo imperador. Pelo <strong>Padroado</strong>, o catolicismo era a religião oficial e a Igreja ficava subordinada ao Estado. Foi a Constituição mais duradoura do país, em vigor até 1889."
+              "Em <strong>25 de março de 1824</strong>, D. Pedro I <strong>outorgou</strong>, isto é, impôs, a primeira Constituição brasileira. Sua principal característica foi a criação do <strong>Poder Moderador</strong>, um <strong>quarto poder exclusivo do imperador</strong>, situado acima do Executivo, do Legislativo e do Judiciário. Por meio dele, o monarca podia dissolver a Câmara, nomear senadores e escolher ministros.",
+              "O <strong>voto era censitário e indireto</strong>, excluindo mulheres e escravizados. O Estado era <strong>unitário</strong>, e os presidentes de província eram nomeados pelo imperador. Pelo regime do <strong>Padroado</strong>, o catolicismo tornou-se a religião oficial, e a Igreja ficou subordinada ao Estado. Trata-se da Constituição mais duradoura da história do país, vigente até 1889."
             ],
             boxes: [
               { type: "quote", text: "O Poder Moderador da nova invenção maquiavélica é a chave mestra da opressão da nação brasileira.", cite: "Frei Caneca, crítica ao projeto constitucional de D. Pedro I (1824)" }
             ]
           },
           {
-            title: "Reconhecimento Internacional e Crise Financeira",
-            img: "https://upload.wikimedia.org/wikipedia/commons/5/59/Sovereign_1825_George_IV.jpg",
-            caption: "Libra esterlina britânica de 1825, símbolo do endividamento externo brasileiro",
+            title: "O reconhecimento internacional e a crise financeira",
+            img: commons("George Canning by Sir Thomas Lawrence.jpg"),
+            caption: "George Canning, ministro britânico que conduziu a mediação do reconhecimento, Thomas Lawrence",
             text: [
-              "Para ser reconhecido como nação, o Brasil precisava do aval de <strong>Portugal</strong>. Com mediação da <strong>Inglaterra</strong>, o tratado de <strong>1825</strong> garantiu o reconhecimento, mas a um preço alto: uma indenização de <strong>2 milhões de libras esterlinas</strong>, paga com um <strong>empréstimo de bancos ingleses</strong>. O país já nascia endividado.",
-              "Em troca de seu apoio, a Inglaterra obteve a <strong>renovação dos tratados desiguais</strong> de 1810, com tarifas baixas para seus produtos. Com importações baratas, gastos militares e emissão descontrolada de moeda, a <strong>crise financeira</strong> se agravou, e o <strong>primeiro Banco do Brasil</strong> faliu em <strong>1829</strong>."
+              "Para ser reconhecido como nação soberana, o Brasil precisava obter o reconhecimento de <strong>Portugal</strong>. Com a mediação da <strong>Inglaterra</strong>, o tratado de <strong>1825</strong> garantiu esse reconhecimento, mas a um custo elevado: o pagamento de uma indenização de <strong>2 milhões de libras esterlinas</strong>, financiada por um <strong>empréstimo junto a bancos ingleses</strong>. Assim, o país iniciou sua trajetória já endividado.",
+              "Em troca do apoio, a Inglaterra obteve a <strong>renovação dos tratados desiguais</strong> de 1810, que garantiam tarifas reduzidas a seus produtos. A combinação de importações baratas, gastos militares e emissão descontrolada de moeda agravou a <strong>crise financeira</strong> e levou à falência do <strong>primeiro Banco do Brasil</strong>, em <strong>1829</strong>."
             ]
           },
           {
             title: "A Confederação do Equador (1824)",
-            img: "https://upload.wikimedia.org/wikipedia/commons/3/3c/Frei_Caneca.jpg",
-            caption: "Frei Joaquim do Amor Divino Caneca, mártir da Confederação do Equador",
+            img: commons("A Execução de Frei Caneca.jpg"),
+            caption: "A execução de Frei Caneca, Murillo La Greca, 1924",
             text: [
-              "A Constituição de 1824 provocou forte reação em <strong>Pernambuco</strong>, província de tradição liberal. Em <strong>1824</strong>, foi proclamada a <strong>Confederação do Equador</strong>, que propunha uma <strong>república federalista</strong> no Nordeste, com adesão de províncias como Paraíba, Rio Grande do Norte e Ceará. Entre os líderes estavam <strong>Frei Caneca</strong> e <strong>Cipriano Barata</strong>, críticos do <strong>autoritarismo</strong> do imperador; o movimento chegou a propor o fim do tráfico de escravizados.",
+              "A Constituição de 1824 provocou forte reação em <strong>Pernambuco</strong>, província de tradição liberal. Nesse mesmo ano, foi proclamada a <strong>Confederação do Equador</strong>, que propunha a formação de uma <strong>república federalista</strong> no Nordeste e obteve a adesão de províncias como Paraíba, Rio Grande do Norte e Ceará. Entre seus líderes, destacavam-se <strong>Frei Caneca</strong> e <strong>Cipriano Barata</strong>, críticos do <strong>autoritarismo</strong> imperial; o movimento chegou, inclusive, a propor o fim do tráfico de escravizados.",
               "A <strong>repressão imperial</strong> foi violenta: o Recife foi cercado por terra e por mar, e <strong>Frei Caneca</strong> foi condenado e <strong>fuzilado em 1825</strong>, tornando-se símbolo da resistência ao autoritarismo."
             ]
           },
           {
             title: "A Guerra da Cisplatina (1825–1828)",
-            img: "https://upload.wikimedia.org/wikipedia/commons/d/d2/Batalla_de_Ituzaingo.jpg",
-            caption: "Batalha do Passo do Rosário / Ituzaingó durante a Guerra da Cisplatina",
+            img: commons("Juan Manuel Blanes - El Juramento de los Treinta y Tres Orientales.jpg"),
+            caption: "O Juramento dos Trinta e Três Orientais, Juan Manuel Blanes, c. 1877",
             text: [
-              "A <strong>Província Cisplatina</strong> (atual Uruguai), anexada ao Brasil em 1821, tinha laços culturais e históricos com a região do Prata. Em <strong>1825</strong>, revoltosos locais, apoiados pelas <strong>Províncias Unidas do Rio da Prata</strong> (atual Argentina), se rebelaram contra o domínio brasileiro, e o Brasil declarou guerra.",
-              "O conflito foi caro e impopular: houve <strong>recrutamento forçado</strong>, contratação de mercenários e batalhas sem vitória decisiva, como a do <strong>Passo do Rosário</strong> (1827). Com <strong>mediação inglesa</strong>, a paz de <strong>1828</strong> reconheceu a <strong>independência do Uruguai</strong>. Para D. Pedro I, o saldo foi perda territorial, mais dívidas e enorme <strong>desgaste político</strong>."
+              "A <strong>Província Cisplatina</strong>, atual Uruguai, foi anexada ao Brasil em 1821, embora mantivesse fortes laços culturais e históricos com a região do Rio da Prata. Em <strong>1825</strong>, revoltosos locais, conhecidos como <strong>Trinta e Três Orientais</strong> e apoiados pelas <strong>Províncias Unidas do Rio da Prata</strong> (atual Argentina), rebelaram-se contra o domínio brasileiro, o que levou o Império a declarar guerra.",
+              "O conflito foi custoso e impopular, marcado pelo <strong>recrutamento forçado</strong>, pela contratação de mercenários e por batalhas sem vitória decisiva, como a do <strong>Passo do Rosário</strong> (1827). Com a <strong>mediação britânica</strong>, o acordo de paz de <strong>1828</strong> reconheceu a <strong>independência do Uruguai</strong>. Para D. Pedro I, o resultado foi a perda territorial, o aumento das dívidas e um intenso <strong>desgaste político</strong>."
             ]
           },
           {
-            title: "Abdicação de D. Pedro I (1831) e Evolução Constitucional",
-            img: "https://upload.wikimedia.org/wikipedia/commons/9/9b/Abdica%C3%A7%C3%A3o_de_D._Pedro_I.jpg",
-            caption: "Abdicação de D. Pedro I em 7 de abril de 1831, Aurélio de Figueiredo",
+            title: "A abdicação de D. Pedro I (1831) e a trajetória constitucional brasileira",
+            img: commons("Aclamação de D Pedro II em 1831 by Debret.jpg"),
+            caption: "Aclamação de D. Pedro II no Rio de Janeiro em 1831, Jean-Baptiste Debret",
             text: [
-              "Com a morte de D. João VI, em 1826, D. Pedro I se envolveu na <strong>crise sucessória portuguesa</strong>, reforçando a desconfiança de que priorizava Portugal. A oposição cresceu após o assassinato do jornalista <strong>Líbero Badaró</strong> (1830) e os conflitos de rua da <strong>Noite das Garrafadas</strong> (março de 1831). Sem apoio militar, D. Pedro I <strong>abdicou em 7 de abril de 1831</strong> em favor do filho, <strong>D. Pedro II</strong>, de apenas 5 anos.",
-              "Depois de 1824, o Brasil teve outras seis Constituições. A cidadania avançou aos poucos até a <strong>Constituição Cidadã de 1988</strong>, que garantiu o <strong>sufrágio universal</strong>, inclusive para analfabetos, e ampliou os <strong>direitos sociais</strong>."
+              "Após a morte de D. João VI, em 1826, D. Pedro I envolveu-se na <strong>crise sucessória portuguesa</strong>, o que reforçou a suspeita de que priorizava os interesses de Portugal. A oposição intensificou-se com o assassinato do jornalista <strong>Líbero Badaró</strong> (1830) e com os conflitos da <strong>Noite das Garrafadas</strong> (março de 1831). Sem apoio militar, D. Pedro I <strong>abdicou em 7 de abril de 1831</strong> em favor de seu filho, <strong>D. Pedro II</strong>, então com apenas 5 anos.",
+              "Desde 1824, o Brasil teve outras seis Constituições. A cidadania ampliou-se gradualmente até a <strong>Constituição Cidadã de 1988</strong>, que assegurou o <strong>sufrágio universal</strong>, inclusive aos analfabetos, e ampliou os <strong>direitos sociais</strong>."
             ],
             boxes: [
-              { type: "compare", title: "As Constituições do Brasil", headers: ["Ano", "Tipo", "Marca principal"], rows: [
+              { type: "compare", title: "As Constituições do Brasil", headers: ["Ano", "Tipo", "Característica principal"], rows: [
                 ["1824", "Outorgada", "Poder Moderador e voto censitário"],
                 ["1891", "Promulgada", "República federativa"],
                 ["1934", "Promulgada", "Voto feminino e direitos trabalhistas"],
@@ -1220,7 +1231,8 @@
     /* Página do arquivo no acervo da Wikimedia Commons */
     function commonsPage(url) {
       try {
-        var parts = url.split("/");
+        var clean = String(url).split("?")[0];
+        var parts = clean.split("/");
         var t = parts.indexOf("thumb");
         var file = t > -1 ? parts[t + 3] : parts[parts.length - 1];
         return "https://commons.wikimedia.org/wiki/File:" + file;
