@@ -326,6 +326,11 @@
     .compare th { padding: 8px 10px; text-align: left; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; background: var(--ink); color: var(--ivory); }
     .compare td { padding: 9px 10px; border-top: 1px solid var(--rule); vertical-align: top; color: var(--ink-2); }
     .compare td:first-child { font-weight: 700; color: var(--ink); }
+    .timeline ol { list-style: none; margin: 0; padding: 0; border: 1.5px solid var(--ink); border-radius: 4px; overflow: hidden; }
+    .timeline li { display: grid; grid-template-columns: 112px 1fr; gap: 12px; padding: 9px 12px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--ink-2); }
+    .timeline li:first-child { border-top: 0; }
+    .timeline .when { font-weight: 700; color: var(--c-primary); }
+    @media (max-width: 420px) { .timeline li { grid-template-columns: 1fr; gap: 2px; } }
 
     /* Carimbo de estudo */
     .stamp-wrap { margin-top: 28px; padding-top: 22px; border-top: 1.5px dashed var(--rule); display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
@@ -570,6 +575,7 @@
       return "https://commons.wikimedia.org/wiki/Special:FilePath/" + encodeURIComponent(decodeURIComponent(file).replace(/ /g, "_")) + "?width=" + w;
     }
     function thumbOf(url, w) {
+      if (url.indexOf("Special:FilePath") > -1) return url.split("?")[0] + "?width=" + w;
       if (url.indexOf("/thumb/") > -1) return url.replace(/\/\d+px-/, "/" + w + "px-");
       var m = url.match(/^(https:\/\/upload\.wikimedia\.org\/wikipedia\/commons)\/([0-9a-f])\/([0-9a-f]{2})\/([^\/?]+)$/);
       if (!m) return url;
@@ -743,86 +749,120 @@
       },
       {
         id: "c13", num: 13,
-        short: "A Independência do México",
-        title: "A Independência do México (1810–1824)",
+        short: "Independência do Equador",
+        title: "José de Sucre e a Independência do Equador",
         primary: "#701A75", accent: "#A16207",
         objectives: [
-          "Compreender o contexto colonial da Nova Espanha e as tensões que prepararam a independência.",
-          "Analisar as fases da luta, da revolta popular dos padres ao acordo conservador e às consequências republicanas."
+          "Compreender o contexto colonial da Real Audiência de Quito e seus três núcleos regionais.",
+          "Analisar as causas, os personagens, as fases e as consequências da independência do Equador."
         ],
         topics: [
           {
-            title: "Nova Espanha e a pirâmide social",
-            img: "https://upload.wikimedia.org/wikipedia/commons/e/e8/Casta_painting_all.jpg",
-            caption: "Pintura de castas da Nova Espanha",
-            alt: { file: "De español e india, mestiza.jpg", caption: "De espanhol e indígena, mestiça: pintura de castas de Miguel Cabrera, c. 1763" },
+            title: "Contexto histórico: a Real Audiência de Quito",
+            img: "https://commons.wikimedia.org/wiki/Special:FilePath/Real_Audiencia_de_Quito_1779.jpg",
+            caption: "Mapa da Real Audiência de Quito, Francisco Requena y Herrera, 1779",
+            alt: { file: "Mapa de la Audiencia de Quito y sus vertientes fluviales de saliente a poniente (1707) - AHG.jpg", caption: "Mapa da Audiência de Quito e de seus rios, 1707" },
             text: [
-              "Depois que <strong>Hernán Cortés</strong> derrubou o <strong>Império Asteca</strong>, em <strong>1521</strong>, a Espanha criou o <strong>Vice-Reino da Nova Espanha</strong>, sua colônia mais rica por quase 300 anos. A riqueza vinha da <strong>mineração de prata</strong> — além de ouro, cobre e chumbo — e de grandes <strong>latifúndios</strong>.",
-              "A sociedade lembrava uma torre: no alto, os <strong>peninsulares (gachupines)</strong>, donos dos cargos políticos; no meio, os <strong>criollos</strong>, ricos, mas sem voz no governo; na base, <strong>indígenas e mestiços</strong>, pobres e explorados."
+              "Antes da independência, o território do atual Equador passou por três etapas: foi habitado por <strong>povos indígenas</strong>, depois integrou o <strong>Império Inca</strong> e, a partir de <strong>1534</strong>, ficou sob o domínio dos <strong>colonizadores</strong>, favorecidos pelas <strong>lutas internas dos incas</strong>.",
+              "No período colonial, o Equador era a <strong>Real Audiência de Quito</strong>. Seus limites incluíam territórios que hoje pertencem à <strong>Colômbia</strong> e áreas <strong>amazônicas</strong> disputadas com o <strong>Peru</strong>."
             ],
             boxes: [
-              { type: "compare", headers: ["Posição", "Grupo", "Situação"], rows: [
-                ["Topo", "Peninsulares (gachupines)", "Cargos políticos e militares"],
-                ["Meio", "Criollos", "Ricos, mas sem poder político"],
-                ["Base", "Indígenas e mestiços", "Pobreza, tributos e exploração"]
+              { type: "compare", headers: ["Etapa", "Quem controlava o território"], rows: [
+                ["1ª", "Povos indígenas"],
+                ["2ª", "Império Inca"],
+                ["3ª (a partir de 1534)", "Colonizadores — Real Audiência de Quito"]
               ]}
             ]
           },
           {
-            title: "Reformas Bourbônicas, Iluminismo e a crise de 1808",
-            img: "https://upload.wikimedia.org/wikipedia/commons/3/3e/Virgen_de_Guadalupe_1531.jpg",
-            caption: "Virgem de Guadalupe, símbolo da identidade criolla",
-            alt: { file: "Francisco Goya - Portrait of Ferdinand VII of Spain in his robes of state (1815) - Prado.jpg", caption: "Retrato de Fernando VII com o manto real, Francisco de Goya, 1815" },
+            title: "Os três núcleos regionais",
+            img: "https://commons.wikimedia.org/wiki/Special:FilePath/Carta_Geogr%C3%A1fica_de_la_Costa_Occidental_en_la_Audiencia_del_Quito_(1751),_por_Jorge_Juan_y_Antonio_de_Ulloa_-_AHG.jpg",
+            caption: "Carta geográfica da costa da Audiência de Quito, Jorge Juan e Antonio de Ulloa, 1751",
+            alt: { file: "Real Audiencia de Quito 1779.jpg", caption: "Mapa da Real Audiência de Quito, Francisco Requena y Herrera, 1779" },
             text: [
-              "Vários fatores alimentaram a revolta. As <strong>Reformas Bourbônicas</strong> aumentaram impostos e tiraram autonomia das elites locais. As <strong>ideias iluministas</strong> — soberania popular, igualdade natural e crítica ao absolutismo — circulavam, e a <strong>independência dos EUA</strong> e a <strong>Revolução Francesa</strong> mostravam que a ruptura era possível. Os criollos exaltavam o passado indígena e a <strong>Virgem de Guadalupe</strong>.",
-              "O estopim veio em <strong>1808</strong>: Napoleão invadiu a Espanha e <strong>depôs Fernando VII</strong>, abalando a autoridade sobre a colônia."
-            ]
-          },
-          {
-            title: "O Grito de Dolores e Miguel Hidalgo (1810–1811)",
-            img: "https://upload.wikimedia.org/wikipedia/commons/c/c9/Miguel_Hidalgo_y_Costilla_-_Joaqu%C3%ADn_Ram%C3%ADrez.jpg",
-            caption: "Padre Miguel Hidalgo, Joaquín Ramírez",
-            alt: { file: "Miguel Hidalgo y Costilla antes del grito de Dolores, pintura de Unzueta.jpg", caption: "Miguel Hidalgo antes do Grito de Dolores, pintura de Adrián Unzueta" },
-            text: [
-              "Na madrugada de <strong>16 de setembro de 1810</strong>, o <strong>Padre Miguel Hidalgo</strong> lançou o <strong>Grito de Dolores</strong> e reuniu um enorme exército de <strong>camponeses, indígenas e mestiços</strong>. Ele decretou o <strong>fim da escravidão</strong> e dos tributos indígenas, atacando a base da desigualdade colonial.",
-              "A resposta das <strong>tropas realistas</strong> e da elite foi violenta. Hidalgo acabou <strong>excomungado</strong> e <strong>fuzilado em 1811</strong> — mas a luta que ele iniciou não terminou com sua morte."
-            ]
-          },
-          {
-            title: "Morelos e a guerrilha de Vicente Guerrero",
-            img: "https://upload.wikimedia.org/wikipedia/commons/6/6b/Jos%C3%A9_Mar%C3%ADa_Morelos_y_Pav%C3%B3n.jpg",
-            caption: "Padre José María Morelos",
-            alt: { file: "Vicente Ramón Guerrero Saldaña.png", caption: "Retrato de Vicente Guerrero, Anacleto Escutia, 1850" },
-            text: [
-              "A liderança passou a outro sacerdote, <strong>José María Morelos</strong>, que deu organização militar aos insurgentes. No documento <em>Sentimentos da Nação</em>, ele defendeu <strong>igualdade social</strong>, <strong>soberania popular</strong> e <strong>reforma agrária</strong>, com a divisão dos grandes latifúndios. Em <strong>1813</strong>, proclamou a independência, mas foi capturado e <strong>executado em 1815</strong>.",
-              "A resistência sobreviveu nas montanhas com as <strong>guerrilhas de Vicente Guerrero</strong>, peça-chave no desfecho do processo."
-            ]
-          },
-          {
-            title: "O Plano de Iguala e o Tratado de Córdoba (1821)",
-            img: "https://upload.wikimedia.org/wikipedia/commons/b/b5/Entrada_del_Ej%C3%A9rcito_Trigarante_a_la_Ciudad_de_M%C3%A9xico.jpg",
-            caption: "Entrada do Exército Trigarante na Cidade do México, 1821",
-            alt: { file: "Abrazo de Acatempan.JPG", caption: "Encontro entre Agustín de Iturbide e Vicente Guerrero, pintura de Román Sagredo, 1870" },
-            text: [
-              "Em 1821, a elite criolla e o clero temiam a <strong>Constituição liberal de Cádiz</strong>, que ameaçava seus privilégios. O militar realista <strong>Agustín de Iturbide</strong> aliou-se então a <strong>Vicente Guerrero</strong> no <strong>Plano de Iguala</strong>, baseado em <strong>Três Garantias</strong>: independência, catolicismo como religião única e igualdade entre os cidadãos. Para defendê-las, nasceu o <strong>Exército Trigarante</strong>.",
-              "Em <strong>24 de agosto de 1821</strong>, o <strong>Tratado de Córdoba</strong>, firmado com o vice-rei Juan O'Donojú, selou a emancipação."
+              "A população e a economia formavam <strong>três núcleos regionais</strong> com características distintas. A <strong>Serra Central-Norte</strong>, em torno de <strong>Quito</strong>, era o centro político e demográfico, com <em>haciendas</em> agrícolas e pecuárias.",
+              "A <strong>Serra Sul</strong>, em torno de <strong>Cuenca</strong>, era agrícola, com propriedades menores, e coletava <strong>cascarilla (quina)</strong> para exportação. Já a <strong>Costa</strong>, em torno de <strong>Guayaquil</strong>, era o <strong>motor econômico</strong> da região, graças às <strong>exportações de cacau</strong>, e tinha uma população mais livre."
             ],
             boxes: [
-              { type: "compare", headers: ["Aspecto", "Fase popular", "Virada conservadora"], rows: [
-                ["Líderes", "Hidalgo e Morelos", "Iturbide e Guerrero"],
-                ["Base", "Camponeses, indígenas e mestiços", "Elite criolla e clero"],
-                ["Propostas", "Fim da escravidão e reforma agrária", "Três Garantias"]
+              { type: "compare", headers: ["Núcleo", "Cidade", "Características"], rows: [
+                ["Serra Central-Norte", "Quito", "Centro político e demográfico; haciendas agrícolas e pecuárias"],
+                ["Serra Sul", "Cuenca", "Propriedades menores; coleta de cascarilla (quina) para exportação"],
+                ["Costa", "Guayaquil", "Motor econômico; exportação de cacau; população mais livre"]
               ]}
             ]
           },
           {
-            title: "De Agostinho I à República e a Porfirio Díaz",
-            img: "https://upload.wikimedia.org/wikipedia/commons/e/e5/Porfirio_Diaz_en_1902.jpg",
-            caption: "Porfirio Díaz em 1902",
-            alt: { file: "Portrait of president Porfirio Díaz.jpg", caption: "Retrato do presidente Porfirio Díaz, publicado em 1903" },
+            title: "Causas e influências da independência",
+            img: "https://commons.wikimedia.org/wiki/Special:FilePath/Monumento_a_los_H%C3%A9roes_del_10_de_Agosto_de_1809_(Quito_DM).jpg",
+            caption: "Monumento aos Heróis do 10 de Agosto de 1809, em Quito",
+            alt: { file: "Bandera 10 de Agosto 1809 Ecuador.png", caption: "Bandeira usada no Primeiro Grito de Independência, 10 de agosto de 1809" },
             text: [
-              "Em <strong>1822</strong>, Iturbide coroou-se <strong>Agostinho I</strong>, mas perdeu apoio, enfrentou crise financeira e a oposição republicana de <strong>Guadalupe Victoria</strong>, abdicando em 1823. Em <strong>1824</strong>, nasceu a <strong>República Federal</strong>, com Victoria como primeiro presidente.",
-              "A guerra deixou minas e campos destruídos, fuga de capitais e dívidas com bancos britânicos. Na instabilidade, cresceu o <strong>caudilhismo</strong>, com chefes militares autoritários apoiados por tropas e latifundiários. Daí veio a ditadura de <strong>Porfirio Díaz (1876)</strong>, cuja concentração de terras levou à <strong>Revolução de 1910</strong>."
+              "Na colônia, o <strong>trabalho forçado indígena</strong>, a <strong>mão de obra escrava</strong>, a <strong>rivalidade entre Quito e Guayaquil</strong>, os <strong>impostos</strong> e as <strong>restrições comerciais</strong> geravam insatisfação. Na política, os <strong>criollos</strong> ocupavam os <em>cabildos</em>, enquanto os <strong>chapetones</strong> ficavam com os altos cargos.",
+              "De fora vieram as <strong>ideias iluministas</strong>, os exemplos dos <strong>EUA (1776)</strong> e da <strong>Revolução Francesa (1789)</strong> e a <strong>crise na Espanha (1808)</strong>: com a invasão de Napoleão e a queda de Fernando VII, surgiram <strong>Juntas de Governo</strong>. Em <strong>10 de agosto de 1809</strong>, a Junta de Quito deu o <strong>“Primeiro Grito de Independência”</strong>."
+            ],
+            boxes: [
+              { type: "compare", headers: ["Fator", "O que pesou"], rows: [
+                ["Social", "Trabalho forçado indígena, mão de obra escrava, produção têxtil e agrícola, rivalidade entre Quito e Guayaquil"],
+                ["Econômico", "Impostos, restrições comerciais, crise no século XVIII e prejuízo à elite local"],
+                ["Político", "Criollos nos cabildos e chapetones nos altos cargos; invasão napoleônica (1808); influência iluminista"]
+              ]}
+            ]
+          },
+          {
+            title: "Personagens e grupos sociais",
+            img: "https://commons.wikimedia.org/wiki/Special:FilePath/Antonio_Jos%C3%A9_de_Sucre,_an%C3%B3nimo,_s._XIX._Museo_Casa_de_Sucre,_Quito.jpg",
+            caption: "Antonio José de Sucre, retrato anônimo do século XIX, Museu Casa de Sucre, Quito",
+            alt: { file: "Simón Bolívar by José Gil de Castro.jpg", caption: "Simón Bolívar, José Gil de Castro, c. 1823" },
+            text: [
+              "Os <strong>criollos</strong> lideraram o movimento, mas a base do exército era formada por <strong>mestiços, indígenas e negros</strong>. <strong>Antonio José de Sucre</strong>, general venezuelano e braço direito de Bolívar, comandou a libertação do Equador. <strong>Simón Bolívar</strong>, o “Libertador”, enviou Sucre e incorporou o território à <strong>Grã-Colômbia</strong>. <strong>José de San Martín</strong>, o “Libertador do Sul”, mandou tropas do Peru para reforçar o exército de Sucre.",
+              "<strong>Ponto importante:</strong> os criollos buscavam poder político sem alterar a estrutura social. A exploração de indígenas e negros continuou após a independência."
+            ],
+            boxes: [
+              { type: "compare", headers: ["Líder", "Quem foi", "Papel"], rows: [
+                ["Antonio José de Sucre", "General venezuelano, braço direito de Bolívar", "Comandou a libertação e venceu em Pichincha"],
+                ["Simón Bolívar", "O “Libertador”", "Enviou Sucre e incorporou o Equador à Grã-Colômbia"],
+                ["José de San Martín", "O “Libertador do Sul”", "Enviou tropas do Peru para reforçar Sucre"]
+              ]}
+            ]
+          },
+          {
+            title: "O processo de independência: duas fases",
+            img: "https://commons.wikimedia.org/wiki/Special:FilePath/SALAS_ANTONIO_CAPITULACION2.JPG",
+            caption: "A Capitulação da Batalha de Pichincha, Antonio Salas",
+            alt: { file: "Armisticio de la batalla de Pichincha - Antonio Salas (siglo XIX).jpg", caption: "Armistício da Batalha de Pichincha, Antonio Salas, século XIX" },
+            text: [
+              "Na <strong>1ª fase (1809–1812)</strong>, Quito formou a <strong>Junta Soberana</strong>, sofreu o <strong>Massacre de Quito</strong> (1810), proclamou a independência e uma <strong>primeira Constituição</strong> (1811–1812), mas os patriotas foram derrotados na <strong>Batalha de Ibarra</strong> (1812).",
+              "Na <strong>2ª fase (1820–1822)</strong>, <strong>Guayaquil</strong> tornou-se independente e venceu em <strong>Camino Real</strong>. Em 1821, <strong>Sucre</strong> organizou o exército patriota, que triunfou na decisiva <strong>Batalha de Pichincha</strong> (24 de maio de 1822). Cinco dias depois, Quito aderiu à <strong>Grã-Colômbia</strong>."
+            ],
+            boxes: [
+              { type: "timeline", items: [
+                ["10/08/1809", "“Primeiro Grito”: Junta Soberana de Quito"],
+                ["02/08/1810", "Massacre de Quito"],
+                ["1811–1812", "Independência proclamada e 1ª Constituição"],
+                ["1812", "Derrota patriota na Batalha de Ibarra"],
+                ["09/10/1820", "Independência de Guayaquil"],
+                ["09/11/1820", "Batalha de Camino Real (1ª vitória)"],
+                ["1821", "Sucre organiza o exército patriota"],
+                ["24/05/1822", "Batalha de Pichincha (decisiva)"],
+                ["29/05/1822", "Quito adere à Grã-Colômbia"]
+              ]}
+            ]
+          },
+          {
+            title: "Consequências e síntese histórica",
+            img: "https://commons.wikimedia.org/wiki/Special:FilePath/Coat_of_arms_of_Ecuador.svg",
+            caption: "Brasão de armas do Equador",
+            alt: { file: "Antonio José de Sucre (pintura ecuestre).jpg", caption: "Antonio José de Sucre, retrato equestre anônimo do século XIX, Museu Casa de Sucre, Quito" },
+            text: [
+              "A independência pôs <strong>fim ao domínio espanhol (1822)</strong> e levou à <strong>incorporação à Grã-Colômbia</strong>. A <strong>independência definitiva</strong> veio em <strong>1830</strong>, com a formação de um <strong>governo republicano</strong>. Porém, as <strong>desigualdades sociais e econômicas</strong> permaneceram, e o <strong>poder ficou concentrado nas mãos das elites</strong>.",
+              "Em síntese, o processo enfraqueceu o domínio espanhol, fortaleceu os movimentos de independência na América Latina e contribuiu para a formação dos países sul-americanos, que conquistaram autonomia política. <strong>José de Sucre</strong> foi uma das principais lideranças dessa conquista."
+            ],
+            boxes: [
+              { type: "compare", headers: ["O que mudou", "O que permaneceu"], rows: [
+                ["Fim do domínio espanhol (1822)", "Desigualdades sociais e econômicas"],
+                ["Incorporação à Grã-Colômbia e independência definitiva (1830)", "Poder concentrado nas mãos das elites"],
+                ["Formação de um governo republicano", "Exploração de indígenas e negros"]
+              ]}
             ]
           }
         ]
@@ -926,7 +966,7 @@
         { channel: "Brasil Escola", title: "Independência do Haiti (1791–1804)", id: "XQXnixDXvjQ" }
       ],
       c13: [
-        { channel: "Videoaula em espanhol", title: "La Independencia de México en 10 minutos", id: "1AV88Wa9ooM" }
+        { channel: "Fontes da apresentação", title: "Vídeo indicado nas fontes do grupo sobre a história do Equador", id: "W6DeowM5y6M" }
       ],
       c14: [
         { channel: "Débora Aladim", title: "Tudo que você precisa saber sobre o Primeiro Reinado", id: "TzwFrYCd-6M" },
@@ -939,7 +979,7 @@
        ===================================================================== */
     var KEY = "dossieHistoria_cap11a14_v1";
     var storageOK = true;
-    var state = { done: {}, ch: "c11", filter: "all" };
+    var state = { done: {}, ch: "c11", filter: "all", c13: "equador" };
     var drawerIndex = -1;
     var reduceMotion = false;
     try { reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) {}
@@ -954,6 +994,9 @@
           state.done = s.done && typeof s.done === "object" ? s.done : {};
           state.ch = typeof s.ch === "string" ? s.ch : "c11";
           state.filter = s.filter === "todo" || s.filter === "done" ? s.filter : "all";
+          if (s.c13 !== "equador") {
+            Object.keys(state.done).forEach(function (k) { if (k.indexOf("c13-") === 0) delete state.done[k]; });
+          }
         }
       } catch (e) {}
     }
@@ -1085,6 +1128,10 @@
 
     function renderBox(b) {
       if (b.type === "quote") return '<blockquote class="quote"><p>“' + b.text + '”</p><cite>— ' + b.cite + '</cite></blockquote>';
+      if (b.type === "timeline") {
+        return '<div class="box timeline"><p class="box-label">Linha do tempo</p><ol>' +
+          b.items.map(function (it) { return '<li><span class="when num">' + it[0] + '</span><span>' + it[1] + '</span></li>'; }).join("") + '</ol></div>';
+      }
       if (b.type === "compare") {
         return '<div class="box compare"><p class="box-label">Quadro comparativo</p><table><thead><tr>' +
           b.headers.map(function (h) { return '<th scope="col">' + h + '</th>'; }).join("") + '</tr></thead><tbody>' +
@@ -1341,6 +1388,7 @@
     function init() {
       load();
       if (!chapter(state.ch)) state.ch = "c11";
+      save();
       renderSidebar();
       renderMain(true);
       bind();
