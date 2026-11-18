@@ -1017,116 +1017,140 @@
       },
 
       /* ===================================================================
-         CAPÍTULO 13 — usa EXCLUSIVAMENTE os dados da apresentação do grupo
+         CAPÍTULO 13 — Independência do Equador: usa EXCLUSIVAMENTE os dados do Canva do grupo
          =================================================================== */
       {
         id: "c13", num: 13,
-        short: "Independência do México",
-        title: "A Independência do México (1810–1824)",
-        sub: "Apresentação do grupo: da revolta popular liderada pelos padres à República Federal e ao Porfiriato.",
+        short: "Independência do Equador",
+        title: "José de Sucre e a Independência do Equador",
+        sub: "Apresentação do grupo: da Real Audiência de Quito à Batalha de Pichincha e à República.",
         theme: YELLOW,
         objectives: [
-          "Compreender o contexto colonial do Vice-Reino da Nova Espanha e as tensões sociais que prepararam o movimento de independência.",
-          "Analisar as fases da independência mexicana, da revolta popular de Hidalgo e Morelos ao acordo conservador de Iturbide e às consequências republicanas até o governo de Porfirio Díaz."
+          "Compreender o contexto colonial da Real Audiência de Quito e seus três núcleos regionais.",
+          "Analisar as causas, os personagens, as fases e as consequências da independência do Equador."
         ],
         topics: [
           {
-            title: "O Vice-Reino da Nova Espanha e a economia colonial",
-            img: commons("Nueva España 1795.png"),
-            caption: "Mapa do Vice-Reino da Nova Espanha em 1795",
+            title: "O território antes da independência e a Real Audiência de Quito",
+            img: commons("Mapa de la Audiencia de Quito y sus vertientes fluviales de saliente a poniente (1707) - AHG.jpg"),
+            caption: "Mapa da Audiência de Quito e de seus rios, 1707",
             text: [
-              "Após a queda do <strong>Império Asteca</strong> diante de <strong>Hernán Cortés</strong>, em <strong>1521</strong>, a Espanha organizou o <strong>Vice-Reino da Nova Espanha</strong>. Por quase <strong>300 anos</strong>, esse território permaneceu sob domínio espanhol e tornou-se a <strong>colônia mais rica da Espanha</strong>.",
-              "A economia colonial apoiava-se em duas atividades principais. A primeira era a <strong>mineração</strong>, na qual a <strong>prata</strong> se destacava como principal minério, ao lado do ouro, do cobre e do chumbo. A segunda era a <strong>agricultura em grandes latifúndios</strong>, voltada ao cultivo de <strong>tabaco, cacau, algodão, milho e feijão</strong>. A concentração dessas riquezas nas mãos de poucos ajuda a compreender as tensões que levariam à independência."
+              "Antes da independência, o território do atual Equador passou por três etapas: inicialmente, foi habitado por <strong>povos indígenas</strong>; em seguida, integrou o <strong>Império Inca</strong>; por fim, a partir de <strong>1534</strong>, passou ao domínio dos <strong>colonizadores</strong>, que se beneficiaram das <strong>lutas internas dos incas</strong>.",
+              "Durante o período colonial, a região correspondia à <strong>Real Audiência de Quito</strong>. Seus limites abrangiam territórios que hoje pertencem à <strong>Colômbia</strong> e áreas <strong>amazônicas</strong> que viriam a ser disputadas com o <strong>Peru</strong>."
             ],
             boxes: [
-              { type: "compare", title: "As bases da economia colonial", headers: ["Setor", "Produtos", "Destaque"], rows: [
-                ["Mineração", "Prata, ouro, cobre e chumbo", "A prata era o principal minério"],
-                ["Agricultura", "Tabaco, cacau, algodão, milho e feijão", "Cultivo em grandes latifúndios"]
+              { type: "compare", title: "As etapas do território", headers: ["Etapa", "Quem controlava o território"], rows: [
+                ["1ª", "Povos indígenas"],
+                ["2ª", "Império Inca"],
+                ["3ª (a partir de 1534)", "Colonizadores — Real Audiência de Quito"]
               ]}
             ]
           },
           {
-            title: "A torre hierárquica da sociedade colonial",
-            img: commons("De español e india, mestiza.jpg"),
-            caption: "De espanhol e indígena, mestiça: pintura de castas de Miguel Cabrera, c. 1763",
+            title: "Os três núcleos regionais da Audiência",
+            img: commons("Real Audiencia de Quito 1779.jpg"),
+            caption: "Mapa da Real Audiência de Quito, Francisco Requena y Herrera, 1779",
             text: [
-              "A sociedade da Nova Espanha organizava-se como uma <strong>torre hierárquica</strong>, na qual a posição de cada pessoa dependia de sua origem. No topo, estavam os <strong>peninsulares</strong>, nascidos na Espanha — chamados de <strong>gachupines</strong> no México e de <strong>chapetones</strong> no restante da América Espanhola —, que ocupavam os <strong>altos cargos políticos e militares</strong>.",
-              "No meio, encontravam-se os <strong>criollos</strong>, descendentes de espanhóis nascidos na América, que possuíam terras e riquezas, mas permaneciam <strong>excluídos das decisões políticas</strong>. Na base, estavam os <strong>indígenas e mestiços</strong>, submetidos à <strong>extrema pobreza</strong>, ao pagamento de <strong>tributos</strong> e à <strong>exploração</strong>. Essa combinação de poder econômico sem poder político tornou os criollos um grupo decisivo no processo de independência."
+              "A população e a economia da Audiência organizavam-se em <strong>três núcleos regionais</strong>, cada qual com características próprias. A <strong>Serra Central-Norte</strong>, cujo centro era <strong>Quito</strong>, constituía o núcleo político e demográfico e concentrava <em>haciendas</em> agrícolas e pecuárias.",
+              "A <strong>Serra Sul</strong>, em torno de <strong>Cuenca</strong>, dedicava-se à agricultura em propriedades menores e à coleta de <strong>cascarilla (quina)</strong> para exportação. Por sua vez, a <strong>Costa</strong>, com centro em <strong>Guayaquil</strong>, era o <strong>motor econômico</strong> da região, sustentado pelas <strong>exportações de cacau</strong>, e possuía uma população mais livre."
+            ],
+            boxes: [
+              { type: "compare", title: "Os núcleos regionais", headers: ["Núcleo", "Cidade", "Características"], rows: [
+                ["Serra Central-Norte", "Quito", "Centro político e demográfico; haciendas agrícolas e pecuárias"],
+                ["Serra Sul", "Cuenca", "Propriedades menores; coleta de cascarilla (quina) para exportação"],
+                ["Costa", "Guayaquil", "Motor econômico; exportação de cacau; população mais livre"]
+              ]}
             ]
           },
           {
-            title: "As causas da independência e o estopim de 1808",
+            title: "Os fatores sociais, econômicos e políticos",
+            img: commons("Carta Geográfica de la Costa Occidental en la Audiencia del Quito (1751), por Jorge Juan y Antonio de Ulloa - AHG.jpg"),
+            caption: "Carta geográfica da costa da Audiência de Quito, Jorge Juan e Antonio de Ulloa, 1751",
+            text: [
+              "Diversos fatores internos contribuíram para o processo de independência. No plano <strong>social</strong>, destacavam-se o <strong>trabalho forçado indígena</strong>, a <strong>mão de obra escrava</strong>, a produção têxtil e agrícola e a <strong>rivalidade entre Quito e Guayaquil</strong>. No plano <strong>econômico</strong>, os <strong>impostos</strong>, as <strong>restrições comerciais</strong> e a <strong>crise econômica do século XVIII</strong> prejudicavam a elite local.",
+              "No plano <strong>político</strong>, os <strong>criollos</strong> ocupavam os <em>cabildos</em>, enquanto os <strong>chapetones</strong> detinham os altos cargos."
+            ],
+            boxes: [
+              { type: "compare", title: "Os fatores internos", headers: ["Fator", "Elementos"], rows: [
+                ["Social", "Trabalho forçado indígena, mão de obra escrava, produção têxtil e agrícola, rivalidade entre Quito e Guayaquil"],
+                ["Econômico", "Impostos, restrições comerciais, crise no século XVIII e prejuízo à elite local"],
+                ["Político", "Criollos nos cabildos e chapetones nos altos cargos"]
+              ]}
+            ]
+          },
+          {
+            title: "As influências externas e a crise de 1808",
             img: commons("Francisco Goya - Portrait of Ferdinand VII of Spain in his robes of state (1815) - Prado.jpg"),
             caption: "Retrato de Fernando VII com o manto real, Francisco de Goya, 1815",
             text: [
-              "Diversas <strong>causas estruturais</strong> alimentavam a insatisfação na colônia. As <strong>Reformas Bourbônicas</strong> elevaram os impostos e reduziram a autonomia das elites locais. Ao mesmo tempo, circulavam as <strong>ideias iluministas</strong>, como a soberania popular, a igualdade natural e a rejeição ao absolutismo, e os exemplos da <strong>Independência dos Estados Unidos</strong> e da <strong>Revolução Francesa</strong> demonstravam que a mudança era possível. A <strong>identidade criolla</strong> fortalecia-se com a valorização do passado indígena e com o culto à <strong>Virgem de Guadalupe</strong>.",
-              "O <strong>estopim</strong> ocorreu em <strong>1808</strong>, quando a <strong>invasão napoleônica da Espanha</strong> e a <strong>deposição do rei Fernando VII</strong> enfraqueceram a autoridade espanhola sobre a colônia."
+              "A luta no Equador também foi impulsionada por ideias e revoluções vindas de fora. As <strong>ideias iluministas</strong>, que defendiam a liberdade, a igualdade e os direitos dos cidadãos, difundiram-se nas universidades da América espanhola. A <strong>independência dos Estados Unidos (1776)</strong> serviu de exemplo de colônia republicana livre, e a <strong>Revolução Francesa (1789)</strong> propagou ideais de liberdade e fraternidade.",
+              "A <strong>crise na Espanha (1808)</strong>, provocada pela <strong>invasão de Napoleão</strong> e pela <strong>queda do rei Fernando VII</strong>, levou à criação de <strong>Juntas de Governo</strong> locais nas colônias. Em Quito, a formação da Junta, em <strong>10 de agosto de 1809</strong>, ficou conhecida como o <strong>“Primeiro Grito de Independência”</strong>."
             ]
           },
           {
-            title: "O Grito de Dolores e a revolta liderada por Miguel Hidalgo (1810–1811)",
-            img: commons("Miguel Hidalgo y Costilla antes del grito de Dolores, pintura de Unzueta.jpg"),
-            caption: "Miguel Hidalgo antes do Grito de Dolores, pintura de Adrián Unzueta",
+            title: "Personagens e grupos sociais",
+            img: commons("Antonio José de Sucre, anónimo, s. XIX. Museo Casa de Sucre, Quito.jpg"),
+            caption: "Antonio José de Sucre, retrato anônimo do século XIX, Museu Casa de Sucre, Quito",
             text: [
-              "O movimento de independência teve início em <strong>16 de setembro de 1810</strong>, com o <strong>Grito de Dolores</strong>, liderado pelo <strong>Padre Miguel Hidalgo</strong>. O sacerdote mobilizou um amplo exército popular, formado por <strong>camponeses, indígenas e mestiços</strong>, e decretou o <strong>fim da escravidão</strong> e dos tributos indígenas.",
-              "Por envolver a base da sociedade colonial, essa primeira fase ameaçava não apenas o domínio espanhol, mas também a ordem social vigente. Por isso, enfrentou a violenta reação das <strong>tropas realistas</strong> e da <strong>elite</strong>. Hidalgo foi <strong>excomungado</strong> e <strong>fuzilado em 1811</strong>; a luta pela independência, entretanto, prosseguiu."
-            ]
-          },
-          {
-            title: "José María Morelos e a resistência de Vicente Guerrero",
-            img: commons("Vicente Ramón Guerrero Saldaña.png"),
-            caption: "Retrato de Vicente Guerrero, Anacleto Escutia, 1850",
-            text: [
-              "Após a morte de Hidalgo, o <strong>Padre José María Morelos</strong> assumiu a liderança do movimento e organizou militarmente os insurgentes. No documento <em>Sentimentos da Nação</em>, defendeu a <strong>igualdade social</strong>, a <strong>soberania popular</strong> e a <strong>reforma agrária</strong>, com a divisão dos grandes latifúndios. Em <strong>1813</strong>, promulgou a declaração de independência, mas foi capturado e <strong>executado em 1815</strong>.",
-              "Ainda assim, a resistência não se extinguiu: nas regiões montanhosas, as <strong>guerrilhas</strong> comandadas por <strong>Vicente Guerrero</strong> mantiveram a luta ativa. Guerrero, aliás, viria a desempenhar papel decisivo no desfecho do processo de independência."
-            ]
-          },
-          {
-            title: "O Plano de Iguala e o Tratado de Córdoba (1821)",
-            img: commons("Abrazo de Acatempan.JPG"),
-            caption: "Encontro entre Agustín de Iturbide e Vicente Guerrero, pintura de Román Sagredo, 1870",
-            text: [
-              "Em 1821, a elite criolla e o clero temiam a <strong>Constituição liberal de Cádiz</strong>, que ameaçava privilégios tradicionais. Diante disso, o militar realista <strong>Agustín de Iturbide</strong> aliou-se ao líder guerrilheiro <strong>Vicente Guerrero</strong> por meio do <strong>Plano de Iguala</strong>, fundamentado nas <strong>Três Garantias</strong>: <strong>independência</strong>, <strong>catolicismo</strong> como religião única e <strong>igualdade</strong> entre os cidadãos. Para assegurá-las, formou-se o <strong>Exército Trigarante</strong>.",
-              "Em <strong>24 de agosto de 1821</strong>, o <strong>Tratado de Córdoba</strong>, firmado com o vice-rei Juan O'Donojú, consolidou a emancipação. Desse modo, um processo iniciado como revolta popular foi concluído por meio de um <strong>acordo conservador</strong>, conduzido pela elite."
+              "Os <strong>criollos</strong> lideraram o movimento, ao passo que a base do exército era formada por <strong>mestiços, indígenas e negros</strong>. <strong>Antonio José de Sucre</strong>, general venezuelano e braço direito de Bolívar, comandou a libertação do Equador. <strong>Simón Bolívar</strong>, o “Libertador”, enviou Sucre ao Equador e incorporou o território à <strong>Grã-Colômbia</strong>, enquanto <strong>José de San Martín</strong>, o “Libertador do Sul”, enviou tropas do Peru para reforçar o exército de Sucre.",
+              "Cabe destacar que os criollos buscavam <strong>poder político sem alterar a estrutura social</strong>: a exploração de indígenas e negros continuou após a independência."
             ],
             boxes: [
-              { type: "compare", title: "As duas fases da independência", headers: ["Aspecto", "Fase popular (1810–1815)", "Virada conservadora (1821)"], rows: [
-                ["Líderes", "Hidalgo e Morelos", "Iturbide e Guerrero"],
-                ["Base social", "Camponeses, indígenas e mestiços", "Elite criolla, clero e Exército Trigarante"],
-                ["Propostas", "Fim da escravidão e reforma agrária", "Três Garantias"]
+              { type: "compare", title: "Os líderes da independência", headers: ["Líder", "Quem foi", "Papel"], rows: [
+                ["Antonio José de Sucre", "General venezuelano, braço direito de Bolívar", "Comandou a libertação do Equador e venceu em Pichincha"],
+                ["Simón Bolívar", "O “Libertador”", "Enviou Sucre e incorporou o território à Grã-Colômbia"],
+                ["José de San Martín", "O “Libertador do Sul”", "Enviou tropas do Peru para reforçar o exército de Sucre"]
               ]}
             ]
           },
           {
-            title: "Do Império de Agostinho I à República Federal (1822–1824)",
-            img: commons("Guadalupe Victoria, 29-9-1786 - 21-3-1843 (1825).jpg"),
-            caption: "Retrato de Guadalupe Victoria, primeiro presidente do México, 1825",
+            title: "A primeira fase da independência (1809–1812)",
+            img: commons("Monumento a los Héroes del 10 de Agosto de 1809 (Quito DM).jpg"),
+            caption: "Monumento aos Heróis do 10 de Agosto de 1809, em Quito",
             text: [
-              "Após a independência, o México não se tornou imediatamente uma república. Em <strong>1822</strong>, <strong>Agustín de Iturbide</strong> coroou-se imperador com o título de <strong>Agostinho I</strong>, instaurando o <strong>Primeiro Império Mexicano</strong>.",
-              "O governo, contudo, durou pouco: Iturbide perdeu rapidamente o apoio político, enfrentou uma <strong>crise financeira</strong> e sofreu a oposição republicana liderada por <strong>Guadalupe Victoria</strong>, veterano das lutas de Hidalgo e Morelos. Pressionado, <strong>abdicou em 1823</strong>. Em <strong>1824</strong>, foi promulgada uma nova <strong>Constituição</strong>, que instituiu a <strong>República Federal do México</strong>, tendo Guadalupe Victoria como seu <strong>primeiro presidente</strong>."
-            ]
-          },
-          {
-            title: "As consequências da independência, o caudilhismo e o Porfiriato",
-            img: commons("Portrait of president Porfirio Díaz.jpg"),
-            caption: "Retrato do presidente Porfirio Díaz, publicado em 1903",
-            text: [
-              "A independência deixou o país em situação de <strong>grave devastação econômica</strong>: as guerras destruíram minas e campos agrícolas, houve <strong>fuga de capitais dos peninsulares</strong> e o novo Estado contraiu um <strong>alto endividamento externo com bancos britânicos</strong>. Na política, instalou-se uma longa <strong>instabilidade</strong>, marcada pela ascensão do <strong>caudilhismo</strong>, isto é, de lideranças político-militares autoritárias apoiadas por tropas e latifundiários.",
-              "Esse processo culminou na longa ditadura de <strong>Porfirio Díaz</strong>, iniciada em <strong>1876</strong> e conhecida como <strong>Porfiriato</strong>. O período caracterizou-se pela <strong>modernização com capital estrangeiro</strong>, acompanhada de <strong>intensa concentração fundiária</strong> e <strong>miséria camponesa</strong>, cenário que gerou o estopim da <strong>Revolução Mexicana de 1910</strong>, liderada por <strong>Francisco I. Madero</strong>."
+              "A primeira fase teve início em <strong>10 de agosto de 1809</strong>, com o <strong>“Primeiro Grito”</strong>, quando se formou a <strong>Junta Soberana de Quito</strong>. Em <strong>2 de agosto de 1810</strong>, ocorreu o <strong>Massacre de Quito</strong>.",
+              "Entre <strong>1811 e 1812</strong>, os patriotas proclamaram a independência e elaboraram a <strong>primeira Constituição</strong>. Contudo, em <strong>1812</strong>, foram derrotados na <strong>Batalha de Ibarra</strong>, o que encerrou essa primeira etapa do movimento."
             ],
             boxes: [
               { type: "timeline", items: [
-                ["1521", "Queda do Império Asteca diante de Hernán Cortés."],
-                ["1808", "Invasão napoleônica da Espanha e deposição de Fernando VII."],
-                ["1810", "Grito de Dolores (16 de setembro)."],
-                ["1811", "Fuzilamento de Hidalgo."],
-                ["1813", "Morelos promulga a declaração de independência."],
-                ["1815", "Execução de Morelos."],
-                ["1821", "Plano de Iguala e Tratado de Córdoba."],
-                ["1822", "Coroação de Agostinho I."],
-                ["1824", "República Federal e presidência de Guadalupe Victoria."],
-                ["1876", "Início do Porfiriato."],
-                ["1910", "Revolução Mexicana."]
+                ["10/08/1809", "“Primeiro Grito”: Junta Soberana de Quito."],
+                ["02/08/1810", "Massacre de Quito."],
+                ["1811–1812", "Independência proclamada e primeira Constituição."],
+                ["1812", "Derrota patriota na Batalha de Ibarra."]
+              ]}
+            ]
+          },
+          {
+            title: "A segunda fase e a Batalha de Pichincha (1820–1822)",
+            img: commons("SALAS ANTONIO CAPITULACION2.JPG"),
+            caption: "A Capitulação da Batalha de Pichincha, Antonio Salas",
+            text: [
+              "A segunda fase começou em <strong>9 de outubro de 1820</strong>, com a <strong>independência de Guayaquil</strong>. Pouco depois, em <strong>9 de novembro de 1820</strong>, os patriotas obtiveram sua primeira vitória na <strong>Batalha de Camino Real</strong>.",
+              "Em <strong>1821</strong>, <strong>Sucre</strong> organizou o exército patriota, que triunfou na decisiva <strong>Batalha de Pichincha</strong>, em <strong>24 de maio de 1822</strong>. Cinco dias depois, em <strong>29 de maio de 1822</strong>, Quito aderiu à <strong>Grã-Colômbia</strong>."
+            ],
+            boxes: [
+              { type: "timeline", items: [
+                ["09/10/1820", "Independência de Guayaquil."],
+                ["09/11/1820", "Batalha de Camino Real (primeira vitória)."],
+                ["1821", "Sucre organiza o exército patriota."],
+                ["24/05/1822", "Batalha de Pichincha (decisiva)."],
+                ["29/05/1822", "Quito adere à Grã-Colômbia."]
+              ]}
+            ]
+          },
+          {
+            title: "Consequências da independência e síntese histórica",
+            img: commons("Coat of arms of Ecuador.svg"),
+            caption: "Brasão de armas do Equador",
+            text: [
+              "A independência pôs <strong>fim ao domínio espanhol (1822)</strong> e resultou na <strong>incorporação à Grã-Colômbia</strong>. A <strong>independência definitiva</strong> ocorreu em <strong>1830</strong>, com a formação de um <strong>governo republicano</strong>. Entretanto, as <strong>desigualdades sociais e econômicas</strong> permaneceram, e o <strong>poder concentrou-se nas mãos das elites</strong>.",
+              "Em síntese, o processo contribuiu para o enfraquecimento do domínio espanhol, para o fortalecimento dos movimentos de independência na América Latina e para a formação dos países sul-americanos, que conquistaram autonomia política. <strong>José de Sucre</strong> foi uma das principais lideranças dessa conquista."
+            ],
+            boxes: [
+              { type: "compare", title: "O que mudou e o que permaneceu", headers: ["O que mudou", "O que permaneceu"], rows: [
+                ["Fim do domínio espanhol (1822)", "Desigualdades sociais e econômicas"],
+                ["Incorporação à Grã-Colômbia e independência definitiva (1830)", "Poder concentrado nas mãos das elites"],
+                ["Formação de um governo republicano", "Exploração de indígenas e negros"]
               ]}
             ]
           }
@@ -1270,7 +1294,7 @@
         { channel: "Brasil Escola", title: "Independência do Haiti (1791–1804)", query: "Revolucao Haitiana Independencia do Haiti", id: "XQXnixDXvjQ" }
       ],
       c13: [
-        { channel: "Videoaula em espanhol", title: "La Independencia de México en 10 minutos", query: "Independencia do Mexico Hidalgo Morelos", id: "1AV88Wa9ooM" }
+        { channel: "Fontes da apresentação", title: "Vídeo indicado nas fontes do grupo sobre a história do Equador", query: "Independencia do Equador Sucre Pichincha", id: "W6DeowM5y6M" }
       ],
       c14: [
         { channel: "Débora Aladim", title: "Tudo que você precisa saber sobre o Primeiro Reinado", query: "Debora Aladim Primeiro Reinado", id: "TzwFrYCd-6M" },
@@ -1319,6 +1343,12 @@
           state.read = s.read && typeof s.read === "object" ? s.read : {};
           state.notes = s.notes && typeof s.notes === "object" ? s.notes : {};
           state.tab = typeof s.tab === "string" ? s.tab : "c11";
+          /* O Cap. 13 mudou de assunto (México → Equador): zera seus "lidos" uma vez */
+          if (s.c13 !== "equador") {
+            Object.keys(state.read).forEach(function (k) { if (k.indexOf("c13-") === 0) delete state.read[k]; });
+          }
+          state.c13 = "equador";
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         }
       } catch (e) { /* dados inválidos: recomeça */ }
     }
