@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Dossiê de Estudos de História</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400;1,9..144,600&display=swap" rel="stylesheet">
+  <style>
+    /* =====================================================================
+       CORES DO CAPÍTULO (registradas para transição suave)
+       ===================================================================== */
+    @property --c-primary { syntax: "<color>"; inherits: true; initial-value: #1E40AF; }
+    @property --c-accent  { syntax: "<color>"; inherits: true; initial-value: #B45309; }
+
+    :root {
+      --sand: #F4F1EA;
+      --ivory: #FFFDF9;
+      --rule: #D6D0C4;
+      --ink: #1C1917;
+      --ink-2: #44403C;
+      --ink-3: #78716C;
+      --c-primary: #1E40AF;
+      --c-accent: #B45309;
+
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      --t-press: 120ms;
+      --t-ui: 200ms;
+      --t-move: 260ms;
+      --hard: 3px 3px 0 var(--ink);
+
+      --serif: "Fraunces", Georgia, "Times New Roman", serif;
+      --sans: "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+
+      transition: --c-primary var(--t-move) var(--ease), --c-accent var(--t-move) var(--ease);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      background: var(--sand);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.6;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    body.locked { overflow: hidden; }
+    img { display: block; max-width: 100%; }
+    button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    a { color: inherit; }
+    :focus-visible { outline: 2px solid var(--c-primary); outline-offset: 3px; }
+    ::selection { background: var(--c-primary); color: #FFFFFF; }
+    .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+    .num { font-variant-numeric: tabular-nums; }
+    svg.ic { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+
+    /* Botões de canto reto com sombra dura */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      min-height: 40px; padding: 8px 14px;
+      border: 1.5px solid var(--ink);
+      border-radius: 4px;
+      background: var(--ivory);
+      color: var(--ink);
+      font-size: 14px; font-weight: 600;
+      box-shadow: var(--hard);
+      transition: transform var(--t-press) var(--ease), box-shadow var(--t-press) var(--ease), background-color var(--t-ui) ease, color var(--t-ui) ease;
+    }
+    .btn:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--ink); }
+    .btn.primary { background: var(--c-primary); color: #FFFFFF; }
+    .btn.small { min-height: 34px; padding: 6px 10px; font-size: 13px; }
+
+    /* =====================================================================
+       LAYOUT EM DUAS COLUNAS (menu lateral + leitura)
+       ===================================================================== */
+    .app { display: grid; grid-template-columns: 280px minmax(0, 1fr); min-height: 100vh; }
+
+    .sidebar {
+      position: sticky; top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      padding: 26px 22px;
+      border-right: 1.5px solid var(--rule);
+      background: var(--ivory);
+      display: flex; flex-direction: column; gap: 24px;
+    }
+    .seal {
+      align-self: flex-start;
+      padding: 3px 8px;
+      border: 1.5px solid var(--ink);
+      border-radius: 4px;
+      font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+    }
+    .brand h1 {
+      margin: 12px 0 4px;
+      font-family: var(--serif); font-weight: 800;
+      font-size: 1.85rem; line-height: 1.02; letter-spacing: -0.02em;
+    }
+    .brand p { margin: 0; font-size: 13.5px; color: var(--ink-2); }
+
+    .ring-box { display: flex; align-items: center; gap: 14px; padding: 14px; border: 1.5px solid var(--rule); border-radius: 4px; background: var(--sand); }
+    .ring { position: relative; width: 84px; height: 84px; flex-shrink: 0; }
+    .ring svg { width: 84px; height: 84px; transform: rotate(-90deg); }
+    .ring circle { fill: none; stroke-width: 8; }
+    .ring .track { stroke: var(--rule); }
+    .ring .bar { stroke: var(--c-primary); stroke-linecap: butt; transition: stroke-dashoffset 500ms var(--ease), stroke var(--t-move) var(--ease); }
+    .ring .pct { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--serif); font-weight: 800; font-size: 1.25rem; white-space: nowrap; }
+    .ring-meta strong { display: block; font-family: var(--serif); font-size: 1.05rem; }
+    .ring-meta span { font-size: 12.5px; color: var(--ink-3); }
+
+    .side-label { margin: 0 0 8px; font-size: 10.5px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3); }
+    .chapters { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    .ch-btn {
+      position: relative;
+      display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: center;
+      width: 100%; padding: 10px 12px 10px 16px;
+      border: 1.5px solid var(--rule);
+      border-radius: 4px;
+      background: var(--ivory);
+      text-align: left;
+      transition: border-color var(--t-ui) ease, box-shadow var(--t-press) var(--ease), transform var(--t-press) var(--ease);
+    }
+    .ch-btn::before { content: ""; position: absolute; left: -1.5px; top: -1.5px; bottom: -1.5px; width: 5px; border-radius: 4px 0 0 4px; background: var(--ch); }
+    .ch-btn:active { transform: translate(2px, 2px); }
+    .ch-btn[aria-current="true"] { border-color: var(--ink); box-shadow: var(--hard); }
+    .ch-num { font-family: var(--serif); font-weight: 800; font-size: 1rem; color: var(--ch); }
+    .ch-count { font-size: 12px; font-weight: 700; color: var(--ink-3); }
+    .ch-name { grid-column: 1 / -1; font-size: 13px; color: var(--ink-2); line-height: 1.35; }
+    .ch-bar { grid-column: 1 / -1; position: relative; height: 3px; margin-top: 6px; background: var(--rule); overflow: hidden; }
+    .ch-bar span { position: absolute; inset: 0; background: var(--ch); transform-origin: left; transform: scaleX(0); transition: transform 500ms var(--ease); }
+
+    .filters { display: grid; grid-template-columns: repeat(3, 1fr); border: 1.5px solid var(--ink); border-radius: 4px; overflow: hidden; }
+    .filters button {
+      padding: 8px 4px;
+      border: 0; border-right: 1.5px solid var(--ink);
+      background: var(--ivory);
+      font-size: 12.5px; font-weight: 700;
+      transition: background-color var(--t-ui) ease, color var(--t-ui) ease;
+    }
+    .filters button:last-child { border-right: 0; }
+    .filters button[aria-pressed="true"] { background: var(--ink); color: var(--ivory); }
+    .side-foot { margin-top: auto; display: grid; gap: 8px; }
+    .link-btn { padding: 4px 0; border: 0; background: none; text-align: left; font-size: 13px; color: var(--ink-3); text-decoration: underline; text-underline-offset: 3px; }
+    .storage-warn { display: none; margin: 0; font-size: 12px; color: #9A3412; }
+    .storage-warn.show { display: block; }
+
+    /* =====================================================================
+       ÁREA DE LEITURA
+       ===================================================================== */
+    .main { min-width: 0; padding: 40px clamp(20px, 4vw, 56px) 64px; }
+    .chap-head { max-width: 860px; }
+    .chap-kicker {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-size: 11.5px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--c-primary);
+    }
+    .chap-kicker::before { content: ""; width: 28px; height: 3px; background: var(--c-accent); }
+    .chap-head h2 {
+      margin: 12px 0 14px;
+      font-family: var(--serif); font-weight: 800;
+      font-size: clamp(2rem, 4.6vw, 3.2rem); line-height: 1.02; letter-spacing: -0.025em;
+      text-wrap: balance;
+    }
+    .objectives {
+      margin-top: 18px;
+      padding: 16px 18px;
+      border: 1.5px solid var(--rule);
+      border-left: 6px solid var(--c-accent);
+      border-radius: 4px;
+      background: var(--ivory);
+    }
+    .objectives ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 15px; color: var(--ink-2); }
+    .objectives li::marker { font-family: var(--serif); font-weight: 800; color: var(--c-primary); }
+    .chap-progress { display: flex; align-items: center; gap: 12px; margin-top: 18px; font-size: 13.5px; color: var(--ink-2); }
+    .chap-progress .line { flex: 1; max-width: 280px; position: relative; height: 6px; border: 1.5px solid var(--ink); border-radius: 4px; background: var(--ivory); overflow: hidden; }
+    .chap-progress .line span { position: absolute; inset: 0; background: var(--c-primary); transform-origin: left; transform: scaleX(0); transition: transform 500ms var(--ease); }
+
+    .grid-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 36px 0 14px; max-width: 1100px; }
+    .grid-head h3 { margin: 0; font-family: var(--serif); font-size: 1.5rem; font-weight: 800; letter-spacing: -0.01em; }
+    .grid-head span { font-size: 13px; color: var(--ink-3); }
+
+    /* Grade de tópicos */
+    .grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; max-width: 1100px; }
+    .card { min-width: 0; }
+    .card[hidden] { display: none; }
+    .card-btn {
+      position: relative;
+      display: flex; flex-direction: column;
+      width: 100%; height: 100%;
+      padding: 0;
+      border: 1.5px solid var(--ink);
+      border-radius: 4px;
+      background: var(--ivory);
+      text-align: left;
+      box-shadow: var(--hard);
+      overflow: hidden;
+      transition: transform var(--t-press) var(--ease), box-shadow var(--t-press) var(--ease);
+    }
+    .card-btn:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--ink); }
+    .card-media { position: relative; aspect-ratio: 16 / 9; background: #E9E4D8; border-bottom: 1.5px solid var(--ink); overflow: hidden; }
+    .card-media img { width: 100%; height: 100%; object-fit: cover; filter: saturate(.9); transition: transform 400ms var(--ease); }
+    .card-media .media-fallback {
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      padding: 16px;
+      font-family: var(--serif); font-style: italic; font-size: 14px; color: var(--ink-3); text-align: center;
+    }
+    .card-body { display: flex; flex-direction: column; gap: 6px; padding: 16px 18px 18px; flex: 1; }
+    .card-num { font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--c-primary); }
+    .card-title { font-family: var(--serif); font-weight: 600; font-size: 1.22rem; line-height: 1.22; letter-spacing: -0.01em; text-wrap: pretty; }
+    .card-excerpt { font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+    .card-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: auto; padding-top: 10px; font-size: 12.5px; font-weight: 700; }
+    .status { color: var(--ink-3); letter-spacing: .04em; text-transform: uppercase; font-size: 11px; }
+    .card.is-done .status { color: var(--c-accent); }
+    .open-hint { display: inline-flex; align-items: center; gap: 4px; color: var(--ink); }
+    .open-hint svg { width: 15px; height: 15px; transition: transform var(--t-ui) var(--ease); }
+    .card-stamp {
+      position: absolute; top: 14px; right: 14px;
+      padding: 4px 9px;
+      border: 2px solid var(--c-accent);
+      border-radius: 4px;
+      background: rgba(255, 253, 249, .92);
+      color: var(--c-accent);
+      font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+      transform: rotate(-6deg) scale(.9);
+      opacity: 0;
+      transition: opacity var(--t-ui) var(--ease), transform var(--t-move) var(--ease);
+      pointer-events: none;
+    }
+    .card.is-done .card-stamp { opacity: 1; transform: rotate(-6deg) scale(1); }
+    .empty { display: none; max-width: 1100px; padding: 28px; border: 1.5px dashed var(--rule); border-radius: 4px; text-align: center; font-family: var(--serif); font-style: italic; color: var(--ink-3); }
+    .empty.show { display: block; }
+
+    /* Entrada em cascata ao trocar de capítulo */
+    .stagger .reveal { animation: reveal 320ms var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms); }
+    @keyframes reveal { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+    /* =====================================================================
+       VIDEOAULAS
+       ===================================================================== */
+    .videos { margin-top: 48px; max-width: 1100px; }
+    .video-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+    .video-card { margin: 0; border: 1.5px solid var(--ink); border-radius: 4px; background: var(--ivory); box-shadow: var(--hard); overflow: hidden; }
+    .video-frame { position: relative; aspect-ratio: 16 / 9; background: var(--ink); border-bottom: 1.5px solid var(--ink); }
+    .video-poster { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; background: var(--ink); transition: opacity var(--t-ui) var(--ease); }
+    .video-poster img { width: 100%; height: 100%; object-fit: cover; opacity: .9; }
+    .video-poster.no-thumb { background: linear-gradient(135deg, var(--c-primary), var(--ink)); }
+    .poster-title { position: absolute; left: 16px; right: 16px; top: 14px; font-family: var(--serif); font-style: italic; color: #FFFDF9; text-align: left; }
+    .play {
+      position: absolute; left: 50%; top: 50%;
+      width: 58px; height: 58px; margin: -29px 0 0 -29px;
+      display: grid; place-items: center;
+      border: 1.5px solid var(--ink); border-radius: 4px;
+      background: var(--ivory); box-shadow: var(--hard);
+      transition: transform var(--t-press) var(--ease), box-shadow var(--t-press) var(--ease);
+    }
+    .play svg { width: 20px; height: 20px; margin-left: 3px; fill: var(--ink); }
+    .video-poster:active .play { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--ink); }
+    .video-poster.is-leaving { opacity: 0; pointer-events: none; }
+    .video-iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; opacity: 0; transform: scale(.98); transition: opacity 240ms var(--ease), transform 280ms var(--ease); }
+    .video-iframe.is-ready { opacity: 1; transform: scale(1); }
+    .video-meta { padding: 14px 16px 16px; }
+    .video-channel { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--c-primary); }
+    .video-title { margin: 4px 0 10px; font-family: var(--serif); font-weight: 600; font-size: 1.08rem; line-height: 1.3; }
+    .video-note { display: none; margin: 0 0 8px; font-size: 12.5px; color: #9A3412; }
+    .video-card.thumb-missing .video-note { display: block; }
+
+    .chapter-nav { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 40px; max-width: 1100px; }
+
+    /* =====================================================================
+       GAVETA LATERAL (DRAWER)
+       ===================================================================== */
+    .drawer { position: fixed; inset: 0; z-index: 80; visibility: hidden; transition: visibility 0s linear 260ms; }
+    .drawer.is-open { visibility: visible; transition-delay: 0s; }
+    .drawer-backdrop { position: absolute; inset: 0; background: rgba(28, 25, 23, .45); opacity: 0; transition: opacity 260ms var(--ease); }
+    .drawer.is-open .drawer-backdrop { opacity: 1; }
+    .drawer-panel {
+      position: absolute; top: 0; right: 0; bottom: 0;
+      width: min(680px, 100%);
+      display: flex; flex-direction: column;
+      background: var(--ivory);
+      border-left: 1.5px solid var(--ink);
+      box-shadow: -6px 0 0 rgba(28, 25, 23, .12);
+      transform: translateX(100%);
+      transition: transform 260ms var(--ease);
+    }
+    .drawer.is-open .drawer-panel { transform: translateX(0); transition-duration: 420ms; }
+    .drawer-top {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 14px 20px;
+      border-bottom: 1.5px solid var(--ink);
+      background: var(--sand);
+    }
+    .drawer-tag { font-size: 11.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--c-primary); }
+    .drawer-scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; }
+    .drawer-body { padding: 24px 28px 36px; transition: opacity 160ms var(--ease); }
+    .drawer-body.swap { opacity: 0; }
+    .drawer.is-open .drawer-body > * { animation: rise 360ms var(--ease) both; }
+    .drawer.is-open .drawer-body > *:nth-child(2) { animation-delay: 60ms; }
+    .drawer.is-open .drawer-body > *:nth-child(n+3) { animation-delay: 110ms; }
+    @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+    .figure { margin: 0 0 22px; }
+    .figure-btn { display: block; width: 100%; padding: 0; border: 1.5px solid var(--ink); border-radius: 4px; background: #E9E4D8; overflow: hidden; cursor: zoom-in; }
+    .figure-btn img { width: 100%; max-height: 380px; object-fit: contain; background: #E9E4D8; }
+    .figure figcaption { margin-top: 8px; font-family: var(--serif); font-style: italic; font-size: 14px; color: var(--ink-2); }
+    .placard { padding: 18px; border: 1.5px solid var(--rule); border-radius: 4px; background: var(--sand); }
+    .placard p { margin: 0 0 6px; font-family: var(--serif); font-style: italic; }
+    .placard a { font-size: 12.5px; font-weight: 700; color: var(--ink-3); }
+
+    .drawer-title { margin: 0 0 14px; font-family: var(--serif); font-weight: 800; font-size: clamp(1.6rem, 3.6vw, 2.1rem); line-height: 1.08; letter-spacing: -0.02em; text-wrap: balance; }
+    .prose p { margin: 0 0 14px; font-size: 17px; line-height: 1.72; color: #292524; text-wrap: pretty; }
+    .prose strong { font-weight: 700; color: var(--ink); background: linear-gradient(transparent 62%, color-mix(in srgb, var(--c-accent) 22%, transparent) 62%); }
+    .prose em { font-family: var(--serif); }
+
+    .box { margin: 22px 0 0; }
+    .box-label { margin: 0 0 8px; font-size: 10.5px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3); }
+    blockquote.quote { margin: 22px 0 0; padding: 16px 18px; border: 1.5px solid var(--ink); border-radius: 4px; background: var(--sand); box-shadow: var(--hard); }
+    blockquote.quote p { margin: 0 0 8px; font-family: var(--serif); font-style: italic; font-size: 1.18rem; line-height: 1.45; }
+    blockquote.quote cite { font-style: normal; font-size: 12.5px; color: var(--ink-3); }
+    .compare table { width: 100%; border-collapse: collapse; font-size: 14px; border: 1.5px solid var(--ink); }
+    .compare th { padding: 8px 10px; text-align: left; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; background: var(--ink); color: var(--ivory); }
+    .compare td { padding: 9px 10px; border-top: 1px solid var(--rule); vertical-align: top; color: var(--ink-2); }
+    .compare td:first-child { font-weight: 700; color: var(--ink); }
+    .timeline ol { list-style: none; margin: 0; padding: 0; border: 1.5px solid var(--ink); border-radius: 4px; overflow: hidden; }
+    .timeline li { display: grid; grid-template-columns: 112px 1fr; gap: 12px; padding: 9px 12px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--ink-2); }
+    .timeline li:first-child { border-top: 0; }
+    .timeline .when { font-weight: 700; color: var(--c-primary); }
+    @media (max-width: 420px) { .timeline li { grid-template-columns: 1fr; gap: 2px; } }
+
+    /* Carimbo de estudo */
+    .stamp-wrap { margin-top: 28px; padding-top: 22px; border-top: 1.5px dashed var(--rule); display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+    .stamp {
+      padding: 12px 18px;
+      border: 2px solid var(--ink);
+      border-radius: 4px;
+      background: var(--ivory);
+      font-family: var(--sans); font-size: 13.5px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+      box-shadow: var(--hard);
+      transition: transform var(--t-press) var(--ease), box-shadow var(--t-press) var(--ease), color var(--t-ui) ease, border-color var(--t-ui) ease, background-color var(--t-ui) ease;
+    }
+    .stamp:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--ink); }
+    .stamp[aria-pressed="true"] {
+      border: 2.5px double var(--c-accent);
+      color: var(--c-accent);
+      background: color-mix(in srgb, var(--c-accent) 7%, var(--ivory));
+      box-shadow: none;
+      transform: rotate(-3deg);
+    }
+    .stamp.pressing { animation: stamp 300ms var(--ease) both; }
+    @keyframes stamp {
+      0%   { transform: scale(1.35) rotate(-9deg); opacity: 0; }
+      70%  { transform: scale(.97) rotate(-3deg); opacity: 1; }
+      100% { transform: scale(1) rotate(-3deg); opacity: 1; }
+    }
+    .stamp-hint { font-size: 13px; color: var(--ink-3); }
+
+    .drawer-foot {
+      display: flex; justify-content: space-between; gap: 10px;
+      padding: 12px 20px;
+      border-top: 1.5px solid var(--ink);
+      background: var(--sand);
+    }
+
+    /* =====================================================================
+       LIGHTBOX, CONFIRMAÇÃO E TOAST
+       ===================================================================== */
+    .modal { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 20px; visibility: hidden; transition: visibility 0s linear 180ms; }
+    .modal.is-open { visibility: visible; transition-delay: 0s; }
+    .modal-backdrop { position: absolute; inset: 0; background: rgba(28, 25, 23, .82); opacity: 0; transition: opacity 180ms var(--ease); }
+    .modal.is-open .modal-backdrop { opacity: 1; }
+    .modal-panel { position: relative; opacity: 0; transform: scale(.96); transition: opacity 160ms var(--ease), transform 200ms var(--ease); }
+    .modal.is-open .modal-panel { opacity: 1; transform: scale(1); }
+    .lightbox-panel { margin: 0; display: grid; justify-items: center; gap: 12px; max-width: min(1100px, 100%); }
+    .lightbox-panel img { max-width: 100%; max-height: calc(100vh - 140px); object-fit: contain; border: 1.5px solid var(--ivory); border-radius: 4px; background: #111; }
+    .lightbox-cap { max-width: 64ch; text-align: center; font-family: var(--serif); font-style: italic; color: var(--sand); }
+    .modal-close { position: absolute; top: 14px; right: 14px; z-index: 2; }
+    .dialog { width: min(400px, 100%); padding: 22px; border: 1.5px solid var(--ink); border-radius: 4px; background: var(--ivory); box-shadow: 6px 6px 0 var(--ink); }
+    .dialog h3 { margin: 0 0 8px; font-family: var(--serif); font-size: 1.4rem; font-weight: 800; }
+    .dialog p { margin: 0 0 18px; color: var(--ink-2); font-size: 14.5px; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; }
+
+    .toast {
+      position: fixed; left: 50%; bottom: 20px; z-index: 140;
+      padding: 10px 16px;
+      border: 1.5px solid var(--ink); border-radius: 4px;
+      background: var(--ivory); box-shadow: var(--hard);
+      font-size: 13.5px; font-weight: 700;
+      opacity: 0; transform: translate(-50%, 10px);
+      transition: opacity var(--t-ui) var(--ease), transform var(--t-move) var(--ease);
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    /* =====================================================================
+       HOVER — apenas mouse
+       ===================================================================== */
+    @media (hover: hover) and (pointer: fine) {
+      .btn:hover { background: var(--sand); }
+      .btn.primary:hover { background: color-mix(in srgb, var(--c-primary) 88%, #000); }
+      .ch-btn:hover { border-color: var(--ink); }
+      .filters button:hover:not([aria-pressed="true"]) { background: var(--sand); }
+      .link-btn:hover { color: var(--ink); }
+      .card-btn:hover { transform: translate(-2px, -2px); box-shadow: 5px 5px 0 var(--c-primary); }
+      .card-btn:hover .card-media img { transform: scale(1.03); }
+      .card-btn:hover .open-hint svg { transform: translateX(3px); }
+      .stamp:hover:not([aria-pressed="true"]) { background: var(--sand); }
+      .video-poster:hover .play { transform: translate(-2px, -2px); box-shadow: 5px 5px 0 var(--ink); }
+    }
+
+    /* =====================================================================
+       RESPONSIVO — menu superior compacto
+       ===================================================================== */
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar {
+        position: static; height: auto; overflow: visible;
+        padding: 16px;
+        border-right: 0; border-bottom: 1.5px solid var(--ink);
+        gap: 14px;
+      }
+      .brand { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 12px; }
+      .brand .seal { grid-column: 1 / -1; }
+      .brand h1 { margin: 4px 0 0; font-size: 1.5rem; }
+      .brand p { display: none; }
+      .ring-box { padding: 10px; }
+      .ring, .ring svg { width: 64px; height: 64px; }
+      .ring .pct { font-size: 1rem; }
+      .chapters { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+      .ch-btn { grid-template-columns: 1fr; padding: 8px 8px 8px 12px; }
+      .ch-name { display: none; }
+      .ch-count { font-size: 11px; }
+      .side-label.ch-label { display: none; }
+      .side-foot { margin-top: 0; }
+      .main { padding: 26px 16px 48px; }
+      .grid, .video-grid { grid-template-columns: 1fr; }
+      .drawer-panel { width: 100%; border-left: 0; }
+      .drawer-body { padding: 20px 18px 30px; }
+      .prose p { font-size: 16px; }
+    }
+    @media (max-width: 420px) {
+      .ch-num { font-size: .9rem; }
+      .compare table { font-size: 13px; }
+    }
+
+    /* =====================================================================
+       MOVIMENTO REDUZIDO
+       ===================================================================== */
+    @media (prefers-reduced-motion: reduce) {
+      :root { transition: none; }
+      .stagger .reveal { animation: fade 160ms ease both; animation-delay: 0ms; }
+      @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+      .drawer-panel, .drawer.is-open .drawer-panel { transform: none; transition: none; }
+      .drawer-panel { opacity: 0; }
+      .drawer.is-open .drawer-panel { opacity: 1; }
+      .drawer.is-open .drawer-body > * { animation: none; }
+      .stamp.pressing { animation: none; }
+      .modal-panel, .modal.is-open .modal-panel { transform: none; }
+      .btn:active, .card-btn:active, .ch-btn:active, .stamp:active, .video-poster:active .play { transform: none; }
+      .card-media img, .ring .bar, .ch-bar span, .chap-progress .line span, .video-iframe { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- ============================ MENU LATERAL ============================ -->
+    <aside class="sidebar" aria-label="Índice do dossiê">
+      <div class="brand">
+        <span class="seal">Dossiê · História · 2ª Série</span>
+        <h1>Plano de Estudos</h1>
+        <p>Capítulos 11 a 14 — revoluções, independências e o Brasil imperial.</p>
+      </div>
+
+      <div class="ring-box">
+        <div class="ring" role="img" aria-label="Progresso geral" id="ring">
+          <svg viewBox="0 0 84 84" aria-hidden="true">
+            <circle class="track" cx="42" cy="42" r="34"></circle>
+            <circle class="bar" id="ringBar" cx="42" cy="42" r="34" stroke-dasharray="213.63" stroke-dashoffset="213.63"></circle>
+          </svg>
+          <span class="pct num"><span id="ringPct">0</span>%</span>
+        </div>
+        <div class="ring-meta">
+          <strong>Progresso geral</strong>
+          <span class="num" id="ringMeta">0 de 24 tópicos</span>
+        </div>
+      </div>
+
+      <div>
+        <p class="side-label ch-label">Capítulos</p>
+        <ul class="chapters" id="chapters"></ul>
+      </div>
+
+      <div>
+        <p class="side-label">Mostrar</p>
+        <div class="filters" role="group" aria-label="Filtrar tópicos" id="filters">
+          <button type="button" data-filter="all" aria-pressed="true">Todos</button>
+          <button type="button" data-filter="todo" aria-pressed="false">Pendentes</button>
+          <button type="button" data-filter="done" aria-pressed="false">Concluídos</button>
+        </div>
+      </div>
+
+      <div class="side-foot">
+        <button class="link-btn" type="button" id="btnReset">Reiniciar progresso</button>
+        <p class="storage-warn" id="storageWarn">O navegador bloqueou o salvamento: o progresso vale só enquanto a página estiver aberta.</p>
+      </div>
+    </aside>
+
+    <!-- ============================ LEITURA ============================ -->
+    <main class="main" id="main"></main>
+  </div>
+
+  <!-- ============================ GAVETA ============================ -->
+  <div class="drawer" id="drawer" aria-hidden="true">
+    <div class="drawer-backdrop" data-close-drawer></div>
+    <section class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+      <div class="drawer-top">
+        <span class="drawer-tag num" id="drawerTag"></span>
+        <button class="btn small" type="button" data-close-drawer aria-label="Fechar">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg> Fechar
+        </button>
+      </div>
+      <div class="drawer-scroll" id="drawerScroll">
+        <div class="drawer-body" id="drawerBody"></div>
+      </div>
+      <div class="drawer-foot">
+        <button class="btn small" type="button" id="drawerPrev">← Anterior</button>
+        <button class="btn small" type="button" id="drawerNext">Próximo →</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============================ LIGHTBOX ============================ -->
+  <div class="modal" id="lightbox" role="dialog" aria-modal="true" aria-label="Obra ampliada" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal></div>
+    <button class="btn small modal-close" type="button" data-close-modal aria-label="Fechar imagem">Fechar</button>
+    <figure class="modal-panel lightbox-panel">
+      <img id="lbImg" alt="" referrerpolicy="no-referrer">
+      <figcaption class="lightbox-cap" id="lbCap"></figcaption>
+    </figure>
+  </div>
+
+  <!-- ============================ CONFIRMAÇÃO ============================ -->
+  <div class="modal" id="resetDialog" role="dialog" aria-modal="true" aria-labelledby="resetTitle" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-panel dialog">
+      <h3 id="resetTitle">Reiniciar o progresso?</h3>
+      <p>Todos os carimbos de “concluído” dos quatro capítulos serão apagados.</p>
+      <div class="dialog-actions">
+        <button class="btn" type="button" data-close-modal>Cancelar</button>
+        <button class="btn primary" type="button" id="resetConfirm">Reiniciar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    /* =====================================================================
+       IMAGENS: versão reduzida da URL indicada → mesmo arquivo pelo nome →
+       obra equivalente já verificada no acervo da Wikimedia Commons
+       ===================================================================== */
+    function fileOf(url) {
+      var parts = String(url).split("?")[0].split("/");
+      var t = parts.indexOf("thumb");
+      return t > -1 ? parts[t + 3] : parts[parts.length - 1];
+    }
+    function filePath(file, w) {
+      return "https://commons.wikimedia.org/wiki/Special:FilePath/" + encodeURIComponent(decodeURIComponent(file).replace(/ /g, "_")) + "?width=" + w;
+    }
+    function thumbOf(url, w) {
+      if (url.indexOf("Special:FilePath") > -1) return url.split("?")[0] + "?width=" + w;
+      if (url.indexOf("/thumb/") > -1) return url.replace(/\/\d+px-/, "/" + w + "px-");
+      var m = url.match(/^(https:\/\/upload\.wikimedia\.org\/wikipedia\/commons)\/([0-9a-f])\/([0-9a-f]{2})\/([^\/?]+)$/);
+      if (!m) return url;
+      return m[1] + "/thumb/" + m[2] + "/" + m[3] + "/" + m[4] + "/" + w + "px-" + m[4];
+    }
+    function sourcesFor(t, w) {
+      return [
+        { src: thumbOf(t.img, w), cap: t.caption },
+        { src: filePath(fileOf(t.img), w), cap: t.caption },
+        { src: filePath(t.alt.file, w), cap: t.alt.caption }
+      ];
+    }
+
+    /* =====================================================================
+       CONTEÚDO
+       ===================================================================== */
+    var CHAPTERS = [
+      {
+        id: "c11", num: 11,
+        short: "Era Napoleônica e a Corte no Brasil",
+        title: "A Era Napoleônica e a Corte no Brasil",
+        primary: "#1E40AF", accent: "#B45309",
+        objectives: [
+          "Explicar como Napoleão chegou ao poder e por que seu império ruiu.",
+          "Conectar a expansão francesa à mudança da Corte portuguesa para o Brasil."
+        ],
+        topics: [
+          {
+            title: "18 de Brumário e o Consulado (1799–1804)",
+            img: "https://upload.wikimedia.org/wikipedia/commons/4/44/Bouchot_-_Le_general_Bonaparte_au_Conseil_des_Cinq-Cents.jpg",
+            caption: "O general Bonaparte no Conselho dos Quinhentos (18 de Brumário), François Bouchot",
+            alt: { file: "Jean Auguste Dominique Ingres, Portrait de Napoléon Bonaparte en premier consul.jpg", caption: "Napoleão como Primeiro Cônsul, Jean-Auguste-Dominique Ingres, 1803" },
+            text: [
+              "Em 1799, a França vivia sob um <strong>Diretório</strong> desgastado por corrupção, inflação e ameaças de golpe. O general <strong>Napoleão Bonaparte</strong> aproveitou o cenário: no <strong>18 de Brumário</strong>, dissolveu o governo e assumiu o posto de <strong>Primeiro Cônsul</strong>.",
+              "Com apoio da burguesia, pôs ordem nas finanças com o <strong>Banco da França</strong>, reaproximou-se da Igreja pela <strong>Concordata</strong> e lançou o <strong>Código Civil (1804)</strong>, que garantiu a <strong>igualdade jurídica</strong> e a <strong>propriedade privada</strong>. Terminava a fase revolucionária; começava a Era Napoleônica."
+            ]
+          },
+          {
+            title: "O Império e o Bloqueio Continental (1804–1812)",
+            img: "https://upload.wikimedia.org/wikipedia/commons/0/08/Jacques-Louis_David%2C_The_Coronation_of_Napoleon_edit.jpg",
+            caption: "A Sagração de Napoleão, Jacques-Louis David, 1807",
+            alt: { file: "La bataille d'Austerlitz. 2 decembre 1805 (François Gérard).jpg", caption: "A Batalha de Austerlitz, François Gérard, 1810" },
+            text: [
+              "Aprovado em plebiscito, Napoleão tornou-se <strong>Imperador</strong> em 1804. A tela de <strong>David</strong> transformou a coroação em peça de propaganda: é o próprio Napoleão quem segura a coroa, sinal de que seu poder não dependia do papa.",
+              "Vitórias como <strong>Austerlitz (1805)</strong> redesenharam o mapa europeu. Sem conseguir derrotar a marinha britânica, porém, ele apostou na economia: o <strong>Bloqueio Continental (1806)</strong> proibia os países do continente de negociar com a <strong>Inglaterra</strong>, na tentativa de sufocar sua indústria."
+            ]
+          },
+          {
+            title: "Resistência ibérica e desastre na Rússia",
+            img: "https://upload.wikimedia.org/wikipedia/commons/f/fd/El_Tres_de_Mayo%2C_by_Francisco_de_Goya%2C_from_Prado_in_Google_Earth.jpg",
+            caption: "Os Fuzilamentos de 3 de Maio, Francisco de Goya, 1814",
+            alt: { file: "National Museum in Poznan - Przejście przez Berezynę.JPG", caption: "A travessia do rio Berezina pelo Grande Exército, January Suchodolski, 1866" },
+            text: [
+              "O primeiro grande tropeço veio na <strong>Espanha</strong>. Em 1808, Napoleão tirou do trono <strong>Fernando VII</strong> e pôs o irmão no lugar. A população reagiu, <strong>Goya</strong> registrou a repressão francesa e as <strong>guerrilhas</strong> passaram a atacar de surpresa, drenando soldados por anos.",
+              "Em <strong>1812</strong>, veio o golpe decisivo: ao invadir a <strong>Rússia</strong>, o Grande Exército encontrou campos queimados pela tática da <strong>terra arrasada</strong> e um <strong>inverno</strong> devastador. Das centenas de milhares de soldados, poucos voltaram."
+            ]
+          },
+          {
+            title: "Waterloo e o Congresso de Viena (1815)",
+            img: "https://upload.wikimedia.org/wikipedia/commons/7/72/Battle_of_Waterloo_1815.PNG",
+            caption: "Batalha de Waterloo, William Sadler",
+            alt: { file: "Congresso de Viena, 1819.jpg", caption: "O Congresso de Viena, gravura a partir de Jean-Baptiste Isabey, 1819" },
+            text: [
+              "Derrotado em 1813, Napoleão foi exilado em <strong>Elba</strong>. Fugiu, retomou o poder por cerca de três meses — o <strong>Governo dos Cem Dias</strong> — e caiu de vez em <strong>Waterloo</strong>, em 1815, diante de britânicos e prussianos. Morreu exilado em <strong>Santa Helena</strong>.",
+              "Os vencedores reuniram-se no <strong>Congresso de Viena</strong> para devolver tronos às antigas dinastias e redesenhar fronteiras. A <strong>Santa Aliança</strong>, formada por Rússia, Áustria e Prússia, comprometeu-se a sufocar qualquer revolta liberal."
+            ]
+          },
+          {
+            title: "A Transferência da Corte e o Período Joanino (1808)",
+            img: "https://upload.wikimedia.org/wikipedia/commons/e/ea/Embarque_da_Fam%C3%ADlia_Real_para_o_Brasil_%281807%29.jpg",
+            caption: "Embarque da Família Real para o Brasil, 1807",
+            alt: { file: "ChegadaRioDJoaoVI.jpg", caption: "Chegada da Família Real ao Rio de Janeiro em 1808, Geoff Hunt" },
+            text: [
+              "Pressionado a aderir ao bloqueio, o príncipe regente <strong>D. João</strong> escolheu a Inglaterra: no fim de 1807, a família real e milhares de nobres embarcaram para o Brasil sob <strong>escolta britânica</strong>.",
+              "Já em 1808, D. João decretou a <strong>Abertura dos Portos às Nações Amigas</strong>, encerrando o monopólio português. Vieram a <strong>Imprensa Régia</strong>, a <strong>Biblioteca Real</strong>, o <strong>Jardim Botânico</strong> e tratados vantajosos aos ingleses (1810). Em <strong>1815</strong>, o Brasil virou <strong>Reino Unido de Portugal, Brasil e Algarves</strong>."
+            ]
+          },
+          {
+            title: "A Revolução Liberal do Porto (1820)",
+            img: "https://upload.wikimedia.org/wikipedia/commons/8/86/Dom_Jo%C3%A3o_VI_by_Jean-Baptiste_Debret.jpg",
+            caption: "Retrato de D. João VI, Jean-Baptiste Debret",
+            alt: { file: "Oscar Pereira da Silva - Sessão das Cortes De Lisboa, Acervo do Museu Paulista da USP 2.jpg", caption: "Sessão das Cortes de Lisboa, Oscar Pereira da Silva" },
+            text: [
+              "Com o rei longe havia mais de uma década e a economia em crise, a burguesia portuguesa se rebelou no <strong>Porto</strong>, em <strong>1820</strong>. Exigia uma Constituição e o <strong>retorno de D. João VI</strong>, que voltou a Lisboa em 1821 e deixou o filho <strong>D. Pedro</strong> como <strong>regente</strong>.",
+              "Liberais em casa, as <strong>Cortes de Lisboa</strong> queriam submeter de novo o Brasil às ordens portuguesas. Os brasileiros viram nisso uma <strong>tentativa de recolonização</strong>, e a reação abriu caminho para a independência de 1822."
+            ]
+          }
+        ]
+      },
+      {
+        id: "c12", num: 12,
+        short: "Revoluções Atlânticas: EUA e Haiti",
+        title: "Revoluções Atlânticas: EUA e Haiti",
+        primary: "#166534", accent: "#9A3412",
+        objectives: [
+          "Reconhecer as ideias iluministas por trás da independência dos EUA e seus legados.",
+          "Relacionar a Revolução Haitiana à passagem para a Idade Contemporânea."
+        ],
+        topics: [
+          {
+            title: "Norte versus Sul nas Treze Colônias",
+            img: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Thirteen_Colonies_1775.svg/800px-Thirteen_Colonies_1775.svg.png",
+            caption: "Mapa das Treze Colônias, 1775",
+            alt: { file: "Benjamin Franklin - Join or Die.jpg", caption: "“Join, or Die” (Unam-se ou morram), charge atribuída a Benjamin Franklin, 1754" },
+            text: [
+              "As <strong>Treze Colônias</strong> inglesas tinham perfis bem diferentes. No <strong>Norte</strong>, dominavam as colônias de <strong>povoamento</strong>: pequenas propriedades, trabalho livre, manufaturas e comércio ativo. No <strong>Sul</strong>, imperava a <strong>plantation</strong>: grandes fazendas exportadoras movidas pelo <strong>trabalho escravizado</strong>.",
+              "Por boa parte do século XVIII, Londres pouco interferiu — a chamada <strong>“negligência salutar”</strong>. Assim, os colonos criaram assembleias próprias e aprenderam a <strong>governar a si mesmos</strong>."
+            ],
+            boxes: [
+              { type: "compare", headers: ["Aspecto", "Norte", "Sul"], rows: [
+                ["Colonização", "Povoamento", "Plantation"],
+                ["Propriedade", "Pequena e média", "Latifúndio"],
+                ["Trabalho", "Livre", "Escravizado"]
+              ]}
+            ]
+          },
+          {
+            title: "Tributos e a Festa do Chá de Boston",
+            img: "https://upload.wikimedia.org/wikipedia/commons/5/52/Boston_Tea_Party_Currier_colored.jpg",
+            caption: "A Festa do Chá de Boston, litografia de Nathaniel Currier, 1846",
+            alt: { file: "Paul Revere, after Henry Pelham, The Boston Massacre, 1770, NGA 11550.jpg", caption: "O Massacre de Boston, gravura de Paul Revere a partir de Henry Pelham, 1770" },
+            text: [
+              "A <strong>Guerra dos Sete Anos</strong> (1756–1763) deu vitória à Inglaterra, mas esvaziou seus cofres. A solução foi cobrar dos colonos: vieram a <strong>Lei do Açúcar</strong>, a <strong>Lei do Selo</strong> e a <strong>Lei do Chá</strong>. Sem deputados no Parlamento, eles reagiram com boicotes e o lema <strong>“nenhuma taxação sem representação”</strong>.",
+              "Em <strong>1773</strong>, colonos jogaram ao mar a carga de chá no porto de Boston. Londres respondeu com as <strong>Leis Intoleráveis</strong>, e a punição acabou unindo as colônias."
+            ]
+          },
+          {
+            title: "Independência (1776) e Constituição Americana (1787)",
+            img: "https://upload.wikimedia.org/wikipedia/commons/f/f9/Declaration_of_Independence_%281819%29%2C_by_John_Trumbull.jpg",
+            caption: "A Declaração de Independência, John Trumbull, 1819",
+            alt: { file: "Scene at the Signing of the Constitution of the United States.jpg", caption: "Cena da assinatura da Constituição dos EUA, Howard Chandler Christy, 1940" },
+            text: [
+              "Em <strong>4 de julho de 1776</strong>, a <strong>Declaração de Independência</strong>, escrita por <strong>Thomas Jefferson</strong>, afirmou que todos têm <strong>direitos naturais</strong> e podem derrubar governos tirânicos — ideias do <strong>Iluminismo</strong>. Com ajuda francesa e espanhola, o exército de <strong>George Washington</strong> venceu a guerra em 1783.",
+              "A <strong>Constituição de 1787</strong> criou uma <strong>república federativa presidencialista</strong>, com três poderes que se fiscalizam. Mas a liberdade tinha limites: a <strong>escravidão continuou</strong> até 1865, e a <strong>2ª Emenda</strong>, sobre armas, ainda divide o país."
+            ],
+            boxes: [
+              { type: "quote", text: "Todos os homens são criados iguais, dotados de certos direitos inalienáveis, entre os quais a vida, a liberdade e a busca da felicidade.", cite: "Declaração de Independência dos EUA, 1776" }
+            ]
+          },
+          {
+            title: "São Domingos: riqueza e brutalidade escravista",
+            img: "https://upload.wikimedia.org/wikipedia/commons/8/87/Habitation_sucriere_Saint-Domingue.jpg",
+            caption: "Engenho de açúcar em São Domingos",
+            alt: { file: "Carte de Delisle de l'isle de Saint Domingue.jpg", caption: "Mapa da ilha de São Domingos, Guillaume Delisle, 1725" },
+            text: [
+              "No século XVIII, <strong>São Domingos</strong> — atual Haiti — era a joia do império francês: nenhuma outra colônia do Caribe produzia tanto <strong>açúcar</strong>.",
+              "O preço dessa riqueza era altíssimo. Cerca de <strong>meio milhão de africanos escravizados</strong> trabalhavam até a exaustão, sob uma <strong>hierarquia racial</strong> rígida: grandes senhores brancos no topo, brancos pobres e <strong>livres de cor</strong> no meio e a imensa maioria escravizada na base. A mortalidade era tão alta que o tráfico repunha trabalhadores sem parar."
+            ]
+          },
+          {
+            title: "A Revolução Haitiana (1791–1804)",
+            img: "https://upload.wikimedia.org/wikipedia/commons/c/c0/Toussaint_Louverture_-_Girardin.jpg",
+            caption: "Toussaint Louverture, gravura de Girardin",
+            alt: { file: "Jean Jacques Dessalines.jpg", caption: "Retrato de Jean-Jacques Dessalines, Louis Rigaud, 1878" },
+            text: [
+              "As notícias da <strong>Revolução Francesa</strong> chegaram à colônia e, em <strong>1791</strong>, os escravizados se levantaram. O ex-escravizado <strong>Toussaint Louverture</strong> comandou a luta e chegou a governar a ilha. Em 1802, <strong>Napoleão</strong> mandou tropas para restaurar a escravidão; Toussaint foi preso e morreu na França.",
+              "<strong>Jean-Jacques Dessalines</strong> assumiu, derrotou os franceses e, em <strong>1º de janeiro de 1804</strong>, proclamou o <strong>Haiti</strong>: a primeira república negra e o primeiro país das Américas a <strong>abolir de vez a escravidão</strong>."
+            ]
+          },
+          {
+            title: "Isolamento e o medo do “haitianismo”",
+            img: "https://upload.wikimedia.org/wikipedia/commons/b/b2/Battle_of_Vertieres.jpg",
+            caption: "Batalha de Vertières, 1803",
+            alt: { file: "Grabado de Carlos X de Francia danddole la independencia a Haití.jpg", caption: "Carlos X, rei da França, concede a independência ao Haiti (1825), gravura de época" },
+            text: [
+              "As potências escravistas <strong>isolaram o Haiti</strong> — os EUA só o reconheceram em 1862. Em <strong>1825</strong>, navios franceses apontaram canhões para a ilha até que o governo aceitasse pagar <strong>150 milhões de francos</strong> de indenização, dívida que atravessou mais de um século.",
+              "Enquanto isso, o <strong>“haitianismo”</strong> — o pavor de que a revolta se repetisse — assombrava as elites do continente. No <strong>Brasil</strong>, esse medo endureceu a repressão aos escravizados e favoreceu uma independência sem participação popular."
+            ]
+          }
+        ]
+      },
+      {
+        id: "c13", num: 13,
+        short: "Independência do Equador",
+        title: "José de Sucre e a Independência do Equador",
+        primary: "#701A75", accent: "#A16207",
+        objectives: [
+          "Compreender o contexto colonial da Real Audiência de Quito e seus três núcleos regionais.",
+          "Analisar as causas, os personagens, as fases e as consequências da independência do Equador."
+        ],
+        topics: [
+          {
+            title: "Contexto histórico: a Real Audiência de Quito",
+            img: "https://commons.wikimedia.org/wiki/Special:FilePath/Real_Audiencia_de_Quito_1779.jpg",
+            caption: "Mapa da Real Audiência de Quito, Francisco Requena y Herrera, 1779",
+            alt: { file: "Mapa de la Audiencia de Quito y sus vertientes fluviales de saliente a poniente (1707) - AHG.jpg", caption: "Mapa da Audiência de Quito e de seus rios, 1707" },
+            text: [
+              "Antes da independência, o território do atual Equador passou por três etapas: foi habitado por <strong>povos indígenas</strong>, depois integrou o <strong>Império Inca</strong> e, a partir de <strong>1534</strong>, ficou sob o domínio dos <strong>colonizadores</strong>, favorecidos pelas <strong>lutas internas dos incas</strong>.",
+              "No período colonial, o Equador era a <strong>Real Audiência de Quito</strong>. Seus limites incluíam territórios que hoje pertencem à <strong>Colômbia</strong> e áreas <strong>amazônicas</strong> disputadas com o <strong>Peru</strong>."
+            ],
+            boxes: [
+              { type: "compare", headers: ["Etapa", "Quem controlava o território"], rows: [
+                ["1ª", "Povos indígenas"],
+                ["2ª", "Império Inca"],
+                ["3ª (a partir de 1534)", "Colonizadores — Real Audiência de Quito"]
+              ]}
+            ]
+          },
+          {
+            title: "Os três núcleos regionais",
+            img: "https://commons.wikimedia.org/wiki/Special:FilePath/Carta_Geogr%C3%A1fica_de_la_Costa_Occidental_en_la_Audiencia_del_Quito_(1751),_por_Jorge_Juan_y_Antonio_de_Ulloa_-_AHG.jpg",
+            caption: "Carta geográfica da costa da Audiência de Quito, Jorge Juan e Antonio de Ulloa, 1751",
+            alt: { file: "Real Audiencia de Quito 1779.jpg", caption: "Mapa da Real Audiência de Quito, Francisco Requena y Herrera, 1779" },
+            text: [
+              "A população e a economia formavam <strong>três núcleos regionais</strong> com características distintas. A <strong>Serra Central-Norte</strong>, em torno de <strong>Quito</strong>, era o centro político e demográfico, com <em>haciendas</em> agrícolas e pecuárias.",
+              "A <strong>Serra Sul</strong>, em torno de <strong>Cuenca</strong>, era agrícola, com propriedades menores, e coletava <strong>cascarilla (quina)</strong> para exportação. Já a <strong>Costa</strong>, em torno de <strong>Guayaquil</strong>, era o <strong>motor econômico</strong> da região, graças às <strong>exportações de cacau</strong>, e tinha uma população mais livre."
+            ],
+            boxes: [
+              { type: "compare", headers: ["Núcleo", "Cidade", "Características"], rows: [
+                ["Serra Central-Norte", "Quito", "Centro político e demográfico; haciendas agrícolas e pecuárias"],
+                ["Serra Sul", "Cuenca", "Propriedades menores; coleta de cascarilla (quina) para exportação"],
+                ["Costa", "Guayaquil", "Motor econômico; exportação de cacau; população mais livre"]
+              ]}
+            ]
+          },
+          {
+            title: "Causas e influências da independência",
+            img: "https://commons.wikimedia.org/wiki/Special:FilePath/Monumento_a_los_H%C3%A9roes_del_10_de_Agosto_de_1809_(Quito_DM).jpg",
+            caption: "Monumento aos Heróis do 10 de Agosto de 1809, em Quito",
+            alt: { file: "Bandera 10 de Agosto 1809 Ecuador.png", caption: "Bandeira usada no Primeiro Grito de Independência, 10 de agosto de 1809" },
+            text: [
+              "Na colônia, o <strong>trabalho forçado indígena</strong>, a <strong>mão de obra escrava</strong>, a <strong>rivalidade entre Quito e Guayaquil</strong>, os <strong>impostos</strong> e as <strong>restrições comerciais</strong> geravam insatisfação. Na política, os <strong>criollos</strong> ocupavam os <em>cabildos</em>, enquanto os <strong>chapetones</strong> ficavam com os altos cargos.",
+              "De fora vieram as <strong>ideias iluministas</strong>, os exemplos dos <strong>EUA (1776)</strong> e da <strong>Revolução Francesa (1789)</strong> e a <strong>crise na Espanha (1808)</strong>: com a invasão de Napoleão e a queda de Fernando VII, surgiram <strong>Juntas de Governo</strong>. Em <strong>10 de agosto de 1809</strong>, a Junta de Quito deu o <strong>“Primeiro Grito de Independência”</strong>."
+            ],
+            boxes: [
+              { type: "compare", headers: ["Fator", "O que pesou"], rows: [
+                ["Social", "Trabalho forçado indígena, mão de obra escrava, produção têxtil e agrícola, rivalidade entre Quito e Guayaquil"],
+                ["Econômico", "Impostos, restrições comerciais, crise no século XVIII e prejuízo à elite local"],
+                ["Político", "Criollos nos cabildos e chapetones nos altos cargos; invasão napoleônica (1808); influência iluminista"]
+              ]}
+            ]
+          },
+          {
+            title: "Personagens e grupos sociais",
+            img: "https://commons.wikimedia.org/wiki/Special:FilePath/Antonio_Jos%C3%A9_de_Sucre,_an%C3%B3nimo,_s._XIX._Museo_Casa_de_Sucre,_Quito.jpg",
+            caption: "Antonio José de Sucre, retrato anônimo do século XIX, Museu Casa de Sucre, Quito",
+            alt: { file: "Simón Bolívar by José Gil de Castro.jpg", caption: "Simón Bolívar, José Gil de Castro, c. 1823" },
+            text: [
+              "Os <strong>criollos</strong> lideraram o movimento, mas a base do exército era formada por <strong>mestiços, indígenas e negros</strong>. <strong>Antonio José de Sucre</strong>, general venezuelano e braço direito de Bolívar, comandou a libertação do Equador. <strong>Simón Bolívar</strong>, o “Libertador”, enviou Sucre e incorporou o território à <strong>Grã-Colômbia</strong>. <strong>José de San Martín</strong>, o “Libertador do Sul”, mandou tropas do Peru para reforçar o exército de Sucre.",
+              "<strong>Ponto importante:</strong> os criollos buscavam poder político sem alterar a estrutura social. A exploração de indígenas e negros continuou após a independência."
+            ],
+            boxes: [
+              { type: "compare", headers: ["Líder", "Quem foi", "Papel"], rows: [
+                ["Antonio José de Sucre", "General venezuelano, braço direito de Bolívar", "Comandou a libertação e venceu em Pichincha"],
+                ["Simón Bolívar", "O “Libertador”", "Enviou Sucre e incorporou o Equador à Grã-Colômbia"],
+                ["José de San Martín", "O “Libertador do Sul”", "Enviou tropas do Peru para reforçar Sucre"]
+              ]}
+            ]
+          },
+          {
+            title: "O processo de independência: duas fases",
+            img: "https://commons.wikimedia.org/wiki/Special:FilePath/SALAS_ANTONIO_CAPITULACION2.JPG",
+            caption: "A Capitulação da Batalha de Pichincha, Antonio Salas",
+            alt: { file: "Armisticio de la batalla de Pichincha - Antonio Salas (siglo XIX).jpg", caption: "Armistício da Batalha de Pichincha, Antonio Salas, século XIX" },
+            text: [
+              "Na <strong>1ª fase (1809–1812)</strong>, Quito formou a <strong>Junta Soberana</strong>, sofreu o <strong>Massacre de Quito</strong> (1810), proclamou a independência e uma <strong>primeira Constituição</strong> (1811–1812), mas os patriotas foram derrotados na <strong>Batalha de Ibarra</strong> (1812).",
+              "Na <strong>2ª fase (1820–1822)</strong>, <strong>Guayaquil</strong> tornou-se independente e venceu em <strong>Camino Real</strong>. Em 1821, <strong>Sucre</strong> organizou o exército patriota, que triunfou na decisiva <strong>Batalha de Pichincha</strong> (24 de maio de 1822). Cinco dias depois, Quito aderiu à <strong>Grã-Colômbia</strong>."
+            ],
+            boxes: [
+              { type: "timeline", items: [
+                ["10/08/1809", "“Primeiro Grito”: Junta Soberana de Quito"],
+                ["02/08/1810", "Massacre de Quito"],
+                ["1811–1812", "Independência proclamada e 1ª Constituição"],
+                ["1812", "Derrota patriota na Batalha de Ibarra"],
+                ["09/10/1820", "Independência de Guayaquil"],
+                ["09/11/1820", "Batalha de Camino Real (1ª vitória)"],
+                ["1821", "Sucre organiza o exército patriota"],
+                ["24/05/1822", "Batalha de Pichincha (decisiva)"],
+                ["29/05/1822", "Quito adere à Grã-Colômbia"]
+              ]}
+            ]
+          },
+          {
+            title: "Consequências e síntese histórica",
+            img: "https://commons.wikimedia.org/wiki/Special:FilePath/Coat_of_arms_of_Ecuador.svg",
+            caption: "Brasão de armas do Equador",
+            alt: { file: "Antonio José de Sucre (pintura ecuestre).jpg", caption: "Antonio José de Sucre, retrato equestre anônimo do século XIX, Museu Casa de Sucre, Quito" },
+            text: [
+              "A independência pôs <strong>fim ao domínio espanhol (1822)</strong> e levou à <strong>incorporação à Grã-Colômbia</strong>. A <strong>independência definitiva</strong> veio em <strong>1830</strong>, com a formação de um <strong>governo republicano</strong>. Porém, as <strong>desigualdades sociais e econômicas</strong> permaneceram, e o <strong>poder ficou concentrado nas mãos das elites</strong>.",
+              "Em síntese, o processo enfraqueceu o domínio espanhol, fortaleceu os movimentos de independência na América Latina e contribuiu para a formação dos países sul-americanos, que conquistaram autonomia política. <strong>José de Sucre</strong> foi uma das principais lideranças dessa conquista."
+            ],
+            boxes: [
+              { type: "compare", headers: ["O que mudou", "O que permaneceu"], rows: [
+                ["Fim do domínio espanhol (1822)", "Desigualdades sociais e econômicas"],
+                ["Incorporação à Grã-Colômbia e independência definitiva (1830)", "Poder concentrado nas mãos das elites"],
+                ["Formação de um governo republicano", "Exploração de indígenas e negros"]
+              ]}
+            ]
+          }
+        ]
+      },
+      {
+        id: "c14", num: 14,
+        short: "Primeiro Reinado e Constituições",
+        title: "O Primeiro Reinado e as Constituições do Brasil",
+        primary: "#115E59", accent: "#9F1239",
+        objectives: [
+          "Analisar a construção do Estado brasileiro durante o Primeiro Reinado.",
+          "Relacionar as crises internas e externas à abdicação de D. Pedro I."
+        ],
+        topics: [
+          {
+            title: "A Constituinte de 1823 e a “Constituição da Mandioca”",
+            img: "https://upload.wikimedia.org/wikipedia/commons/1/12/Pedro_I_of_Brazil_1822.jpg",
+            caption: "Retrato de D. Pedro I, 1822",
+            alt: { file: "Oscar Pereira da Silva - Retrato de José Bonifácio de Andrada e Silva, Acervo do Museu Paulista da USP.jpg", caption: "Retrato de José Bonifácio de Andrada e Silva, Oscar Pereira da Silva, 1922" },
+            text: [
+              "Em 1823, reuniu-se uma <strong>Assembleia Constituinte</strong> para escrever a primeira Constituição do país. O <strong>Partido Brasileiro</strong>, de grandes fazendeiros, queria limitar o imperador; o <strong>Partido Português</strong>, de comerciantes e burocratas, apoiava um governo centralizado.",
+              "O projeto ganhou o apelido de <strong>“Constituição da Mandioca”</strong>: só votava quem comprovasse renda medida em <strong>alqueires de farinha de mandioca</strong>. Como o texto reduzia seus poderes, <strong>D. Pedro I</strong> mandou tropas fecharem a Assembleia na <strong>Noite da Agonia</strong>."
+            ]
+          },
+          {
+            title: "A Constituição Outorgada de 1824",
+            img: "https://upload.wikimedia.org/wikipedia/commons/e/e2/Constitui%C3%A7%C3%A3o_de_1824.jpg",
+            caption: "Constituição Política do Império do Brasil, 1824",
+            alt: { file: "PeterI-de Sa.jpg", caption: "Retrato de D. Pedro I com trajes imperiais, Simplício Rodrigues de Sá, c. 1826" },
+            text: [
+              "Em <strong>25 de março de 1824</strong>, D. Pedro I <strong>impôs</strong> (outorgou) sua própria Constituição. A grande novidade era o <strong>Poder Moderador</strong>, exclusivo do imperador e colocado <strong>acima</strong> do Executivo, do Legislativo e do Judiciário: com ele, D. Pedro podia dissolver a Câmara e escolher ministros.",
+              "O voto era <strong>censitário e indireto</strong>, as províncias não tinham autonomia (<strong>unitarismo</strong>) e, pelo <strong>Padroado</strong>, a Igreja ficava subordinada ao Estado. Foi a Constituição mais longa do Brasil, válida até 1889."
+            ],
+            boxes: [
+              { type: "quote", text: "O Poder Moderador da nova invenção maquiavélica é a chave mestra da opressão da nação brasileira.", cite: "Frei Caneca, 1824" }
+            ]
+          },
+          {
+            title: "O Custo do Reconhecimento e a Crise Bancária",
+            img: "https://upload.wikimedia.org/wikipedia/commons/5/59/Sovereign_1825_George_IV.jpg",
+            caption: "Libra esterlina (soberano) de 1825",
+            alt: { file: "George Canning by Sir Thomas Lawrence.jpg", caption: "George Canning, ministro britânico que conduziu a mediação do reconhecimento, Thomas Lawrence" },
+            text: [
+              "Ser reconhecido como país custou caro. Com mediação inglesa, <strong>Portugal</strong> aceitou a independência em <strong>1825</strong>, mas o Brasil teve de pagar <strong>2 milhões de libras</strong>, obtidas com um <strong>empréstimo de bancos britânicos</strong>.",
+              "Em troca do apoio, a Inglaterra renovou os <strong>tratados desiguais</strong> de 1810, barateando seus produtos no Brasil. Importações em alta, gastos de guerra e emissão descontrolada de moeda levaram o <strong>primeiro Banco do Brasil</strong> à <strong>falência em 1829</strong>."
+            ]
+          },
+          {
+            title: "A Confederação do Equador (1824)",
+            img: "https://upload.wikimedia.org/wikipedia/commons/3/3c/Frei_Caneca.jpg",
+            caption: "Frei Caneca",
+            alt: { file: "A Execução de Frei Caneca.jpg", caption: "A execução de Frei Caneca, Murillo La Greca, 1924" },
+            text: [
+              "A Constituição imposta revoltou <strong>Pernambuco</strong>, província de longa tradição liberal. Em 1824, rebeldes proclamaram a <strong>Confederação do Equador</strong>, uma <strong>república federalista</strong> que buscou apoio no Nordeste e chegou a propor o fim do tráfico de escravizados.",
+              "Entre os líderes estavam <strong>Frei Caneca</strong> e <strong>Cipriano Barata</strong>, críticos ferozes do Poder Moderador. A repressão foi dura: o Recife foi cercado por terra e mar, e Frei Caneca acabou <strong>fuzilado em 1825</strong>."
+            ]
+          },
+          {
+            title: "A Guerra da Cisplatina (1825–1828)",
+            img: "https://upload.wikimedia.org/wikipedia/commons/d/d2/Batalla_de_Ituzaingo.jpg",
+            caption: "Batalha do Passo do Rosário (Ituzaingó)",
+            alt: { file: "Juan Manuel Blanes - El Juramento de los Treinta y Tres Orientales.jpg", caption: "O Juramento dos Trinta e Três Orientais, Juan Manuel Blanes, c. 1877" },
+            text: [
+              "A <strong>Província Cisplatina</strong>, atual Uruguai, foi incorporada ao Brasil em 1821, mas sua população tinha laços com a região do Prata. Em <strong>1825</strong>, rebeldes locais, apoiados pelas <strong>Províncias Unidas do Rio da Prata</strong>, levantaram-se contra o domínio brasileiro.",
+              "A guerra exigiu <strong>recrutamento forçado</strong>, mercenários e muito dinheiro, sem vitória decisiva. Com <strong>mediação britânica</strong>, a paz de <strong>1828</strong> reconheceu a <strong>independência do Uruguai</strong>, e o prestígio de D. Pedro I despencou."
+            ]
+          },
+          {
+            title: "Abdicação (1831) e a Linha Constitucional Brasileira",
+            img: "https://upload.wikimedia.org/wikipedia/commons/9/9b/Abdica%C3%A7%C3%A3o_de_D._Pedro_I.jpg",
+            caption: "Abdicação de D. Pedro I, 7 de abril de 1831",
+            alt: { file: "Aclamação de D Pedro II em 1831 by Debret.jpg", caption: "Aclamação de D. Pedro II no Rio de Janeiro em 1831, Jean-Baptiste Debret" },
+            text: [
+              "Após a morte de D. João VI, em 1826, D. Pedro I mergulhou na <strong>disputa pelo trono português</strong>. O assassinato do jornalista <strong>Líbero Badaró</strong> (1830) e os choques de rua da <strong>Noite das Garrafadas</strong> (1831) agravaram a crise. Sem apoio militar, ele <strong>abdicou em 7 de abril de 1831</strong> em favor do filho de 5 anos, <strong>D. Pedro II</strong>.",
+              "Desde então, o Brasil teve outras seis Constituições, até a <strong>Constituição Cidadã de 1988</strong>, que garantiu o voto universal e ampliou os direitos sociais."
+            ],
+            boxes: [
+              { type: "compare", headers: ["Ano", "Tipo", "Marca principal"], rows: [
+                ["1824", "Outorgada", "Poder Moderador"],
+                ["1891", "Promulgada", "República federativa"],
+                ["1934", "Promulgada", "Voto feminino"],
+                ["1937", "Outorgada", "Estado Novo"],
+                ["1946", "Promulgada", "Redemocratização"],
+                ["1967", "Outorgada pelo regime militar", "Ditadura Civil-Militar"],
+                ["1988", "Promulgada", "Constituição Cidadã"]
+              ]}
+            ]
+          }
+        ]
+      }
+    ];
+
+    /* Videoaulas reais (o YouTube descontinuou o embed por busca, listType=search) */
+    var VIDEOS = {
+      c11: [
+        { channel: "Débora Aladim", title: "Era Napoleônica e Congresso de Viena: aula completa", id: "0yzpJUObXmI" },
+        { channel: "Débora Aladim", title: "A vinda da Corte em 1808", id: "RhMJRrj2JsM" }
+      ],
+      c12: [
+        { channel: "Débora Aladim", title: "Resumo de História: Independência dos Estados Unidos", id: "VCXJJ7vBO9w" },
+        { channel: "Brasil Escola", title: "Independência do Haiti (1791–1804)", id: "XQXnixDXvjQ" }
+      ],
+      c13: [
+        { channel: "Fontes da apresentação", title: "Vídeo indicado nas fontes do grupo sobre a história do Equador", id: "W6DeowM5y6M" }
+      ],
+      c14: [
+        { channel: "Débora Aladim", title: "Tudo que você precisa saber sobre o Primeiro Reinado", id: "TzwFrYCd-6M" },
+        { channel: "Aula de História", title: "Tudo sobre as Constituições Brasileiras", id: "DZNxnDldG6k" }
+      ]
+    };
+
+    /* =====================================================================
+       ESTADO E PERSISTÊNCIA
+       ===================================================================== */
+    var KEY = "dossieHistoria_cap11a14_v1";
+    var storageOK = true;
+    var state = { done: {}, ch: "c11", filter: "all", c13: "equador" };
+    var drawerIndex = -1;
+    var reduceMotion = false;
+    try { reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) {}
+
+    function $(id) { return document.getElementById(id); }
+    function load() {
+      try { localStorage.setItem("__t", "1"); localStorage.removeItem("__t"); }
+      catch (e) { storageOK = false; $("storageWarn").classList.add("show"); return; }
+      try {
+        var s = JSON.parse(localStorage.getItem(KEY) || "null");
+        if (s && typeof s === "object") {
+          state.done = s.done && typeof s.done === "object" ? s.done : {};
+          state.ch = typeof s.ch === "string" ? s.ch : "c11";
+          state.filter = s.filter === "todo" || s.filter === "done" ? s.filter : "all";
+          if (s.c13 !== "equador") {
+            Object.keys(state.done).forEach(function (k) { if (k.indexOf("c13-") === 0) delete state.done[k]; });
+          }
+        }
+      } catch (e) {}
+    }
+    function save() {
+      if (!storageOK) return;
+      try { localStorage.setItem(KEY, JSON.stringify(state)); }
+      catch (e) { storageOK = false; $("storageWarn").classList.add("show"); }
+    }
+
+    /* =====================================================================
+       UTILIDADES
+       ===================================================================== */
+    function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+    function pad(n) { return n < 10 ? "0" + n : "" + n; }
+    function chapter(id) { for (var i = 0; i < CHAPTERS.length; i++) if (CHAPTERS[i].id === id) return CHAPTERS[i]; return null; }
+    function key(ch, i) { return ch.id + "-t" + (i + 1); }
+    function doneCount(ch) { var n = 0; ch.topics.forEach(function (t, i) { if (state.done[key(ch, i)]) n++; }); return n; }
+    function plain(html) { return html.replace(/<[^>]+>/g, ""); }
+    function excerpt(t) { var s = plain(t.text[0]); return s.length > 120 ? s.slice(0, 117).replace(/\s+\S*$/, "") + "…" : s; }
+
+    var toastT = null;
+    function toast(msg) {
+      var el = $("toast"); el.textContent = msg; el.classList.add("show");
+      clearTimeout(toastT); toastT = setTimeout(function () { el.classList.remove("show"); }, 2200);
+    }
+
+    function countTo(el, to) {
+      var from = parseInt(el.getAttribute("data-v") || el.textContent, 10) || 0;
+      el.setAttribute("data-v", to);
+      if (reduceMotion || from === to) { el.textContent = to; return; }
+      var start = null;
+      var token = {}; el._t = token;
+      (function step(ts) {
+        if (el._t !== token) return;
+        if (start === null) start = ts;
+        var p = Math.min(1, (ts - start) / 450);
+        el.textContent = Math.round(from + (to - from) * (1 - Math.pow(1 - p, 3)));
+        if (p < 1) requestAnimationFrame(step);
+      })(performance.now());
+    }
+
+    /* Imagens com cadeia de fallback */
+    function imgTag(t, w, cls) {
+      var list = sourcesFor(t, w);
+      var rest = list.slice(1).map(function (s) { return s.src + "::" + s.cap; }).join("||");
+      return '<img class="' + (cls || "") + '" src="' + esc(list[0].src) + '" alt="' + esc(t.caption) + '" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-rest="' + esc(rest) + '" onerror="dossieImgFail(this)">';
+    }
+    window.dossieImgFail = function (img) {
+      var rest = img.getAttribute("data-rest") || "";
+      if (rest) {
+        var parts = rest.split("||");
+        var next = parts.shift().split("::");
+        img.setAttribute("data-rest", parts.join("||"));
+        img.src = next[0];
+        if (next[1]) {
+          img.alt = next[1];
+          var fig = img.closest("figure");
+          var cap = fig && fig.querySelector("figcaption");
+          if (cap) cap.textContent = next[1];
+        }
+        return;
+      }
+      var media = img.closest(".card-media");
+      if (media) {
+        var fb = document.createElement("span");
+        fb.className = "media-fallback";
+        fb.textContent = img.alt || "Obra histórica";
+        media.replaceChild(fb, img);
+        return;
+      }
+      var btn = img.closest(".figure-btn");
+      if (btn) {
+        var plate = document.createElement("div");
+        plate.className = "placard";
+        plate.innerHTML = '<p>' + esc(img.alt || "Obra histórica") + '</p><a href="https://commons.wikimedia.org" target="_blank" rel="noopener noreferrer">Ver acervo da Wikimedia Commons ↗</a>';
+        btn.parentNode.replaceChild(plate, btn);
+        var fc = plate.parentNode.querySelector("figcaption");
+        if (fc) fc.style.display = "none";
+      }
+    };
+
+    /* =====================================================================
+       PROGRESSO
+       ===================================================================== */
+    var CIRC = 2 * Math.PI * 34;
+    function updateProgress(animate) {
+      var total = 0, done = 0;
+      CHAPTERS.forEach(function (ch) {
+        var d = doneCount(ch); total += ch.topics.length; done += d;
+        var li = document.querySelector('[data-ch="' + ch.id + '"]');
+        if (li) {
+          li.querySelector(".ch-count").textContent = d + "/" + ch.topics.length;
+          li.querySelector(".ch-bar span").style.transform = "scaleX(" + (d / ch.topics.length) + ")";
+        }
+      });
+      var pct = Math.round(done / total * 100);
+      $("ringBar").style.strokeDashoffset = (CIRC * (1 - done / total)).toFixed(2);
+      if (animate) countTo($("ringPct"), pct); else { $("ringPct").textContent = pct; $("ringPct").setAttribute("data-v", pct); }
+      $("ringMeta").textContent = done + " de " + total + " tópicos";
+      $("ring").setAttribute("aria-label", "Progresso geral: " + pct + "%");
+
+      var ch = chapter(state.ch), d2 = doneCount(ch);
+      var cp = $("chapCount");
+      if (cp) {
+        cp.textContent = d2 + " de " + ch.topics.length + " concluídos";
+        $("chapLine").style.transform = "scaleX(" + (d2 / ch.topics.length) + ")";
+      }
+    }
+
+    /* =====================================================================
+       RENDERIZAÇÃO
+       ===================================================================== */
+    function applyTheme(ch) {
+      var s = document.documentElement.style;
+      s.setProperty("--c-primary", ch.primary);
+      s.setProperty("--c-accent", ch.accent);
+    }
+
+    function renderSidebar() {
+      $("chapters").innerHTML = CHAPTERS.map(function (ch) {
+        return '<li><button class="ch-btn" type="button" data-ch="' + ch.id + '" aria-current="' + (ch.id === state.ch) + '" style="--ch:' + ch.primary + '">' +
+          '<span class="ch-num">Cap. ' + ch.num + '</span><span class="ch-count num"></span>' +
+          '<span class="ch-name">' + ch.short + '</span>' +
+          '<span class="ch-bar"><span></span></span></button></li>';
+      }).join("");
+      var fb = $("filters").querySelectorAll("button");
+      for (var i = 0; i < fb.length; i++) fb[i].setAttribute("aria-pressed", fb[i].getAttribute("data-filter") === state.filter);
+    }
+
+    function renderBox(b) {
+      if (b.type === "quote") return '<blockquote class="quote"><p>“' + b.text + '”</p><cite>— ' + b.cite + '</cite></blockquote>';
+      if (b.type === "timeline") {
+        return '<div class="box timeline"><p class="box-label">Linha do tempo</p><ol>' +
+          b.items.map(function (it) { return '<li><span class="when num">' + it[0] + '</span><span>' + it[1] + '</span></li>'; }).join("") + '</ol></div>';
+      }
+      if (b.type === "compare") {
+        return '<div class="box compare"><p class="box-label">Quadro comparativo</p><table><thead><tr>' +
+          b.headers.map(function (h) { return '<th scope="col">' + h + '</th>'; }).join("") + '</tr></thead><tbody>' +
+          b.rows.map(function (r) { return '<tr>' + r.map(function (c) { return '<td>' + c + '</td>'; }).join("") + '</tr>'; }).join("") +
+          '</tbody></table></div>';
+      }
+      return "";
+    }
+
+    function renderMain(stagger) {
+      var ch = chapter(state.ch);
+      applyTheme(ch);
+      var idx = CHAPTERS.indexOf(ch);
+      var prev = CHAPTERS[idx - 1], next = CHAPTERS[idx + 1];
+      var cards = ch.topics.map(function (t, i) {
+        var k = key(ch, i), done = !!state.done[k];
+        return '<li class="card reveal' + (done ? " is-done" : "") + '" data-key="' + k + '" style="--i:' + (i + 3) + '">' +
+          '<button class="card-btn" type="button" data-open="' + i + '" aria-haspopup="dialog">' +
+            '<span class="card-media">' + imgTag(t, 640) + '</span>' +
+            '<span class="card-body">' +
+              '<span class="card-num num">N.º ' + pad(i + 1) + '</span>' +
+              '<span class="card-title">' + t.title + '</span>' +
+              '<span class="card-excerpt">' + esc(excerpt(t)) + '</span>' +
+              '<span class="card-foot"><span class="status">' + (done ? "✓ Concluído" : "Pendente") + '</span>' +
+              '<span class="open-hint">Abrir dossiê <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>' +
+            '</span>' +
+            '<span class="card-stamp" aria-hidden="true">✓ Concluído</span>' +
+          '</button></li>';
+      }).join("");
+
+      var vids = (VIDEOS[ch.id] || []).map(function (v) {
+        return '<figure class="video-card" data-video="' + esc(v.id) + '" data-title="' + esc(v.title) + '">' +
+          '<div class="video-frame"><button class="video-poster" type="button" data-play aria-label="Assistir: ' + esc(v.title) + '">' +
+            '<img src="https://i.ytimg.com/vi/' + esc(v.id) + '/hqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="dossieThumbFail(this)">' +
+            '<span class="play"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z"/></svg></span>' +
+          '</button></div>' +
+          '<figcaption class="video-meta"><span class="video-channel">' + v.channel + '</span><p class="video-title">' + v.title + '</p>' +
+            '<p class="video-note">A capa deste vídeo não carregou: a rede pode estar bloqueando o YouTube.</p>' +
+            '<a class="btn small" href="https://www.youtube.com/watch?v=' + esc(v.id) + '" target="_blank" rel="noopener noreferrer">Abrir no YouTube ↗</a>' +
+          '</figcaption></figure>';
+      }).join("");
+
+      $("main").innerHTML =
+        '<div class="' + (stagger ? "stagger" : "") + '">' +
+          '<header class="chap-head reveal" style="--i:0">' +
+            '<span class="chap-kicker">Capítulo ' + ch.num + ' · Dossiê</span>' +
+            '<h2>' + ch.title + '</h2>' +
+            '<div class="objectives"><p class="box-label">Objetivos de aprendizagem</p><ol>' +
+              ch.objectives.map(function (o) { return '<li>' + o + '</li>'; }).join("") + '</ol></div>' +
+            '<div class="chap-progress"><span class="line"><span id="chapLine"></span></span><span class="num" id="chapCount"></span></div>' +
+          '</header>' +
+          '<div class="grid-head reveal" style="--i:1"><h3>Tópicos do dossiê</h3><span class="num" id="gridInfo"></span></div>' +
+          '<ul class="grid" id="grid">' + cards + '</ul>' +
+          '<p class="empty" id="empty"></p>' +
+          '<section class="videos reveal" style="--i:9" aria-label="Videoaulas"><div class="grid-head"><h3>Videoaulas do capítulo</h3><span>Clique para assistir aqui</span></div><div class="video-grid">' + vids + '</div></section>' +
+          '<nav class="chapter-nav reveal" style="--i:10">' +
+            (prev ? '<button class="btn" type="button" data-goto="' + prev.id + '">← Cap. ' + prev.num + '</button>' : '<span></span>') +
+            (next ? '<button class="btn primary" type="button" data-goto="' + next.id + '">Cap. ' + next.num + ' →</button>' : '<span></span>') +
+          '</nav>' +
+        '</div>';
+      applyFilter();
+      updateProgress(false);
+    }
+
+    window.dossieThumbFail = function (img) {
+      var card = img.closest(".video-card"), poster = img.closest(".video-poster");
+      if (!card || !poster) return;
+      card.classList.add("thumb-missing"); poster.classList.add("no-thumb");
+      var t = document.createElement("span"); t.className = "poster-title"; t.textContent = card.getAttribute("data-title");
+      poster.replaceChild(t, img);
+    };
+
+    function applyFilter() {
+      var cards = document.querySelectorAll("#grid .card"), shown = 0;
+      for (var i = 0; i < cards.length; i++) {
+        var done = cards[i].classList.contains("is-done");
+        var vis = state.filter === "all" || (state.filter === "done" ? done : !done);
+        cards[i].hidden = !vis; if (vis) shown++;
+      }
+      var empty = $("empty");
+      if (empty) {
+        empty.classList.toggle("show", shown === 0);
+        empty.textContent = state.filter === "todo" ? "Nenhum tópico pendente neste capítulo — dossiê completo!" : "Você ainda não carimbou nenhum tópico deste capítulo.";
+        var labels = { all: "Todos os tópicos", todo: "Somente pendentes", done: "Somente concluídos" };
+        $("gridInfo").textContent = labels[state.filter] + " · " + shown + " de " + cards.length;
+      }
+    }
+
+    function selectChapter(id, opts) {
+      if (!chapter(id) || id === state.ch) return;
+      state.ch = id; save();
+      var b = document.querySelectorAll(".ch-btn");
+      for (var i = 0; i < b.length; i++) b[i].setAttribute("aria-current", b[i].getAttribute("data-ch") === id);
+      renderMain(!(opts && opts.keyboard));
+      var top = $("main").getBoundingClientRect().top + window.pageYOffset;
+      if (window.pageYOffset > top) window.scrollTo({ top: top, behavior: reduceMotion ? "auto" : "smooth" });
+    }
+
+    /* =====================================================================
+       GAVETA
+       ===================================================================== */
+    var lastFocus = null;
+    function fillDrawer(i) {
+      var ch = chapter(state.ch), t = ch.topics[i], k = key(ch, i), done = !!state.done[k];
+      drawerIndex = i;
+      $("drawerTag").textContent = "Cap. " + ch.num + " · N.º " + pad(i + 1) + " de " + pad(ch.topics.length);
+      $("drawerBody").innerHTML =
+        '<figure class="figure"><button class="figure-btn" type="button" data-zoom aria-label="Ampliar obra">' + imgTag(t, 1200) + '</button><figcaption>' + t.caption + '</figcaption></figure>' +
+        '<h2 class="drawer-title" id="drawerTitle">' + t.title + '</h2>' +
+        '<div class="prose">' + t.text.map(function (p) { return '<p>' + p + '</p>'; }).join("") + '</div>' +
+        (t.boxes || []).map(renderBox).join("") +
+        '<div class="stamp-wrap"><button class="stamp" type="button" data-stamp="' + k + '" aria-pressed="' + done + '">' + (done ? "[ ✓ Concluído ]" : "[ Carimbar como estudado ]") + '</button>' +
+        '<span class="stamp-hint">' + (done ? "Clique de novo para desfazer." : "Marque quando terminar a leitura.") + '</span></div>';
+      $("drawerPrev").disabled = i === 0;
+      $("drawerNext").disabled = i === ch.topics.length - 1;
+      $("drawerScroll").scrollTop = 0;
+    }
+    function openDrawer(i) {
+      lastFocus = document.activeElement;
+      fillDrawer(i);
+      var d = $("drawer");
+      d.classList.add("is-open"); d.setAttribute("aria-hidden", "false");
+      document.body.classList.add("locked");
+      setTimeout(function () { var c = d.querySelector("[data-close-drawer].btn"); if (c) c.focus({ preventScroll: true }); }, 0);
+    }
+    function closeDrawer() {
+      var d = $("drawer");
+      if (!d.classList.contains("is-open")) return;
+      d.classList.remove("is-open"); d.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("locked");
+      if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
+    }
+    function stepDrawer(dir) {
+      var ch = chapter(state.ch), n = drawerIndex + dir;
+      if (n < 0 || n >= ch.topics.length) return;
+      var body = $("drawerBody");
+      if (reduceMotion) { fillDrawer(n); return; }
+      body.classList.add("swap");
+      setTimeout(function () { fillDrawer(n); body.classList.remove("swap"); }, 160);
+    }
+
+    function toggleDone(k) {
+      var on = !state.done[k];
+      if (on) state.done[k] = true; else delete state.done[k];
+      save();
+      var stamp = document.querySelector('[data-stamp="' + k + '"]');
+      if (stamp) {
+        stamp.setAttribute("aria-pressed", on);
+        stamp.textContent = on ? "[ ✓ Concluído ]" : "[ Carimbar como estudado ]";
+        stamp.nextElementSibling.textContent = on ? "Clique de novo para desfazer." : "Marque quando terminar a leitura.";
+        stamp.classList.remove("pressing");
+        if (on) { void stamp.offsetWidth; stamp.classList.add("pressing"); }
+      }
+      var card = document.querySelector('.card[data-key="' + k + '"]');
+      if (card) {
+        card.classList.toggle("is-done", on);
+        card.querySelector(".status").textContent = on ? "✓ Concluído" : "Pendente";
+      }
+      applyFilter();
+      updateProgress(true);
+      var ch = chapter(state.ch);
+      if (on && doneCount(ch) === ch.topics.length) toast("Capítulo " + ch.num + " concluído — dossiê completo!");
+    }
+
+    /* =====================================================================
+       MODAIS
+       ===================================================================== */
+    var modalFocus = null;
+    function openModal(id) {
+      modalFocus = document.activeElement;
+      var m = $(id); m.classList.add("is-open"); m.setAttribute("aria-hidden", "false");
+      setTimeout(function () { var b = m.querySelector("button"); if (b) b.focus({ preventScroll: true }); }, 0);
+    }
+    function closeModal(id) {
+      var m = $(id); if (!m.classList.contains("is-open")) return false;
+      m.classList.remove("is-open"); m.setAttribute("aria-hidden", "true");
+      if (modalFocus && modalFocus.focus) modalFocus.focus({ preventScroll: true });
+      return true;
+    }
+
+    function playVideo(card) {
+      if (!card || card.querySelector("iframe")) return;
+      var id = card.getAttribute("data-video"), frame = card.querySelector(".video-frame"), poster = card.querySelector(".video-poster");
+      var f = document.createElement("iframe");
+      f.className = "video-iframe";
+      f.src = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(id) + "?autoplay=1&rel=0";
+      f.title = card.getAttribute("data-title");
+      f.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture");
+      f.setAttribute("allowfullscreen", "");
+      f.setAttribute("referrerpolicy", "strict-origin-when-cross-origin"); /* o YouTube exige o referenciador */
+      frame.appendChild(f);
+      requestAnimationFrame(function () { f.classList.add("is-ready"); if (poster) poster.classList.add("is-leaving"); });
+      setTimeout(function () { if (poster && poster.parentNode) poster.parentNode.removeChild(poster); }, 300);
+    }
+
+    /* =====================================================================
+       EVENTOS
+       ===================================================================== */
+    function bind() {
+      $("chapters").addEventListener("click", function (e) {
+        var b = e.target.closest(".ch-btn"); if (b) selectChapter(b.getAttribute("data-ch"), { keyboard: e.detail === 0 });
+      });
+      $("filters").addEventListener("click", function (e) {
+        var b = e.target.closest("[data-filter]"); if (!b) return;
+        state.filter = b.getAttribute("data-filter"); save();
+        var all = $("filters").querySelectorAll("button");
+        for (var i = 0; i < all.length; i++) all[i].setAttribute("aria-pressed", all[i] === b);
+        applyFilter();
+      });
+      $("main").addEventListener("click", function (e) {
+        var o = e.target.closest("[data-open]"); if (o) { openDrawer(parseInt(o.getAttribute("data-open"), 10)); return; }
+        var p = e.target.closest("[data-play]"); if (p) { playVideo(p.closest(".video-card")); return; }
+        var g = e.target.closest("[data-goto]"); if (g) selectChapter(g.getAttribute("data-goto"));
+      });
+      $("drawer").addEventListener("click", function (e) {
+        if (e.target.closest("[data-close-drawer]")) { closeDrawer(); return; }
+        var s = e.target.closest("[data-stamp]"); if (s) { toggleDone(s.getAttribute("data-stamp")); return; }
+        var z = e.target.closest("[data-zoom]");
+        if (z) {
+          var img = z.querySelector("img"), cap = z.parentNode.querySelector("figcaption");
+          if (img) { $("lbImg").src = img.currentSrc || img.src; $("lbImg").alt = img.alt; $("lbCap").textContent = cap ? cap.textContent : img.alt; openModal("lightbox"); }
+        }
+      });
+      $("drawerPrev").addEventListener("click", function () { stepDrawer(-1); });
+      $("drawerNext").addEventListener("click", function () { stepDrawer(1); });
+      $("btnReset").addEventListener("click", function () { openModal("resetDialog"); });
+      $("resetConfirm").addEventListener("click", function () {
+        state.done = {}; save(); closeModal("resetDialog"); renderMain(false); toast("Progresso reiniciado");
+      });
+      document.addEventListener("click", function (e) {
+        var c = e.target.closest("[data-close-modal]"); if (c) closeModal(c.closest(".modal").id);
+      });
+      $("lbImg").addEventListener("click", function () { closeModal("lightbox"); });
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+          if (closeModal("lightbox") || closeModal("resetDialog")) return;
+          closeDrawer();
+        }
+        if ($("drawer").classList.contains("is-open") && !$("lightbox").classList.contains("is-open")) {
+          if (e.key === "ArrowRight") fillDrawerSafe(1);
+          if (e.key === "ArrowLeft") fillDrawerSafe(-1);
+        }
+      });
+    }
+    /* Teclado troca de tópico sem animação (ação repetida) */
+    function fillDrawerSafe(dir) {
+      var ch = chapter(state.ch), n = drawerIndex + dir;
+      if (n >= 0 && n < ch.topics.length) fillDrawer(n);
+    }
+
+    /* =====================================================================
+       INÍCIO
+       ===================================================================== */
+    function init() {
+      load();
+      if (!chapter(state.ch)) state.ch = "c11";
+      save();
+      renderSidebar();
+      renderMain(true);
+      bind();
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
+  })();
+  </script>
+</body>
+</html>
